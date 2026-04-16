@@ -1,5 +1,6 @@
 import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import { Platform, StyleSheet, Button } from 'react-native';
+import { Audio } from 'expo-av';
 
 import { HelloWave } from '@/components/hello-wave';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
@@ -8,6 +9,21 @@ import { ThemedView } from '@/components/themed-view';
 import { Link } from 'expo-router';
 
 export default function HomeScreen() {
+  const [permissionResponse, requestPermission] = Audio.usePermissions();
+
+  async function handleRequestPermission() {
+    try {
+      const response = await requestPermission();
+      if (response.granted) {
+        alert('Permissão concedida! O microfone já pode ser usado.');
+      } else {
+        alert('Permissão negada. Precisamos do microfone para funcionar.');
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  }
+
   return (
     <ParallaxScrollView
       headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
@@ -20,6 +36,20 @@ export default function HomeScreen() {
       <ThemedView style={styles.titleContainer}>
         <ThemedText type="title">Bem-Vindos!</ThemedText>
         <HelloWave />
+      </ThemedView>
+
+      <ThemedView style={styles.stepContainer}>
+        <ThemedText type="subtitle">Configuração de Áudio</ThemedText>
+        <ThemedText>
+          Para podermos auxiliar com o seu treino e acompanhamento, precisamos que nos permita ouvir sua voz.
+        </ThemedText>
+        <Button 
+          title="Permitir Microfone" 
+          onPress={handleRequestPermission} 
+        />
+        <ThemedText>
+          Status da permissão: <ThemedText type="defaultSemiBold">{permissionResponse?.status || 'buscando...'}</ThemedText>
+        </ThemedText>
       </ThemedView>
       <ThemedView style={styles.stepContainer}>
         <ThemedText type="subtitle">Step 1: Try it</ThemedText>

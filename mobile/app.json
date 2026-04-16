@@ -38,6 +38,12 @@
             "backgroundColor": "#000000"
           }
         }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "Permita que o Destravar acesse seu microfone para gravar as sessões de áudio e auxiliar no seu tratamento."
+        }
       ]
     ],
     "experiments": {
