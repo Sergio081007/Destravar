@@ -5,20 +5,15 @@ import os
 
 router = APIRouter()
 
-# Carregamento global para evitar lentidão em cada request 
-# O modelo 'small' é ideal para o desenvolvimento inicial 
+# Carregamento global (Dia 1)
 model = whisper.load_model("small")
 
 @router.post("/transcrever")
 async def transcrever(file: UploadFile = File(...)):
-    # 1. Validação de segurança
     if not file:
         raise HTTPException(status_code=400, detail="Arquivo não enviado")
 
     audio_content = await file.read()
-    
-    # 2. Uso do tempfile com gerenciamento de limpeza 
-    # Usamos o sufixo original do arquivo para evitar conflitos de codec
     suffix = os.path.splitext(file.filename)[1] if file.filename else ".tmp"
     
     caminho_audio = None
@@ -27,20 +22,25 @@ async def transcrever(file: UploadFile = File(...)):
             tmp.write(audio_content)
             caminho_audio = tmp.name
 
-        # 3. Transcrição real com Whisper [cite: 83]
-        resultado = model.transcribe(caminho_audio, language="pt", fp16=False)
-        texto_transcrito = resultado["text"].strip()
+        # 3. Transcrição com Timestamps (Objetivo do Dia 2)
+        # O parâmetro word_timestamps=True é o segredo para o feedback visual
+        resultado = model.transcribe(
+            caminho_audio, 
+            language="pt", 
+            fp16=False, 
+            word_timestamps=True
+        )
 
         return {
             "filename": file.filename,
-            "size_bytes": len(audio_content),
-            "transcricao": texto_transcrito
+            "transcricao": resultado["text"].strip(),
+            "segmentos": resultado["segments"] # Dados para o Dev A animar o texto
         }
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro no processamento: {str(e)}")
     
     finally:
-        # 4. Limpeza obrigatória do arquivo temporário 
+        # 4. Limpeza (Evita entupir o WSL com arquivos temporários)
         if caminho_audio and os.path.exists(caminho_audio):
             os.remove(caminho_audio)
