@@ -46,10 +46,22 @@ export default function Index() {
       setIsRecording(false);
     }
   };
+
+  const formatTime = (totalSeconds) => {
+    const minutes = Math.floor(totalSeconds / 60); // Pega quantos minutos inteiros se passaram
+    const remainingSeconds = totalSeconds % 60; // Pega os segundos restantes
+
+    // Transformando o tempo em texto e adicionando '0' na frente se o número for menor que 10
+    const minutesString = minutes.toString().padStart(2, '0');
+    const secondsString = remainingSeconds.toString().padStart(2, '0');
+
+    return `${minutesString}:${secondsString}`; // Para formatar minutos e segundos como MM:SS
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.timerText}>
-        {seconds}
+        {formatTime(seconds)}
       </Text>
       <View style={styles.controlsContainer}>
         <TouchableOpacity
