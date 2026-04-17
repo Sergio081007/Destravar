@@ -28,7 +28,9 @@ async def transcrever(file: UploadFile = File(...)):
             caminho_audio, 
             language="pt", 
             fp16=False, 
-            word_timestamps=True
+            word_timestamps=True,
+            temperature=0,      # Força a IA a ser menos "criativa" e mais literal
+            condition_on_previous_text=False # Evita que ela use o contexto para adivinhar a próxima palavra
         )
 
         return {
