@@ -2,3 +2,7 @@ venv/
 __pycache__/
 *.pyc
 .env
+
+# Mobile / Frontend (React Native & Expo)
+mobile/node_modules/
+mobile/.expo/
