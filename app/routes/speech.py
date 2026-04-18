@@ -1,6 +1,7 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException
 import tempfile
 import os
+import math
 from groq import Groq
 
 router = APIRouter()
@@ -19,7 +20,9 @@ def classificar_fluencia(wpm: float, taxa_repeticao: float) -> str:
 def get_prob_from_segments(word_start: float, segmentos: list) -> float:
     for seg in segmentos:
         if seg["start"] <= word_start <= seg["end"]:
-            return round(min(1.0, max(0.0, (seg.get("avg_logprob", -1) + 1))), 4)
+            avg_logprob = seg.get("avg_logprob", -1.0)
+            prob = math.exp(avg_logprob) 
+            return round(prob, 4)
     return 0.0
 
 @router.post("/transcrever")
@@ -54,21 +57,44 @@ async def transcrever(file: UploadFile = File(...)):
 
         duracao_total = segmentos[-1]["end"] if segmentos else 0
 
+        # Lógica original para extrair lista de palavras minúsculas
         if palavras_obj:
-            palavras = [w["word"].strip().lower() for w in palavras_obj if w["word"].strip()]
-            total_palavras = len(palavras)
+            palavras_lista = [w["word"].strip().lower() for w in palavras_obj if w["word"].strip()]
+            total_palavras = len(palavras_lista)
             duracao_total = palavras_obj[-1]["end"]
         else:
-            palavras = [p.strip().lower() for p in texto.split() if p.strip()]
-            total_palavras = len(palavras)
+            palavras_lista = [p.strip().lower() for p in texto.split() if p.strip()]
+            total_palavras = len(palavras_lista)
 
         wpm = (total_palavras / (duracao_total / 60)) if duracao_total > 0 else 0
 
         repeticoes = sum(
-            1 for i in range(len(palavras) - 1)
-            if palavras[i] == palavras[i + 1]
+            1 for i in range(len(palavras_lista) - 1)
+            if palavras_lista[i] == palavras_lista[i + 1]
         )
         taxa_repeticao = repeticoes / total_palavras if total_palavras > 0 else 0
+
+        # Novas métricas adicionais (Bloqueios)
+        bloqueios_detectados = 0
+        palavras_processadas = []
+        
+        if palavras_obj:
+            for i, w in enumerate(palavras_obj):
+                pausa_previa = 0.0
+                if i > 0:
+                    pausa_previa = round(w["start"] - palavras_obj[i-1]["end"], 2)
+                    if pausa_previa > 1.5:
+                        bloqueios_detectados += 1
+                
+                # Mantém seus campos originais e adiciona os novos
+                palavras_processadas.append({
+                    "word": w["word"],
+                    "start": w["start"],
+                    "end": w["end"],
+                    "probability": get_prob_from_segments(w["start"], segmentos),
+                    "duration": round(w["end"] - w["start"], 2),      # Adicionado
+                    "silence_before": pausa_previa                   # Adicionado
+                })
 
         return {
             "filename": file.filename,
@@ -78,17 +104,10 @@ async def transcrever(file: UploadFile = File(...)):
             "wpm": round(wpm, 2),
             "repeticoes": repeticoes,
             "taxa_repeticao": round(taxa_repeticao, 4),
+            "bloqueios_silenciosos": bloqueios_detectados,           # Adicionado
             "fluencia": classificar_fluencia(wpm, taxa_repeticao),
             "segmentos": segmentos,
-            "palavras": [
-                {
-                    "word": w["word"],
-                    "start": w["start"],
-                    "end": w["end"],
-                    "probability": get_prob_from_segments(w["start"], segmentos),
-                }
-                for w in palavras_obj
-            ] if palavras_obj else [],
+            "palavras": palavras_processadas if palavras_obj else []
         }
 
     except Exception as e:
