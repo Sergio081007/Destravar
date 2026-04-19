@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, ScrollView } from 'react-native';
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -7,6 +7,12 @@ export default function Index() {
   const [permissionResponse, requestPermission] = Audio.usePermissions();
   const [isRecording, setIsRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
+  const [recording, setRecording] = useState<Audio.Recording | null>(null);
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [transcriptionResult, setTranscriptionResult] = useState<any>(null);
+  
+  // O texto alvo do exercício atual
+  const textoTreino = "O rato roeu a roupa do rei de Roma";
 
   useEffect(() => {
     async function askForPermission() {
@@ -34,16 +40,85 @@ export default function Index() {
   }, [isRecording]);
 
   // Função pro botão iniciar a gravação
-  const handleRecordPress = () => {
+  const handleRecordPress = async () => {
     if (!isRecording) {
-      setIsRecording(true);
+      try {
+        if (permissionResponse?.status !== 'granted') {
+          await requestPermission();
+        }
+
+        await Audio.setAudioModeAsync({
+          allowsRecordingIOS: true,
+          playsInSilentModeIOS: true,
+        });
+
+        const { recording: newRecording } = await Audio.Recording.createAsync(
+          Audio.RecordingOptionsPresets.HIGH_QUALITY
+        );
+        
+        setRecording(newRecording);
+        setIsRecording(true);
+        setTranscriptionResult(null); // Limpar resultado anterior
+      } catch (err) {
+        console.error('Failed to start recording', err);
+      }
+    }
+  };
+
+  // Enviar audio para API
+  const processAudio = async (audioUri: string) => {
+    setIsTranscribing(true);
+    try {
+      const form = new FormData();
+      // O FastAPI espera receber o campo com o nome "file"
+      form.append('file', {
+        uri: audioUri,
+        type: 'audio/m4a',
+        name: 'rec.m4a'
+      } as any);
+      
+      form.append('texto_alvo', textoTreino);
+
+      const res = await fetch('https://every-streets-joke.loca.lt/transcrever', {
+        method: 'POST',
+        headers: {
+          'Bypass-Tunnel-Reminder': 'true' // Impede a página de aviso do loca.lt de bloquear nossa API
+        },
+        body: form,
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        setTranscriptionResult(data);
+      } else {
+        console.error("Erro na API:", await res.text());
+        alert("Erro na transcrição!");
+      }
+    } catch (err) {
+      console.error("Erro no envio:", err);
+      alert("Falha ao comunicar com o servidor. Verifique o IP do Backend.");
+    } finally {
+      setIsTranscribing(false);
     }
   };
 
   // Função pro botão parar
-  const handleStopPress = () => {
-    if (isRecording) {
+  const handleStopPress = async () => {
+    if (isRecording && recording) {
       setIsRecording(false);
+      try {
+        await recording.stopAndUnloadAsync();
+        await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+        
+        const audioUri = recording.getURI();
+        setRecording(null);
+        
+        if (audioUri) {
+          await processAudio(audioUri);
+        }
+      } catch (err) {
+        console.error('Failed to stop recording', err);
+      }
     }
   };
 
@@ -59,10 +134,18 @@ export default function Index() {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.timerText}>
         {formatTime(seconds)}
       </Text>
+      
+      <Text style={styles.targetTextTitle}>
+        Frase do Treino:
+      </Text>
+      <Text style={styles.targetText}>
+        "{textoTreino}"
+      </Text>
+
       <View style={styles.controlsContainer}>
         <TouchableOpacity
           style={[styles.recordButton, isRecording && styles.recordButtonActive]}
@@ -87,7 +170,53 @@ export default function Index() {
           </TouchableOpacity>
         )}
       </View>
-    </View>
+
+      {isTranscribing && (
+        <Text style={styles.statusText}>Enviando para o servidor e transcrevendo... ⏳</Text>
+      )}
+
+      {transcriptionResult && (
+        <View style={styles.resultContainer}>
+          <Text style={styles.resultTitle}>Resultado da Análise</Text>
+          <Text style={styles.resultText}>Fluência: <Text style={{fontWeight:'bold'}}>{transcriptionResult.fluencia.toUpperCase()}</Text></Text>
+          <Text style={styles.resultText}>Velocidade: {transcriptionResult.wpm} palavras por minuto</Text>
+          <Text style={styles.resultText}>Tempo total: {transcriptionResult.duracao_segundos} segundos</Text>
+          <Text style={styles.resultText}>Taxa de repeticão: {(transcriptionResult.taxa_repeticao * 100).toFixed(1)}%</Text>
+          <View style={styles.transcriptionBox}>
+            <Text style={styles.transcriptionText}>
+              {transcriptionResult.palavras && transcriptionResult.palavras.length > 0 
+                ? transcriptionResult.palavras.map((item: any, index: number) => {
+                    
+                    let textColorStyle = {};
+                    if (item.is_stutter) {
+                      textColorStyle = styles.stutterWord;
+                    } else if (item.is_prolongation) {
+                      textColorStyle = styles.prolongationWord;
+                    } else if (item.is_filler) {
+                      textColorStyle = styles.fillerWord;
+                    }
+
+                    return (
+                      <Text 
+                        key={index} 
+                        style={textColorStyle}
+                      >
+                        {item.word}{' '}
+                      </Text>
+                    );
+                  })
+                : `"${transcriptionResult.transcricao}"`
+              }
+            </Text>
+          </View>
+          
+          <View style={styles.aiFeedbackBox}>
+            <Text style={styles.aiTitle}>🧠 Feedback da IA Fonoaudióloga</Text>
+            <Text style={styles.aiText}>{transcriptionResult.feedback_fono}</Text>
+          </View>
+        </View>
+      )}
+    </ScrollView>
   );
 }
 
@@ -101,10 +230,11 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'], // Faz os números ficarem todos do mesmo tamanho
   },
   container: {
-    flex: 1,
+    flexGrow: 1,
     backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 50,
   },
   controlsContainer: {
     flexDirection: 'row',
@@ -142,4 +272,95 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 6,
   },
+  statusText: {
+    marginTop: 30,
+    fontSize: 16,
+    color: '#666',
+    fontStyle: 'italic'
+  },
+  resultContainer: {
+    marginTop: 30,
+    padding: 20,
+    backgroundColor: '#f3f4f6',
+    borderRadius: 12,
+    width: '85%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 3,
+  },
+  resultTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+    color: '#111827',
+    textAlign: 'center'
+  },
+  resultText: {
+    fontSize: 15,
+    color: '#374151',
+    marginBottom: 4,
+  },
+  transcriptionBox: {
+    marginTop: 15,
+    padding: 10,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+  },
+  transcriptionText: {
+    fontSize: 15,
+    color: '#4b5563',
+    lineHeight: 24,
+  },
+  stutterWord: {
+    color: '#dc2626', // Vermelho forte
+    fontWeight: 'bold',
+    textDecorationLine: 'underline',
+  },
+  prolongationWord: {
+    color: '#ea580c', // Laranja (Esticou sílaba)
+    fontWeight: 'bold',
+  },
+  fillerWord: {
+    color: '#ca8a04', // Amarelo (Muleta, tipo, eh)
+    fontStyle: 'italic',
+  },
+  targetTextTitle: {
+    fontSize: 14,
+    color: '#6b7280',
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    marginBottom: 5,
+  },
+  targetText: {
+    fontSize: 18,
+    fontWeight: '500',
+    color: '#1f2937',
+    fontStyle: 'italic',
+    marginBottom: 40,
+    textAlign: 'center',
+    paddingHorizontal: 20
+  },
+  aiFeedbackBox: {
+    marginTop: 15,
+    padding: 15,
+    backgroundColor: '#dbfafe', // Azul claro
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#06b6d4',
+  },
+  aiTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#0891b2',
+    marginBottom: 8,
+  },
+  aiText: {
+    fontSize: 14,
+    color: '#164e63',
+    lineHeight: 20,
+  }
 });
