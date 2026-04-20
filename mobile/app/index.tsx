@@ -79,7 +79,7 @@ export default function Index() {
       
       form.append('texto_alvo', textoTreino);
 
-      const res = await fetch('https://every-streets-joke.loca.lt/transcrever', {
+      const res = await fetch('https://proud-owls-make.loca.lt/transcrever', {
         method: 'POST',
         headers: {
           'Bypass-Tunnel-Reminder': 'true' // Impede a página de aviso do loca.lt de bloquear nossa API
