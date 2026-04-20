@@ -178,29 +178,26 @@ export default function Index() {
       {transcriptionResult && (
         <View style={styles.resultContainer}>
           <Text style={styles.resultTitle}>Resultado da Análise</Text>
-          <Text style={styles.resultText}>Fluência: <Text style={{fontWeight:'bold'}}>{transcriptionResult.fluencia.toUpperCase()}</Text></Text>
-          <Text style={styles.resultText}>Velocidade: {transcriptionResult.wpm} palavras por minuto</Text>
-          <Text style={styles.resultText}>Tempo total: {transcriptionResult.duracao_segundos} segundos</Text>
-          <Text style={styles.resultText}>Taxa de repeticão: {(transcriptionResult.taxa_repeticao * 100).toFixed(1)}%</Text>
+          <Text style={styles.resultText}>
+            WPM (Palavras por minuto): {transcriptionResult.wpm} - <Text style={{fontWeight:'bold'}}>{transcriptionResult.wpm < 100 ? "Lento 🐢" : (transcriptionResult.wpm <= 150 ? "Ideal ✅" : "Rápido ⚡")}</Text>
+          </Text>
+          <Text style={styles.resultText}>Tempo total: {transcriptionResult.duracao_segundos}s</Text>
+          <Text style={styles.resultText}>Precisão de Acerto: {transcriptionResult.score !== undefined ? (transcriptionResult.score * 100).toFixed(1) : (transcriptionResult.precisao_alvo || 0)}%</Text>
           <View style={styles.transcriptionBox}>
             <Text style={styles.transcriptionText}>
-              {transcriptionResult.palavras && transcriptionResult.palavras.length > 0 
-                ? transcriptionResult.palavras.map((item: any, index: number) => {
-                    
+              {transcriptionResult.analise_palavras && transcriptionResult.analise_palavras.length > 0 
+                ? transcriptionResult.analise_palavras.map((item: any, index: number) => {
                     let textColorStyle = {};
-                    if (item.is_stutter) {
-                      textColorStyle = styles.stutterWord;
-                    } else if (item.is_prolongation) {
-                      textColorStyle = styles.prolongationWord;
-                    } else if (item.is_filler) {
-                      textColorStyle = styles.fillerWord;
+                    if (item.categoria === 'correta') {
+                      textColorStyle = styles.wordCorrect;
+                    } else if (item.categoria === 'pouco_clara') {
+                      textColorStyle = styles.wordUnclear;
+                    } else if (item.categoria === 'incorreta') {
+                      textColorStyle = styles.wordIncorrect;
                     }
 
                     return (
-                      <Text 
-                        key={index} 
-                        style={textColorStyle}
-                      >
+                      <Text key={index} style={textColorStyle}>
                         {item.word}{' '}
                       </Text>
                     );
@@ -209,9 +206,21 @@ export default function Index() {
               }
             </Text>
           </View>
+
+          {transcriptionResult.omitidas && transcriptionResult.omitidas.length > 0 && (
+             <Text style={styles.omittedText}>
+                Omitidas: <Text style={{textDecorationLine: 'none'}}>{transcriptionResult.omitidas.join(", ")}</Text>
+             </Text>
+          )}
+
+          {transcriptionResult.hesitacoes && transcriptionResult.hesitacoes.length > 0 && (
+             <Text style={styles.hesitationsText}>
+                {transcriptionResult.hesitacoes.length} pausas detectadas nos momentos {transcriptionResult.hesitacoes.map((h: any) => h.inicio + "s").join(" e ")}.
+             </Text>
+          )}
           
           <View style={styles.aiFeedbackBox}>
-            <Text style={styles.aiTitle}>🧠 Feedback da IA Fonoaudióloga</Text>
+            <Text style={styles.aiTitle}>🧠 Feedback</Text>
             <Text style={styles.aiText}>{transcriptionResult.feedback_fono}</Text>
           </View>
         </View>
@@ -315,18 +324,29 @@ const styles = StyleSheet.create({
     color: '#4b5563',
     lineHeight: 24,
   },
-  stutterWord: {
-    color: '#dc2626', // Vermelho forte
-    fontWeight: 'bold',
-    textDecorationLine: 'underline',
-  },
-  prolongationWord: {
-    color: '#ea580c', // Laranja (Esticou sílaba)
+  wordCorrect: {
+    color: '#16a34a', // Verde forte
     fontWeight: 'bold',
   },
-  fillerWord: {
-    color: '#ca8a04', // Amarelo (Muleta, tipo, eh)
+  wordUnclear: {
+    color: '#ca8a04', // Amarelo
     fontStyle: 'italic',
+  },
+  wordIncorrect: {
+    color: '#dc2626', // Vermelho (errada/extra/etc)
+    textDecorationLine: 'line-through',
+  },
+  omittedText: {
+    color: '#dc2626', // Vermelho
+    marginTop: 10,
+    fontWeight: 'bold',
+    fontSize: 14,
+  },
+  hesitationsText: {
+    color: '#4b5563',
+    marginTop: 8,
+    fontStyle: 'italic',
+    fontSize: 13,
   },
   targetTextTitle: {
     fontSize: 14,
@@ -336,8 +356,8 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   targetText: {
-    fontSize: 18,
-    fontWeight: '500',
+    fontSize: 28, // DESTAQUE O TEXTO ALVO DE ACORDO COM A TAREFA
+    fontWeight: 'bold',
     color: '#1f2937',
     fontStyle: 'italic',
     marginBottom: 40,
