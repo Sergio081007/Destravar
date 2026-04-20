@@ -1,0 +1,133 @@
+{
+  "versao": "2.0.0",
+  "descricao": "Matriz de textos e trava-línguas para app de treinamento de fala",
+  "total_textos": 30,
+  "total_trava_linguas": 30,
+  "tipos_texto": {
+    "frase_curta": { "quantidade": 9, "palavras_aprox": "8-15" },
+    "frase_media": { "quantidade": 9, "palavras_aprox": "16-32" },
+    "paragrafo": { "quantidade": 12, "palavras_aprox": "40-80" }
+  },
+
+  "logica_progressao": {
+    "descricao": "Sistema de desbloqueio por desempenho acumulado",
+    "niveis": {
+      "facil": {
+        "criterio_conclusao": "fluencia >= 80% em 3 tentativas consecutivas",
+        "wpm_alvo": { "min": 100, "max": 150 },
+        "criterio_desbloqueio_proximo": "taxa_acerto >= 80% E wpm dentro da faixa",
+        "tentativas_minimas": 3
+      },
+      "medio": {
+        "criterio_conclusao": "fluencia >= 80% E 0 repeticoes em 2 tentativas consecutivas",
+        "wpm_alvo": { "min": 130, "max": 170 },
+        "criterio_desbloqueio_proximo": "taxa_acerto >= 85% E sem repeticoes",
+        "tentativas_minimas": 2
+      },
+      "dificil": {
+        "criterio_conclusao": "fluencia >= 90% em 1 tentativa",
+        "wpm_alvo": { "min": 150, "max": 200 },
+        "criterio_desbloqueio_proximo": null,
+        "tentativas_minimas": 1
+      }
+    },
+    "perfis": {
+      "gagueira": {
+        "foco": "ritmo, fluidez e continuidade sem bloqueios",
+        "wpm_referencia": 110,
+        "penalidade_pausa_longa": true,
+        "threshold_pausa_ms": 600
+      },
+      "fala_rapida": {
+        "foco": "desaceleração e clareza articulatória",
+        "wpm_referencia": 130,
+        "penalidade_wpm_alto": true,
+        "threshold_wpm_alto": 180
+      },
+      "misto": {
+        "foco": "equilíbrio entre ritmo e precisão",
+        "wpm_referencia": 120,
+        "penalidade_pausa_longa": true,
+        "penalidade_wpm_alto": true,
+        "threshold_pausa_ms": 500,
+        "threshold_wpm_alto": 170
+      }
+    },
+    "distribuicao_por_grupo": {
+      "facil": 4,
+      "medio": 4,
+      "dificil": 2,
+      "nota": "De cada grupo de 10 por perfil"
+    }
+  },
+
+  "textos": [
+    { "id": "txt_001", "tipo": "frase_curta", "perfil": "gagueira", "dificuldade": "facil", "titulo": "Apresentação simples", "conteudo": "Meu nome é Ana. Eu moro em São Paulo. Eu gosto de ler.", "palavras": 11, "dica": "Fale com calma. Cada ponto é uma pausa.", "foco_terapeutico": "início suave, frases curtas com ritmo natural" },
+    { "id": "txt_002", "tipo": "frase_curta", "perfil": "gagueira", "dificuldade": "facil", "titulo": "O dia a dia", "conteudo": "Hoje eu acordei cedo. Tomei café com pão. O dia estava bonito.", "palavras": 13, "dica": "Respire antes de cada frase.", "foco_terapeutico": "fluidez entre frases curtas" },
+    { "id": "txt_003", "tipo": "frase_curta", "perfil": "gagueira", "dificuldade": "medio", "titulo": "Pedido educado", "conteudo": "Com licença, você poderia me ajudar? Estou procurando a rua das Flores.", "palavras": 14, "dica": "Fale como se estivesse sorrindo levemente.", "foco_terapeutico": "fala social com frases interrogativas" },
+    { "id": "txt_004", "tipo": "frase_curta", "perfil": "fala_rapida", "dificuldade": "facil", "titulo": "Passeio no parque", "conteudo": "Fui ao parque. Vi pássaros, flores e crianças. Foi muito bom.", "palavras": 11, "dica": "Cada vírgula vale dois segundos de pausa.", "foco_terapeutico": "pausas forçadas por pontuação" },
+    { "id": "txt_005", "tipo": "frase_curta", "perfil": "fala_rapida", "dificuldade": "facil", "titulo": "A chuva", "conteudo": "Começou a chover. As gotas caíam devagar. A rua ficou molhada.", "palavras": 12, "dica": "Fale no ritmo da chuva fina. Lento e constante.", "foco_terapeutico": "metáfora de ritmo para controle de velocidade" },
+    { "id": "txt_006", "tipo": "frase_curta", "perfil": "fala_rapida", "dificuldade": "medio", "titulo": "Receita simples", "conteudo": "Misture ovos e farinha. Adicione leite aos poucos. Asse por vinte minutos.", "palavras": 13, "dica": "Imagine que está ensinando alguém de 80 anos.", "foco_terapeutico": "cadência controlada em instruções" },
+    { "id": "txt_007", "tipo": "frase_curta", "perfil": "misto", "dificuldade": "facil", "titulo": "Rotina matinal", "conteudo": "Acordo às sete. Bebo água, me alongo e preparo o café. O dia começa bem.", "palavras": 15, "dica": "Equilíbrio: nem rápido demais, nem com pausas longas.", "foco_terapeutico": "ritmo contínuo com pequenas pausas funcionais" },
+    { "id": "txt_008", "tipo": "frase_curta", "perfil": "misto", "dificuldade": "facil", "titulo": "Viagem dos sonhos", "conteudo": "Quero conhecer o Japão. Lá tem comida boa, tecnologia e natureza incrível.", "palavras": 13, "dica": "Projete entusiasmo sem acelerar.", "foco_terapeutico": "controle de velocidade em fala motivada" },
+    { "id": "txt_009", "tipo": "frase_curta", "perfil": "misto", "dificuldade": "medio", "titulo": "Crítica construtiva", "conteudo": "O relatório ficou bom, mas pode melhorar. Sugiro revisar a introdução e detalhar as conclusões.", "palavras": 16, "dica": "Seja firme sem ser abrupto. Fluidez com assertividade.", "foco_terapeutico": "fala assertiva sem aceleração por tensão" },
+
+    { "id": "txt_010", "tipo": "frase_media", "perfil": "gagueira", "dificuldade": "facil", "titulo": "A semana tranquila", "conteudo": "Na segunda-feira eu estudo de manhã. Na quarta eu trabalho até o meio-dia. No fim de semana descanso, leio um pouco e saio para caminhar.", "palavras": 29, "dica": "Cada ponto é uma pausa real. Respire entre as frases.", "foco_terapeutico": "fluidez em sequência de frases com pausas funcionais" },
+    { "id": "txt_011", "tipo": "frase_media", "perfil": "gagueira", "dificuldade": "facil", "titulo": "Contar uma história", "conteudo": "Ontem eu fui ao mercado. Comprei frutas, verduras e pão fresco. Depois voltei para casa, preparei o almoço e assisti a um filme à tarde.", "palavras": 27, "dica": "Mantenha o ritmo mesmo nas listas. Vírgula é pausa curta.", "foco_terapeutico": "continuidade em enumerações e sequências" },
+    { "id": "txt_012", "tipo": "frase_media", "perfil": "gagueira", "dificuldade": "medio", "titulo": "Planos para o futuro", "conteudo": "Amanhã vou ao médico pela manhã. Depois encontro minha amiga no café da esquina. À noite, tenho uma reunião online com minha equipe de trabalho.", "palavras": 28, "dica": "Pense no que vai dizer antes de começar cada frase.", "foco_terapeutico": "antecipação como estratégia de fluência" },
+    { "id": "txt_013", "tipo": "frase_media", "perfil": "fala_rapida", "dificuldade": "facil", "titulo": "Explicando um caminho", "conteudo": "Siga em frente até o semáforo. Vire à direita na padaria. Caminhe mais cem metros e o banco fica à esquerda, ao lado da farmácia.", "palavras": 27, "dica": "Cada instrução é uma etapa. Não misture duas ideias numa respiração.", "foco_terapeutico": "pausas entre ideias completas" },
+    { "id": "txt_014", "tipo": "frase_media", "perfil": "fala_rapida", "dificuldade": "facil", "titulo": "Reunião de trabalho", "conteudo": "O projeto tem três etapas principais. Primeiro, o planejamento detalhado. Depois, o desenvolvimento do código. Por fim, os testes e a validação com o cliente.", "palavras": 26, "dica": "Enumerar é ótimo para treinar pausas. Um item por vez.", "foco_terapeutico": "estrutura de lista como âncora de ritmo" },
+    { "id": "txt_015", "tipo": "frase_media", "perfil": "fala_rapida", "dificuldade": "medio", "titulo": "Descrição de pessoa", "conteudo": "Minha avó é calma, carinhosa e muito paciente. Ela gosta de cozinhar pratos tradicionais e ouvir histórias da família. Toda semana nos reunimos na casa dela.", "palavras": 28, "dica": "Adjetivos merecem espaço. Não os engula na pressa.", "foco_terapeutico": "articulação clara de adjetivos e detalhes" },
+    { "id": "txt_016", "tipo": "frase_media", "perfil": "misto", "dificuldade": "facil", "titulo": "Opinião sobre tecnologia", "conteudo": "A tecnologia facilita a vida, mas também cria dependência. É preciso usá-la com equilíbrio e consciência. Estabelecer limites de tempo de tela ajuda muito.", "palavras": 26, "dica": "A vírgula do meio é o ponto de equilíbrio da frase. Respeite-a.", "foco_terapeutico": "contraste de ideias com pausa central" },
+    { "id": "txt_017", "tipo": "frase_media", "perfil": "misto", "dificuldade": "facil", "titulo": "Conversa sobre saúde", "conteudo": "Dormir bem melhora a memória, o humor e a imunidade. Vale mais do que qualquer remédio. Por isso, crie uma rotina de sono e respeite os horários.", "palavras": 28, "dica": "Não engula as últimas sílabas. O fim da frase importa tanto quanto o começo.", "foco_terapeutico": "sustentação de energia vocal ao longo da frase" },
+    { "id": "txt_018", "tipo": "frase_media", "perfil": "misto", "dificuldade": "medio", "titulo": "Compartilhar aprendizado", "conteudo": "Aprendi que errar faz parte do processo de crescimento. Cada erro traz uma lição valiosa se a gente para para refletir. O importante é não repetir o mesmo erro duas vezes.", "palavras": 32, "dica": "Frase longa. Divida em três partes. Respire nas pausas naturais.", "foco_terapeutico": "gestão de fôlego em frase estendida" },
+
+    { "id": "txt_019", "tipo": "paragrafo", "perfil": "gagueira", "dificuldade": "facil", "titulo": "Um dia no campo", "conteudo": "No fim de semana, fui visitar minha família no interior. A viagem durou duas horas de carro. Chegando lá, sentei na varanda e tomei café fresquinho. Ouvi o barulho dos pássaros e senti o vento suave. Foi um dia simples, mas muito especial. Às vezes, a gente precisa parar e respirar.", "palavras": 54, "dica": "Cada frase tem sua própria respiração. Não leve o ritmo de uma para outra.", "foco_terapeutico": "fluidez em texto narrativo com frases curtas encadeadas" },
+    { "id": "txt_020", "tipo": "paragrafo", "perfil": "gagueira", "dificuldade": "facil", "titulo": "Aprender a cozinhar", "conteudo": "Aprendi a cozinhar quando morei sozinho pela primeira vez. No começo, tudo dava errado. O arroz ficava duro, o feijão sem sal. Mas fui tentando e melhorando. Hoje consigo fazer um almoço completo com calma e satisfação. Cozinhar virou um momento de relaxamento no meu dia.", "palavras": 50, "dica": "Texto pessoal relaxa a fala. Fale como se contasse para um amigo.", "foco_terapeutico": "narrativa pessoal como contexto de fala natural" },
+    { "id": "txt_021", "tipo": "paragrafo", "perfil": "gagueira", "dificuldade": "medio", "titulo": "O parque da cidade", "conteudo": "Perto de casa existe um parque grande e arborizado. Toda manhã, pessoas de todas as idades caminham, correm ou simplesmente sentam nos bancos. Tem crianças brincando, idosos conversando e jovens com fones de ouvido. É um lugar onde o tempo parece mais lento. Gosto de ir aos sábados, logo cedo, quando ainda está fresco e tranquilo.", "palavras": 60, "dica": "Visualize o parque enquanto fala. Isso ajuda o ritmo a ficar natural.", "foco_terapeutico": "descrição visual como suporte de fluência" },
+    { "id": "txt_022", "tipo": "paragrafo", "perfil": "gagueira", "dificuldade": "dificil", "titulo": "Explicação técnica clara", "conteudo": "O processador executa instruções em sequência, ciclo por ciclo. Cada instrução passa por etapas: busca, decodificação e execução. Em processadores modernos, essas etapas ocorrem em paralelo, o que aumenta significativamente o desempenho. Essa técnica se chama pipeline. Quando uma instrução depende do resultado da anterior, ocorre um conflito de dados e o pipeline precisa pausar brevemente.", "palavras": 63, "dica": "Palavras longas: divida em sílabas mentalmente antes de falar.", "foco_terapeutico": "manutenção de fluxo em vocabulário técnico denso" },
+    { "id": "txt_023", "tipo": "paragrafo", "perfil": "fala_rapida", "dificuldade": "facil", "titulo": "Uma tarde de chuva", "conteudo": "A chuva começou devagar, com gotas finas batendo na janela. Fui até a cozinha e preparei um chá quente. Peguei um livro da estante e me sentei no sofá. O som da chuva era calmo e constante. Fiquei ali por horas, sem pressa de nada. Às vezes, uma tarde parada é exatamente o que a gente precisa.", "palavras": 58, "dica": "Texto calmo pede voz calma. Deixe cada imagem existir antes de ir para a próxima.", "foco_terapeutico": "desaceleração guiada por conteúdo sensorial" },
+    { "id": "txt_024", "tipo": "paragrafo", "perfil": "fala_rapida", "dificuldade": "facil", "titulo": "Carta para um amigo", "conteudo": "Faz tempo que não nos falamos. Fico pensando em como você está, o que está fazendo da vida. Tenho muita saudade das nossas conversas longas de fim de semana. Aquele tempo foi muito bom. Preciso te contar que muita coisa mudou por aqui. Mas algumas coisas continuam exatamente iguais, como a minha amizade por você.", "palavras": 62, "dica": "Escreva cartas com a voz. Devagar, com afeto.", "foco_terapeutico": "fala emotiva com ritmo contido" },
+    { "id": "txt_025", "tipo": "paragrafo", "perfil": "fala_rapida", "dificuldade": "medio", "titulo": "Como funciona a memória", "conteudo": "A memória humana funciona em camadas. A memória de curto prazo guarda informações por alguns segundos ou minutos. Já a de longo prazo pode armazenar dados por décadas. Para fixar algo na memória longa, é preciso repetição e emoção. Por isso, lembramos mais facilmente de eventos marcantes do que de fatos neutros aprendidos sem contexto.", "palavras": 61, "dica": "Texto explicativo: cada frase apresenta uma ideia nova. Pause entre elas.", "foco_terapeutico": "pausas entre ideias em texto didático" },
+    { "id": "txt_026", "tipo": "paragrafo", "perfil": "fala_rapida", "dificuldade": "dificil", "titulo": "Argumento sobre educação", "conteudo": "Investir em educação pública de qualidade é uma das formas mais eficazes de reduzir desigualdades sociais a longo prazo. Os resultados, embora lentos e difíceis de mensurar no curto prazo, são consistentes e duradouros. Países que priorizam educação nas primeiras décadas colhem os frutos gerações depois. O desafio está em manter políticas estáveis mesmo diante de pressões econômicas e mudanças de governo.", "palavras": 68, "dica": "Fale para convencer. Cada palavra tem peso. Não atropele os argumentos.", "foco_terapeutico": "entonação deliberada em argumentação formal" },
+    { "id": "txt_027", "tipo": "paragrafo", "perfil": "misto", "dificuldade": "facil", "titulo": "Memória de infância", "conteudo": "Quando eu era criança, brincava na rua até escurecer. Os vizinhos conheciam todo mundo pelo nome. A gente jogava bola, andava de bicicleta e inventava histórias. Não tinha tela, não tinha notificação. Era só o presente, o quintal e os amigos. Olho para trás e percebo o quanto aquele tempo foi leve e precioso.", "palavras": 57, "dica": "Deixe a memória guiar o ritmo. Fale com afeto e sem pressa.", "foco_terapeutico": "fala espontânea com suporte narrativo emocional" },
+    { "id": "txt_028", "tipo": "paragrafo", "perfil": "misto", "dificuldade": "medio", "titulo": "Sobre perseverança", "conteudo": "Persistir em algo difícil é um desafio que todo mundo enfrenta em algum momento. A vontade de desistir aparece quando os resultados demoram. Mas é exatamente nesses momentos que o crescimento acontece de forma mais intensa. Quem continua praticando, mesmo sem ver evolução imediata, está construindo uma base sólida. O progresso raramente é linear, mas é real.", "palavras": 63, "dica": "Voz firme, ritmo constante. Nem acelerado nem entrecortado.", "foco_terapeutico": "equilíbrio entre fluidez e ênfase em texto motivacional" },
+    { "id": "txt_029", "tipo": "paragrafo", "perfil": "misto", "dificuldade": "dificil", "titulo": "Defesa de ideia técnica", "conteudo": "A inteligência artificial não substitui a criatividade humana, mas potencializa nossa capacidade de resolver problemas complexos em escala. Modelos de linguagem, por exemplo, aceleram a geração de hipóteses e rascunhos, mas a curadoria, o julgamento crítico e a originalidade continuam sendo humanos. O risco não está na tecnologia em si, mas na ausência de letramento digital para usá-la com responsabilidade.", "palavras": 67, "dica": "Texto técnico com argumento emocional. Equilibre precisão e fluidez.", "foco_terapeutico": "precisão articulatória + fluidez em fala argumentativa densa" },
+    { "id": "txt_030", "tipo": "paragrafo", "perfil": "misto", "dificuldade": "dificil", "titulo": "Discurso de encerramento", "conteudo": "Chegamos ao fim de uma jornada que exigiu muito de cada um de nós. Não foi fácil. Houve obstáculos, dúvidas e momentos em que a continuidade parecia impossível. Mas aqui estamos. Cada pequeno avanço que fizemos, cada sessão completada, cada palavra dita com mais clareza, construiu algo que ninguém pode tirar: confiança na própria voz. Que esse seja o começo de uma nova fase.", "palavras": 70, "dica": "Fale como se estivesse em um palco. Volume, presença e pausa antes da última frase.", "foco_terapeutico": "projeção vocal com ritmo preciso em discurso formal" }
+  ],
+
+  "trava_linguas": [
+    { "id": "tl_001", "perfil": "gagueira", "dificuldade": "facil", "titulo": "O rato e o rei", "conteudo": "O rato roeu a roupa do rei de Roma.", "palavras": 9, "sons_alvo": ["r"], "dica": "Vá devagar. O 'r' não precisa de força, precisa de ritmo.", "repeticoes_sugeridas": 3 },
+    { "id": "tl_002", "perfil": "gagueira", "dificuldade": "facil", "titulo": "O pato pateta", "conteudo": "O pato pateta pula no prato. O prato do pato é pequeno e chato.", "palavras": 14, "sons_alvo": ["p"], "dica": "Respire antes do 'p'. Não segure o ar.", "repeticoes_sugeridas": 3 },
+    { "id": "tl_003", "perfil": "gagueira", "dificuldade": "facil", "titulo": "A fada fina", "conteudo": "A fada fina faz fitas fofas para fadas felizes.", "palavras": 9, "sons_alvo": ["f"], "dica": "O 'f' é suave. Deixe o ar sair sem forçar.", "repeticoes_sugeridas": 3 },
+    { "id": "tl_004", "perfil": "gagueira", "dificuldade": "facil", "titulo": "A lua limpa", "conteudo": "A lua lava a lona longa no lago lindo.", "palavras": 9, "sons_alvo": ["l"], "dica": "O 'l' é seu amigo. Suave, fluido e contínuo.", "repeticoes_sugeridas": 3 },
+    { "id": "tl_005", "perfil": "gagueira", "dificuldade": "medio", "titulo": "A cobra e o couro", "conteudo": "A cobra criou o couro curto na caverna escura.", "palavras": 10, "sons_alvo": ["c", "r"], "dica": "Não trave no 'cr'. Separe mentalmente: 'co-bra'.", "repeticoes_sugeridas": 4 },
+    { "id": "tl_006", "perfil": "gagueira", "dificuldade": "medio", "titulo": "A galinha e o grão", "conteudo": "A galinha gorda gorgoleja e grita quando o grão some.", "palavras": 12, "sons_alvo": ["g"], "dica": "Imagine a galinha. O humor ajuda a relaxar a garganta.", "repeticoes_sugeridas": 3 },
+    { "id": "tl_007", "perfil": "gagueira", "dificuldade": "medio", "titulo": "Três tigres", "conteudo": "Três tigres tristes mastigam trigo. Trigo tragam três tigres tristes.", "palavras": 10, "sons_alvo": ["tr", "ti"], "dica": "Comece com pausas: 'Três tigres... tristes...' Depois junte.", "repeticoes_sugeridas": 4 },
+    { "id": "tl_008", "perfil": "gagueira", "dificuldade": "medio", "titulo": "O bispo e o vinho", "conteudo": "O bispo bebeu vinho no bosque. Bispos bebem, bispos dormem.", "palavras": 11, "sons_alvo": ["b", "v"], "dica": "Diferença entre 'b' e 'v': não confunda. Pause entre palavras.", "repeticoes_sugeridas": 4 },
+    { "id": "tl_009", "perfil": "gagueira", "dificuldade": "dificil", "titulo": "O papa e a pipoca", "conteudo": "O papa papou a pouca papa que o papa Pio Nono pregou.", "palavras": 13, "sons_alvo": ["p"], "dica": "Alta frequência de 'p'. Respire fundo antes de começar.", "repeticoes_sugeridas": 5 },
+    { "id": "tl_010", "perfil": "gagueira", "dificuldade": "dificil", "titulo": "Pedro e a pedra", "conteudo": "Pedro pregou um prego numa pedra. Numa pedra pregou um prego Pedro.", "palavras": 14, "sons_alvo": ["pr", "p"], "dica": "Inversão no final. Mantenha o ritmo mesmo lendo ao contrário.", "repeticoes_sugeridas": 5 },
+
+    { "id": "tl_011", "perfil": "fala_rapida", "dificuldade": "facil", "titulo": "O sapo soluça", "conteudo": "O sapo, soluçando, sai. O sapo saiu, soluçou e sumiu.", "palavras": 10, "sons_alvo": ["s"], "dica": "As vírgulas são obrigatórias. Pare nelas. Realmente pare.", "repeticoes_sugeridas": 3 },
+    { "id": "tl_012", "perfil": "fala_rapida", "dificuldade": "facil", "titulo": "A tia e o tio", "conteudo": "A tia, com tédio, tomou chá. O tio, também, tomou depois.", "palavras": 11, "sons_alvo": ["t"], "dica": "Cadência de conta: 1 pausa, 2 pausa, 3 pausa.", "repeticoes_sugeridas": 3 },
+    { "id": "tl_013", "perfil": "fala_rapida", "dificuldade": "facil", "titulo": "O carro caro", "conteudo": "O carro caro do caro Carmo caiu. Caro Carmo, conserta o carro.", "palavras": 12, "sons_alvo": ["ca", "r"], "dica": "Fale como se estivesse reclamando. Devagar e firme.", "repeticoes_sugeridas": 3 },
+    { "id": "tl_014", "perfil": "fala_rapida", "dificuldade": "facil", "titulo": "O milho e a molha", "conteudo": "Malha, molha e milho. Molha, milho e malha.", "palavras": 8, "sons_alvo": ["lh"], "dica": "Curto e direto. Faça cada palavra durar um segundo inteiro.", "repeticoes_sugeridas": 4 },
+    { "id": "tl_015", "perfil": "fala_rapida", "dificuldade": "medio", "titulo": "A Cecília", "conteudo": "Cecília, com seu céu cinzento, cessou de cantar. Cessou, suspirou e cansou.", "palavras": 13, "sons_alvo": ["s", "c"], "dica": "Divida em duas partes. Respire no ponto.", "repeticoes_sugeridas": 4 },
+    { "id": "tl_016", "perfil": "fala_rapida", "dificuldade": "medio", "titulo": "O navio de nabo", "conteudo": "Um navio de nabo navegava no Nilo. No Nilo, o navio de nabo afundou.", "palavras": 14, "sons_alvo": ["n"], "dica": "O 'n' nasalizado exige controle. Vá devagar nos finais de palavra.", "repeticoes_sugeridas": 3 },
+    { "id": "tl_017", "perfil": "fala_rapida", "dificuldade": "medio", "titulo": "O chá da xícara", "conteudo": "Xícara de chá, xarope de xaxim. Xaxim, xarope, xícara e chá.", "palavras": 10, "sons_alvo": ["x", "ch"], "dica": "Distinção entre 'x' e 'ch' importa aqui. Não atropele.", "repeticoes_sugeridas": 4 },
+    { "id": "tl_018", "perfil": "fala_rapida", "dificuldade": "medio", "titulo": "O Zé zeloso", "conteudo": "O Zé zeloso zerou o zoneamento. Zonou, zerou, zumbiu e desapareceu.", "palavras": 11, "sons_alvo": ["z"], "dica": "O 'z' precisa de tempo. Não corra.", "repeticoes_sugeridas": 3 },
+    { "id": "tl_019", "perfil": "fala_rapida", "dificuldade": "dificil", "titulo": "Seis sábios sabiás", "conteudo": "Seis sábios sabiás sentados sob seis sabugos de sabugueiro.", "palavras": 10, "sons_alvo": ["s", "sb"], "dica": "Fale em no mínimo 8 segundos. Não menos.", "repeticoes_sugeridas": 5 },
+    { "id": "tl_020", "perfil": "fala_rapida", "dificuldade": "dificil", "titulo": "O fígado do bígaro", "conteudo": "O fígado faz falta ao bígaro no fundo do frasco de formol.", "palavras": 14, "sons_alvo": ["f", "fr"], "dica": "Muitas fricativas seguidas. Marque o ritmo batendo o pé.", "repeticoes_sugeridas": 5 },
+
+    { "id": "tl_021", "perfil": "misto", "dificuldade": "facil", "titulo": "O burro bravo", "conteudo": "O burro bravo berra. Berrou, bradou e brincou no brejo.", "palavras": 10, "sons_alvo": ["b", "br"], "dica": "Ritmo estável. Nem rápido demais, nem com pausas longas.", "repeticoes_sugeridas": 3 },
+    { "id": "tl_022", "perfil": "misto", "dificuldade": "facil", "titulo": "A velha e o varal", "conteudo": "A velha viúva varre o varal. O varal da velha viúva caiu.", "palavras": 13, "sons_alvo": ["v"], "dica": "Combine fluidez com clareza. Não engula o 'v'.", "repeticoes_sugeridas": 3 },
+    { "id": "tl_023", "perfil": "misto", "dificuldade": "facil", "titulo": "A manga macia", "conteudo": "Manga macia, manga mole, manga madeira e manga manga.", "palavras": 8, "sons_alvo": ["m"], "dica": "O 'm' exige que a boca feche bem. Mas sem travar.", "repeticoes_sugeridas": 4 },
+    { "id": "tl_024", "perfil": "misto", "dificuldade": "facil", "titulo": "A dona da dor", "conteudo": "Dona Dora dorme e desperta. Desperta e diz: a dor desapareceu.", "palavras": 13, "sons_alvo": ["d"], "dica": "O 'd' não pode virar pausa. Mantenha o fluxo.", "repeticoes_sugeridas": 3 },
+    { "id": "tl_025", "perfil": "misto", "dificuldade": "medio", "titulo": "O limão e o limo", "conteudo": "O limão com lima, lima com limão. Limo, limão, lima e lacre.", "palavras": 11, "sons_alvo": ["l", "lh"], "dica": "Equilíbrio: nem rápido, nem com bloqueio no 'l'.", "repeticoes_sugeridas": 4 },
+    { "id": "tl_026", "perfil": "misto", "dificuldade": "medio", "titulo": "A floresta e o fresno", "conteudo": "Na floresta fresca, o fresno floresce. Flores frescas perfumam a floresta.", "palavras": 12, "sons_alvo": ["fr", "fl"], "dica": "Grupos consonantais exigem atenção. Não pule, não trave.", "repeticoes_sugeridas": 4 },
+    { "id": "tl_027", "perfil": "misto", "dificuldade": "medio", "titulo": "O grilo grato", "conteudo": "O grilo grato grilou. Grilou, gritou e se foi com graça.", "palavras": 12, "sons_alvo": ["gr"], "dica": "Combine controle de ritmo com fluidez no 'gr'.", "repeticoes_sugeridas": 3 },
+    { "id": "tl_028", "perfil": "misto", "dificuldade": "medio", "titulo": "A cigarra e a aranha", "conteudo": "A cigarra canta enquanto a aranha tece. A aranha tece enquanto a cigarra canta.", "palavras": 14, "sons_alvo": ["c", "r", "nh"], "dica": "Inversão no final. Mantenha o ritmo como se fosse música.", "repeticoes_sugeridas": 4 },
+    { "id": "tl_029", "perfil": "misto", "dificuldade": "dificil", "titulo": "Os mafagafos", "conteudo": "Num ninho de mafagafos, cinco mafagafinhos há. Quem os desmafagafizou, bom desmafagafizador será.", "palavras": 15, "sons_alvo": ["m", "f", "g"], "dica": "Clássico desafiador. Decore antes de falar, depois fale no ritmo.", "repeticoes_sugeridas": 5 },
+    { "id": "tl_030", "perfil": "misto", "dificuldade": "dificil", "titulo": "O trem de ferro", "conteudo": "O trem treme, trepida e trafega. Trafega, trepida e treme o trem de ferro.", "palavras": 14, "sons_alvo": ["tr", "t"], "dica": "Inversão mais grupos consonantais. O desafio máximo do perfil misto.", "repeticoes_sugeridas": 5 }
+  ]
+}
