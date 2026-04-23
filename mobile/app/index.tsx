@@ -31,10 +31,27 @@ export default function Index() {
     loadProgress();
   }, [selectedLevel]);
 
-  const fetchRandomText = async (dificuldade?: string) => {
+  const fetchRandomText = async (dificuldade?: string, latestProgress?: any) => {
     const diff = dificuldade || selectedLevel || 'facil';
+    const progressToUse = latestProgress || levelProgress;
+    
+    let completed = 0;
+    if (diff === 'facil') completed = progressToUse.nivel1_completos || 0;
+    else if (diff === 'medio') completed = progressToUse.nivel2_completos || 0;
+    else if (diff === 'dificil') completed = progressToUse.nivel3_completos || 0;
+    
+    const step = completed % 3;
+    let url = `https://proud-owls-make.loca.lt/textos/aleatorio?dificuldade=${diff}`;
+    if (step === 0) {
+      url += '&categoria=trava_lingua';
+    } else if (step === 1) {
+      url += '&categoria=texto';
+    } else if (step === 2) {
+      url += '&categoria=texto&foco=pausa';
+    }
+
     try {
-      const res = await fetch(`https://proud-owls-make.loca.lt/textos/aleatorio?dificuldade=${diff}`, {
+      const res = await fetch(url, {
         headers: { 'Bypass-Tunnel-Reminder': 'true' }
       });
       if (res.ok) {
@@ -199,25 +216,8 @@ export default function Index() {
   };
 
   if (!selectedLevel) {
-    const today = new Date();
-    today.setHours(0,0,0,0);
-    
-    let isNextDay1 = false;
-    if (levelProgress.nivel1_completed_date) {
-      const d1 = new Date(levelProgress.nivel1_completed_date);
-      d1.setHours(0,0,0,0);
-      isNextDay1 = today.getTime() > d1.getTime();
-    }
-
-    let isNextDay2 = false;
-    if (levelProgress.nivel2_completed_date) {
-      const d2 = new Date(levelProgress.nivel2_completed_date);
-      d2.setHours(0,0,0,0);
-      isNextDay2 = today.getTime() > d2.getTime();
-    }
-
-    const n2Unlocked = levelProgress.nivel1_completos >= 3 && isNextDay1;
-    const n3Unlocked = levelProgress.nivel2_completos >= 3 && isNextDay2;
+    const n2Unlocked = levelProgress.nivel1_completos >= 3;
+    const n3Unlocked = levelProgress.nivel2_completos >= 3;
     
     const n1Full = levelProgress.nivel1_completos >= 3;
     const n2Full = levelProgress.nivel2_completos >= 3;
@@ -238,9 +238,9 @@ export default function Index() {
           onPress={() => { setSelectedLevel('facil'); fetchRandomText('facil'); }}
         >
           <Text style={styles.levelButtonText}>Nível 1 (Fácil)</Text>
-          <Text style={styles.levelSubText}>{n1Full && isNextDay1 ? 'Pronto para mais um dia!' : (n1Full ? 'Mestre Alcançado! 🏆' : `Tarefas de hoje: ${levelProgress.nivel1_completos}/6`)}</Text>
+          <Text style={styles.levelSubText}>{n1Full ? 'Mestre Alcançado! 🏆' : `Tarefas de hoje: ${levelProgress.nivel1_completos}/3`}</Text>
           <View style={{width: '100%', height: 6, backgroundColor: 'rgba(255,255,255,0.3)', borderRadius: 3, marginTop: 10}}>
-            <View style={{width: `${(Math.min(levelProgress.nivel1_completos, 6) / 6) * 100}%`, height: '100%', backgroundColor: '#fff', borderRadius: 3}} />
+            <View style={{width: `${(Math.min(levelProgress.nivel1_completos, 3) / 3) * 100}%`, height: '100%', backgroundColor: '#fff', borderRadius: 3}} />
           </View>
         </TouchableOpacity>
 
@@ -253,10 +253,10 @@ export default function Index() {
             {n2Unlocked ? 'Nível 2 (Médio)' : '🔒 Nível 2 (Médio)'}
           </Text>
           <Text style={[styles.levelSubText, { color: n2Unlocked ? '#fff' : '#9ca3af' }]}>
-            {n2Unlocked ? (n2Full && isNextDay2 ? 'Pronto para mais um dia!' : (n2Full ? 'Mestre Alcançado! 🏆' : `Tarefas de hoje: ${levelProgress.nivel2_completos}/6`)) : (n1Full && !isNextDay1 ? '⏳ Desbloqueia amanhã' : 'Complete 6 tarefas do Nível 1')}
+            {n2Unlocked ? (n2Full ? 'Mestre Alcançado! 🏆' : `Tarefas de hoje: ${levelProgress.nivel2_completos}/3`) : 'Complete 3 tarefas do Nível 1'}
           </Text>
           <View style={{width: '100%', height: 6, backgroundColor: n2Unlocked ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.1)', borderRadius: 3, marginTop: 10}}>
-            <View style={{width: `${(Math.min(levelProgress.nivel2_completos, 6) / 6) * 100}%`, height: '100%', backgroundColor: n2Unlocked ? '#fff' : '#9ca3af', borderRadius: 3}} />
+            <View style={{width: `${(Math.min(levelProgress.nivel2_completos, 3) / 3) * 100}%`, height: '100%', backgroundColor: n2Unlocked ? '#fff' : '#9ca3af', borderRadius: 3}} />
           </View>
         </TouchableOpacity>
 
@@ -269,10 +269,10 @@ export default function Index() {
             {n3Unlocked ? 'Nível 3 (Difícil)' : '🔒 Nível 3 (Difícil)'}
           </Text>
           <Text style={[styles.levelSubText, { color: n3Unlocked ? '#fff' : '#9ca3af' }]}>
-            {n3Unlocked ? `Tarefas de hoje: ${levelProgress.nivel3_completos}/6` : (n2Full && !isNextDay2 ? '⏳ Desbloqueia amanhã' : 'Complete 6 tarefas do Nível 2')}
+            {n3Unlocked ? `Tarefas de hoje: ${levelProgress.nivel3_completos}/3` : 'Complete 3 tarefas do Nível 2'}
           </Text>
           <View style={{width: '100%', height: 6, backgroundColor: n3Unlocked ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.1)', borderRadius: 3, marginTop: 10}}>
-            <View style={{width: `${(Math.min(levelProgress.nivel3_completos, 6) / 6) * 100}%`, height: '100%', backgroundColor: n3Unlocked ? '#fff' : '#9ca3af', borderRadius: 3}} />
+            <View style={{width: `${(Math.min(levelProgress.nivel3_completos, 3) / 3) * 100}%`, height: '100%', backgroundColor: n3Unlocked ? '#fff' : '#9ca3af', borderRadius: 3}} />
           </View>
         </TouchableOpacity>
       </View>
@@ -314,7 +314,7 @@ export default function Index() {
           style={[
             styles.recordButton, 
             isRecording && styles.recordButtonActive, 
-            needsToRecord && !isRecording && { backgroundColor: '#f59e0b', borderWidth: 4, borderColor: '#fcd34d', transform: [{ scale: 1.1 }] }
+            needsToRecord && !isRecording && styles.recordButtonRetry
           ]}
           onPress={handleRecordPress}
           disabled={isRecording}
@@ -433,7 +433,9 @@ export default function Index() {
             return passed ? (
               <TouchableOpacity style={styles.nextPhraseButton} onPress={async () => {
                 await incrementLevelProgress(diff);
-                fetchRandomText();
+                const newProgress = await getLevelProgress();
+                setLevelProgress(newProgress);
+                fetchRandomText(diff, newProgress);
               }}>
                 <Text style={styles.nextPhraseButtonText}>Próxima Frase ➡️</Text>
               </TouchableOpacity>
@@ -506,6 +508,13 @@ const styles = StyleSheet.create({
   recordButtonActive: {
     backgroundColor: '#fca5a5',
     transform: [{ scale: 0.95 }],
+  },
+  recordButtonRetry: {
+    backgroundColor: '#f59e0b',
+    shadowColor: '#f59e0b',
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
+    elevation: 10,
   },
   stopButton: {
     width: 60,

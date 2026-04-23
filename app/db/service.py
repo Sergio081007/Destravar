@@ -1,7 +1,7 @@
 import random
-from connection import get_connection
+from app.db.connection import get_connection
 
-def fetch_text(perfil, dificuldade, ultimo_id=None):
+def fetch_text(perfil, dificuldade, ultimo_id=None, categoria=None, foco=None):
     conn = get_connection()
     cursor = conn.cursor()
 
@@ -12,6 +12,15 @@ def fetch_text(perfil, dificuldade, ultimo_id=None):
         WHERE perfil = ? AND dificuldade = ?
     """
     params = [perfil, dificuldade]
+
+    if categoria:
+        query += " AND categoria = ?"
+        params.append(categoria)
+
+    if foco:
+        query += " AND (foco_terapeutico LIKE ? OR foco_terapeutico LIKE ?)"
+        params.append('%' + foco + '%')
+        params.append('%' + "respira" + '%') # Fallback para respiração se o foco falhar
 
     if ultimo_id:
         query += " AND id != ?"
@@ -24,6 +33,9 @@ def fetch_text(perfil, dificuldade, ultimo_id=None):
     conn.close()
 
     if not resultados:
+        # Tentar buscar sem o foco para evitar que fique sem texto se não houver exato match
+        if foco:
+            return fetch_text(perfil, dificuldade, ultimo_id, categoria, foco=None)
         return None
 
     return dict(random.choice(resultados))

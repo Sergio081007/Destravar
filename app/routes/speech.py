@@ -1,12 +1,11 @@
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Query
+from app.db.service import fetch_text
 import tempfile
 import os
 import math
 import re
 import difflib
 import unicodedata
-import json
-import random
 from groq import Groq
 from difflib import SequenceMatcher
 from pydantic import BaseModel
@@ -24,30 +23,20 @@ class ComparacaoRequest(BaseModel):
     texto_referencia: str
     texto_transcrito: str = ""  
 
-
 @router.get("/textos/aleatorio")
-async def obter_texto_aleatorio(dificuldade: str = None):
-    # Caminho do arquivo JSON
-    caminho_json = os.path.join(os.path.dirname(__file__), "..", "..", "data", "textos", "textos-treinamento.json")
-    try:
-        with open(caminho_json, "r", encoding="utf-8") as f:
-            dados = json.load(f)
-            
-        # Junta textos normais e trava-línguas em uma única lista para sorteio
-        todos_os_textos = dados.get("textos", []) + dados.get("trava_linguas", [])
-        
-        if dificuldade:
-            todos_os_textos = [t for t in todos_os_textos if t.get("dificuldade") == dificuldade]
-            
-        if not todos_os_textos:
-            raise HTTPException(status_code=404, detail="Nenhum texto encontrado com os filtros especificados.")
-            
-        texto_sorteado = random.choice(todos_os_textos)
-        return texto_sorteado
-    except FileNotFoundError:
-        raise HTTPException(status_code=500, detail="Arquivo de textos não encontrado.")
-    except json.JSONDecodeError:
-        raise HTTPException(status_code=500, detail="Erro ao ler o arquivo de textos.")
+async def obter_texto_aleatorio(
+    dificuldade: str = 'facil',
+    perfil: str = 'misto',
+    categoria: str = None,
+    foco: str = None,
+    ultimo_id: int = None
+):
+    texto = fetch_text(perfil, dificuldade, ultimo_id, categoria, foco)
+    if not texto:
+        texto = fetch_text('misto', dificuldade, ultimo_id, categoria, foco)
+    if not texto:
+        raise HTTPException(status_code=404, detail="Nenhum texto encontrado.")
+    return texto
 
 def normalizar(texto: str):
     # tudo minúsculo primeiro
