@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text, ScrollView } from 'react-native';
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
+import { calcularXP } from './utils/calcularXP';
 
 export default function Index() {
   const [permissionResponse, requestPermission] = Audio.usePermissions();
@@ -77,7 +78,7 @@ export default function Index() {
         name: 'rec.m4a'
       } as any);
       
-      form.append('texto_alvo', textoTreino);
+      form.append('texto_referencia', textoTreino);
 
       const res = await fetch('https://proud-owls-make.loca.lt/transcrever', {
         method: 'POST',
@@ -89,6 +90,19 @@ export default function Index() {
 
       if (res.ok) {
         const data = await res.json();
+        
+        let numFluencia = 40;
+        if (data.fluencia === 'rapido') numFluencia = 100;
+        else if (data.fluencia === 'normal') numFluencia = 85;
+        else if (data.fluencia === 'lento') numFluencia = 65;
+
+        data.xpGanho = calcularXP({
+          fluencia: numFluencia,
+          taxaAcerto: data.score !== undefined ? (data.score * 100) : (data.precisao_alvo || 0),
+          wpm: data.wpm,
+          meta: { wpmMin: 130, wpmMax: 160 }
+        });
+        
         setTranscriptionResult(data);
       } else {
         console.error("Erro na API:", await res.text());
@@ -178,6 +192,13 @@ export default function Index() {
       {transcriptionResult && (
         <View style={styles.resultContainer}>
           <Text style={styles.resultTitle}>Resultado da Análise</Text>
+          
+          {transcriptionResult.xpGanho !== undefined && (
+            <View style={styles.xpBadge}>
+              <Text style={styles.xpText}>🔥 XP Ganho: +{transcriptionResult.xpGanho}</Text>
+            </View>
+          )}
+
           <Text style={styles.resultText}>
             WPM (Palavras por minuto): {transcriptionResult.wpm} - <Text style={{fontWeight:'bold'}}>{transcriptionResult.wpm < 100 ? "Lento 🐢" : (transcriptionResult.wpm <= 150 ? "Ideal ✅" : "Rápido ⚡")}</Text>
           </Text>
@@ -305,6 +326,22 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     color: '#111827',
     textAlign: 'center'
+  },
+  xpBadge: {
+    backgroundColor: '#fffbeb',
+    borderColor: '#f59e0b',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    alignSelf: 'center',
+    marginBottom: 15,
+  },
+  xpText: {
+    color: '#b45309',
+    fontWeight: 'bold',
+    fontSize: 16,
+    textAlign: 'center',
   },
   resultText: {
     fontSize: 15,
