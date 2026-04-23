@@ -40,7 +40,7 @@ export default function NivelamentoFluxo() {
     }
   };
 
-  if (carregando) return <ActivityIndicator style={{flex:1}} size="large" color="#FFD600" />;
+  if (carregando) return <ActivityIndicator style={{ flex: 1 }} size="large" color="#FFD600" />;
 
   return (
     <View style={styles.container}>
@@ -51,7 +51,7 @@ export default function NivelamentoFluxo() {
 
       <View style={styles.header}>
         <LottieView
-          source={require('../app/animations/Similing Dog.json')}
+          source={require('../animations/Smiling Dog.json')}
           autoPlay
           loop
           style={styles.dog}
@@ -74,7 +74,7 @@ export default function NivelamentoFluxo() {
 
       {/* 3. Ação de Gravar */}
       <View style={styles.footer}>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.micButton, gravando && styles.micActive]}
           onPressIn={() => setGravando(true)}
           onPressOut={() => {
@@ -82,7 +82,7 @@ export default function NivelamentoFluxo() {
             proximoPasso(); // Ao soltar, ele simula que terminou e vai pro próximo
           }}
         >
-          <Text style={{fontSize: 35}}>{gravando ? '⏹️' : '🎤'}</Text>
+          <Text style={{ fontSize: 35 }}>{gravando ? '⏹️' : '🎤'}</Text>
         </TouchableOpacity>
         <Text style={styles.statusText}>
           {gravando ? "Ouvindo..." : "Segure para ler"}

@@ -6,8 +6,8 @@ import { useFonts } from 'expo-font';
 export default function OnboardingScreen() {
   // 1. Carregamos as duas fontes simultaneamente
   const [fontsLoaded] = useFonts({
-    'Fredoka-Destaque': require('../assets/fonts/Fredoka-Bold.ttf'),
-    'Nunito-Corpo': require('../assets/fonts/Nunito-Regular.ttf'),
+    'Fredoka-Destaque': require('../../assets/fonts/Fredoka-Bold.ttf'),
+    'Nunito-Corpo': require('../../assets/fonts/Nunito-Regular.ttf'),
   });
 
   // Aguarda as fontes carregarem para não dar erro de tela branca
@@ -16,7 +16,7 @@ export default function OnboardingScreen() {
   return (
     <View style={styles.container}>
       <LottieView
-        source={require('./animations/lock.json')}
+        source={require('../animations/lock.json')}
         autoPlay
         loop={false}
         style={styles.lottie}

@@ -21,8 +21,8 @@ export default function ConhecerScreen() {
   const animationRef = useRef<LottieView>(null);
 
   const [fontsLoaded] = useFonts({
-    'Fredoka-Destaque': require('../assets/fonts/Fredoka-Bold.ttf'),
-    'Nunito-Corpo': require('../assets/fonts/Nunito-Regular.ttf'),
+    'Fredoka-Destaque': require('../../assets/fonts/Fredoka-Bold.ttf'),
+    'Nunito-Corpo': require('../../assets/fonts/Nunito-Regular.ttf'),
   });
 
   if (!fontsLoaded) return null;
@@ -78,7 +78,7 @@ export default function ConhecerScreen() {
           {/* Mesma animação, controlada pela Ref */}
           <LottieView
             ref={animationRef}
-            source={require('./animations/personagem.json')}
+            source={require('../animations/personagem.json')}
             autoPlay
             loop={!mostrarBoasVindas} // Para de repetir quando mostra as boas-vindas
             speed={-1} 

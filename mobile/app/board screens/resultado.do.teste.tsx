@@ -11,7 +11,7 @@ export default function ResultadoTesteScreen() {
         {/* 1. O Mascote em destaque no fundo azul */}
         <View style={styles.animationContainer}>
           <LottieView
-            source={require('../app/animations/Smiling Dog.json')}
+            source={require('../animations/Smiling Dog.json')}
             autoPlay
             loop
             style={styles.dog}

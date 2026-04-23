@@ -5,8 +5,8 @@ import { useFonts } from 'expo-font';
 
 export default function NivelScreen() {
   const [fontsLoaded] = useFonts({
-    'Fredoka-Destaque': require('../assets/fonts/Fredoka-Bold.ttf'),
-    'Nunito-Corpo': require('../assets/fonts/Nunito-Regular.ttf'),
+    'Fredoka-Destaque': require('../../assets/fonts/Fredoka-Bold.ttf'),
+    'Nunito-Corpo': require('../../assets/fonts/Nunito-Regular.ttf'),
   });
 
   if (!fontsLoaded) return null;
@@ -18,7 +18,7 @@ export default function NivelScreen() {
         {/* O Mascote Feliz */}
         <View style={styles.animationContainer}>
           <LottieView
-            source={require('../app/animations/Happy Dog.json')}
+            source={require('../animations/Happy Dog.json')}
             autoPlay
             loop
             style={styles.dogAnimation}
