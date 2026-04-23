@@ -21,6 +21,7 @@ export default function Index() {
   
   const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
   const [levelProgress, setLevelProgress] = useState<any>({ nivel1_completos: 0, nivel2_completos: 0, nivel3_completos: 0 });
+  const [completionMessage, setCompletionMessage] = useState<string | null>(null);
   const [needsToRecord, setNeedsToRecord] = useState(false);
 
   useEffect(() => {
@@ -30,6 +31,49 @@ export default function Index() {
     }
     loadProgress();
   }, [selectedLevel]);
+
+  useEffect(() => {
+    if (!completionMessage) return;
+    const timer = setTimeout(() => setCompletionMessage(null), 5000);
+    return () => clearTimeout(timer);
+  }, [completionMessage]);
+
+  const getLevelNumber = (dificuldade: string) => {
+    if (dificuldade === 'facil') return 1;
+    if (dificuldade === 'medio') return 2;
+    return 3;
+  };
+
+  const getNextLevel = (dificuldade: string) => {
+    if (dificuldade === 'facil') return 'medio';
+    if (dificuldade === 'medio') return 'dificil';
+    return null;
+  };
+
+  const isLevelComplete = (progress: any, dificuldade: string) => {
+    if (dificuldade === 'facil') return progress.nivel1_completos >= 3;
+    if (dificuldade === 'medio') return progress.nivel2_completos >= 3;
+    return progress.nivel3_completos >= 3;
+  };
+
+  const handleLevelPress = async (dificuldade: string) => {
+    const nextLevel = getNextLevel(dificuldade);
+    const alreadyComplete = isLevelComplete(levelProgress, dificuldade);
+
+    if (alreadyComplete) {
+      if (nextLevel) {
+        setCompletionMessage(`Parabéns! Nível ${getLevelNumber(dificuldade)} concluído. Vamos para o Nível ${getLevelNumber(nextLevel)}.`);
+        setSelectedLevel(nextLevel);
+        fetchRandomText(nextLevel);
+        return;
+      }
+      setCompletionMessage(`Parabéns! Você já concluiu o Nível ${getLevelNumber(dificuldade)}.`);
+      return;
+    }
+
+    setSelectedLevel(dificuldade);
+    fetchRandomText(dificuldade);
+  };
 
   const fetchRandomText = async (dificuldade?: string, latestProgress?: any) => {
     const diff = dificuldade || selectedLevel || 'facil';
@@ -87,18 +131,24 @@ export default function Index() {
   }, []);
 
   useEffect(() => {
-    let intervalo;
+    let intervalo: ReturnType<typeof setInterval> | null = null;
 
     if (isRecording) {
       intervalo = setInterval(() => {
         setSeconds((numeroAntigo) => numeroAntigo + 1);
       }, 1000);
     } else {
-      clearInterval(intervalo);
+      if (intervalo) {
+        clearInterval(intervalo);
+      }
       setSeconds(0);
     }
 
-    return () => clearInterval(intervalo);
+    return () => {
+      if (intervalo) {
+        clearInterval(intervalo);
+      }
+    };
   }, [isRecording]);
 
   // Função pro botão iniciar a gravação
@@ -204,7 +254,7 @@ export default function Index() {
     }
   };
 
-  const formatTime = (totalSeconds) => {
+  const formatTime = (totalSeconds: number) => {
     const minutes = Math.floor(totalSeconds / 60); // Pega quantos minutos inteiros se passaram
     const remainingSeconds = totalSeconds % 60; // Pega os segundos restantes
 
@@ -235,7 +285,7 @@ export default function Index() {
         
         <TouchableOpacity 
           style={[styles.levelButton, { backgroundColor: '#3b82f6' }]} 
-          onPress={() => { setSelectedLevel('facil'); fetchRandomText('facil'); }}
+          onPress={() => handleLevelPress('facil')}
         >
           <Text style={styles.levelButtonText}>Nível 1 (Fácil)</Text>
           <Text style={styles.levelSubText}>{n1Full ? 'Mestre Alcançado! 🏆' : `Tarefas de hoje: ${levelProgress.nivel1_completos}/3`}</Text>
@@ -247,7 +297,7 @@ export default function Index() {
         <TouchableOpacity 
           style={[styles.levelButton, { backgroundColor: n2Unlocked ? '#10b981' : '#f3f4f6' }]} 
           disabled={!n2Unlocked}
-          onPress={() => { setSelectedLevel('medio'); fetchRandomText('medio'); }}
+          onPress={() => handleLevelPress('medio')}
         >
           <Text style={[styles.levelButtonText, { color: n2Unlocked ? '#fff' : '#9ca3af' }]}>
             {n2Unlocked ? 'Nível 2 (Médio)' : '🔒 Nível 2 (Médio)'}
@@ -263,7 +313,7 @@ export default function Index() {
         <TouchableOpacity 
           style={[styles.levelButton, { backgroundColor: n3Unlocked ? '#8b5cf6' : '#f3f4f6' }]} 
           disabled={!n3Unlocked}
-          onPress={() => { setSelectedLevel('dificil'); fetchRandomText('dificil'); }}
+          onPress={() => handleLevelPress('dificil')}
         >
           <Text style={[styles.levelButtonText, { color: n3Unlocked ? '#fff' : '#9ca3af' }]}>
             {n3Unlocked ? 'Nível 3 (Difícil)' : '🔒 Nível 3 (Difícil)'}
@@ -291,6 +341,12 @@ export default function Index() {
             <Ionicons name="person-circle" size={30} color="#374151" />
           </TouchableOpacity>
         </View>
+
+        {completionMessage ? (
+          <View style={styles.completionMessageBox}>
+            <Text style={styles.completionMessageText}>{completionMessage}</Text>
+          </View>
+        ) : null}
 
         <Text style={styles.timerText}>
           {formatTime(seconds)}
@@ -435,7 +491,20 @@ export default function Index() {
                 await incrementLevelProgress(diff);
                 const newProgress = await getLevelProgress();
                 setLevelProgress(newProgress);
-                fetchRandomText(diff, newProgress);
+
+                const nextLevel = getNextLevel(diff);
+                const currentLevelCompleted = isLevelComplete(newProgress, diff);
+
+                if (currentLevelCompleted && nextLevel) {
+                  setCompletionMessage(`Parabéns! Você concluiu o Nível ${getLevelNumber(diff)}. Agora siga para o Nível ${getLevelNumber(nextLevel)}.`);
+                  setSelectedLevel(nextLevel);
+                  fetchRandomText(nextLevel, newProgress);
+                } else if (currentLevelCompleted && !nextLevel) {
+                  setCompletionMessage(`Parabéns! Você concluiu o Nível ${getLevelNumber(diff)}. Todos os níveis foram concluídos!`);
+                  setSelectedLevel(null);
+                } else {
+                  fetchRandomText(diff, newProgress);
+                }
               }}>
                 <Text style={styles.nextPhraseButtonText}>Próxima Frase ➡️</Text>
               </TouchableOpacity>
@@ -675,6 +744,21 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 3,
     elevation: 2,
+  },
+  completionMessageBox: {
+    width: '100%',
+    backgroundColor: '#d1fae5',
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#10b981',
+    marginBottom: 20,
+  },
+  completionMessageText: {
+    color: '#064e3b',
+    fontSize: 15,
+    fontWeight: 'bold',
+    textAlign: 'center',
   },
   levelButtonText: {
     color: '#fff',

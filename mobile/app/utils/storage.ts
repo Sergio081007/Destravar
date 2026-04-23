@@ -73,6 +73,8 @@ export async function getProfileData() {
   }
 }
 
+const LEVEL_COMPLETE_THRESHOLD = 3;
+
 export async function getLevelProgress() {
   try {
     const progressStr = await AsyncStorage.getItem(STORAGE_KEYS.PROGRESS);
@@ -99,15 +101,15 @@ export async function incrementLevelProgress(dificuldade: string) {
     const progress = await getLevelProgress();
     const todayStr = new Date().toISOString();
     
-    if (dificuldade === 'facil' && progress.nivel1_completos < 6) {
+    if (dificuldade === 'facil' && progress.nivel1_completos < LEVEL_COMPLETE_THRESHOLD) {
       progress.nivel1_completos += 1;
-      if (progress.nivel1_completos === 6) progress.nivel1_completed_date = todayStr;
-    } else if (dificuldade === 'medio' && progress.nivel2_completos < 6) {
+      if (progress.nivel1_completos === LEVEL_COMPLETE_THRESHOLD) progress.nivel1_completed_date = todayStr;
+    } else if (dificuldade === 'medio' && progress.nivel2_completos < LEVEL_COMPLETE_THRESHOLD) {
       progress.nivel2_completos += 1;
-      if (progress.nivel2_completos === 6) progress.nivel2_completed_date = todayStr;
-    } else if (dificuldade === 'dificil' && progress.nivel3_completos < 6) {
+      if (progress.nivel2_completos === LEVEL_COMPLETE_THRESHOLD) progress.nivel2_completed_date = todayStr;
+    } else if (dificuldade === 'dificil' && progress.nivel3_completos < LEVEL_COMPLETE_THRESHOLD) {
       progress.nivel3_completos += 1;
-      if (progress.nivel3_completos === 6) progress.nivel3_completed_date = todayStr;
+      if (progress.nivel3_completos === LEVEL_COMPLETE_THRESHOLD) progress.nivel3_completed_date = todayStr;
     }
     
     await AsyncStorage.setItem(STORAGE_KEYS.PROGRESS, JSON.stringify(progress));
