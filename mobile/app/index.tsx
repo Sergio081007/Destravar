@@ -2,8 +2,11 @@ import { useState, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text, ScrollView } from 'react-native';
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
+import { Redirect } from 'expo-router';  // adiciona esse import
+
 
 export default function Index() {
+  return <Redirect href="/onboarding" />;
   const [permissionResponse, requestPermission] = Audio.usePermissions();
   const [isRecording, setIsRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
