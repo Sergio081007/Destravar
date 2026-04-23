@@ -1,4 +1,5 @@
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Query
+from app.db.service import fetch_text
 import tempfile
 import os
 import math
@@ -22,6 +23,20 @@ class ComparacaoRequest(BaseModel):
     texto_referencia: str
     texto_transcrito: str = ""  
 
+@router.get("/textos/aleatorio")
+async def obter_texto_aleatorio(
+    dificuldade: str = 'facil',
+    perfil: str = 'misto',
+    categoria: str = None,
+    foco: str = None,
+    ultimo_id: int = None
+):
+    texto = fetch_text(perfil, dificuldade, ultimo_id, categoria, foco)
+    if not texto:
+        texto = fetch_text('misto', dificuldade, ultimo_id, categoria, foco)
+    if not texto:
+        raise HTTPException(status_code=404, detail="Nenhum texto encontrado.")
+    return texto
 
 def normalizar(texto: str):
     # tudo minúsculo primeiro
