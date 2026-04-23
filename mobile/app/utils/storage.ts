@@ -3,7 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 export const STORAGE_KEYS = {
   TOTAL_XP: '@destravar_total_xp',
   STREAK: '@destravar_streak',
-  LAST_PRACTICE_DATE: '@destravar_last_practice_date'
+  LAST_PRACTICE_DATE: '@destravar_last_practice_date',
+  PROGRESS: '@destravar_progress'
 };
 
 export async function addXP(amount: number) {
@@ -69,5 +70,38 @@ export async function getProfileData() {
   } catch (error) {
     console.error("Erro ao buscar dados do perfil:", error);
     return { xp: 0, streak: 0 };
+  }
+}
+
+export async function getLevelProgress() {
+  try {
+    const progressStr = await AsyncStorage.getItem(STORAGE_KEYS.PROGRESS);
+    if (progressStr) {
+      return JSON.parse(progressStr);
+    }
+    return { nivel1_completos: 0, nivel2_completos: 0, nivel3_completos: 0 };
+  } catch (error) {
+    console.error("Erro ao buscar progresso dos níveis:", error);
+    return { nivel1_completos: 0, nivel2_completos: 0, nivel3_completos: 0 };
+  }
+}
+
+export async function incrementLevelProgress(dificuldade: string) {
+  try {
+    const progress = await getLevelProgress();
+    
+    if (dificuldade === 'facil') {
+      progress.nivel1_completos += 1;
+    } else if (dificuldade === 'medio') {
+      progress.nivel2_completos += 1;
+    } else if (dificuldade === 'dificil') {
+      progress.nivel3_completos += 1;
+    }
+    
+    await AsyncStorage.setItem(STORAGE_KEYS.PROGRESS, JSON.stringify(progress));
+    return progress;
+  } catch (error) {
+    console.error("Erro ao incrementar progresso:", error);
+    return null;
   }
 }

@@ -4,7 +4,7 @@ import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { calcularXP } from './utils/calcularXP';
 import { useRouter } from 'expo-router';
-import { addXP, updateStreak } from './utils/storage';
+import { addXP, updateStreak, getLevelProgress, incrementLevelProgress } from './utils/storage';
 
 export default function Index() {
   const router = useRouter();
@@ -18,10 +18,22 @@ export default function Index() {
   const [textoTreino, setTextoTreino] = useState("Carregando frase...");
   const [textoTitulo, setTextoTitulo] = useState("Frase do Treino");
   const [currentPhraseData, setCurrentPhraseData] = useState<any>(null);
+  
+  const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
+  const [levelProgress, setLevelProgress] = useState({ nivel1_completos: 0, nivel2_completos: 0, nivel3_completos: 0 });
 
-  const fetchRandomText = async () => {
+  useEffect(() => {
+    async function loadProgress() {
+      const progress = await getLevelProgress();
+      setLevelProgress(progress);
+    }
+    loadProgress();
+  }, [selectedLevel]);
+
+  const fetchRandomText = async (dificuldade?: string) => {
+    const diff = dificuldade || selectedLevel || 'facil';
     try {
-      const res = await fetch('https://proud-owls-make.loca.lt/textos/aleatorio', {
+      const res = await fetch(`https://proud-owls-make.loca.lt/textos/aleatorio?dificuldade=${diff}`, {
         headers: { 'Bypass-Tunnel-Reminder': 'true' }
       });
       if (res.ok) {
@@ -43,10 +55,6 @@ export default function Index() {
     setTranscriptionResult(null);
     setSeconds(0);
   };
-
-  useEffect(() => {
-    fetchRandomText();
-  }, []);
 
   useEffect(() => {
     async function askForPermission() {
@@ -186,13 +194,70 @@ export default function Index() {
     return `${minutesString}:${secondsString}`; // Para formatar minutos e segundos como MM:SS
   };
 
-  return (
-    <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
-      <ScrollView contentContainerStyle={styles.container}>
-        <TouchableOpacity style={styles.profileButton} onPress={() => router.push('/profile')}>
+  if (!selectedLevel) {
+    const n2Unlocked = levelProgress.nivel1_completos >= 3;
+    const n3Unlocked = levelProgress.nivel2_completos >= 5;
+
+    return (
+      <View style={{ flex: 1, backgroundColor: '#FFFFFF', padding: 20, paddingTop: 60 }}>
+        <TouchableOpacity style={[styles.profileButton, { alignSelf: 'flex-end', marginBottom: 20 }]} onPress={() => router.push('/profile')}>
           <Ionicons name="person-circle" size={40} color="#374151" />
           <Text style={styles.profileButtonText}>Meu Perfil</Text>
         </TouchableOpacity>
+
+        <Text style={{ fontSize: 24, fontWeight: 'bold', marginBottom: 30, textAlign: 'center', color: '#1f2937' }}>
+          Selecione um Nível
+        </Text>
+        
+        <TouchableOpacity 
+          style={[styles.levelButton, { backgroundColor: '#3b82f6' }]} 
+          onPress={() => { setSelectedLevel('facil'); fetchRandomText('facil'); }}
+        >
+          <Text style={styles.levelButtonText}>Nível 1 (Fácil)</Text>
+          <Text style={styles.levelSubText}>Completos: {levelProgress.nivel1_completos}</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.levelButton, { backgroundColor: n2Unlocked ? '#10b981' : '#f3f4f6' }]} 
+          disabled={!n2Unlocked}
+          onPress={() => { setSelectedLevel('medio'); fetchRandomText('medio'); }}
+        >
+          <Text style={[styles.levelButtonText, { color: n2Unlocked ? '#fff' : '#9ca3af' }]}>
+            {n2Unlocked ? 'Nível 2 (Médio)' : '🔒 Nível 2 (Médio)'}
+          </Text>
+          <Text style={[styles.levelSubText, { color: n2Unlocked ? '#fff' : '#9ca3af' }]}>
+            {n2Unlocked ? `Completos: ${levelProgress.nivel2_completos}` : 'Complete 3 exercícios do Nível 1'}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.levelButton, { backgroundColor: n3Unlocked ? '#8b5cf6' : '#f3f4f6' }]} 
+          disabled={!n3Unlocked}
+          onPress={() => { setSelectedLevel('dificil'); fetchRandomText('dificil'); }}
+        >
+          <Text style={[styles.levelButtonText, { color: n3Unlocked ? '#fff' : '#9ca3af' }]}>
+            {n3Unlocked ? 'Nível 3 (Difícil)' : '🔒 Nível 3 (Difícil)'}
+          </Text>
+          <Text style={[styles.levelSubText, { color: n3Unlocked ? '#fff' : '#9ca3af' }]}>
+            {n3Unlocked ? `Completos: ${levelProgress.nivel3_completos}` : 'Complete 5 exercícios do Nível 2'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', width: '100%', marginBottom: 20 }}>
+          <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => setSelectedLevel(null)}>
+            <Ionicons name="arrow-back" size={24} color="#3b82f6" />
+            <Text style={{ color: '#3b82f6', marginLeft: 5, fontWeight: 'bold' }}>Voltar</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} onPress={() => router.push('/profile')}>
+            <Ionicons name="person-circle" size={30} color="#374151" />
+          </TouchableOpacity>
+        </View>
 
         <Text style={styles.timerText}>
           {formatTime(seconds)}
@@ -323,7 +388,10 @@ export default function Index() {
             }
 
             return passed ? (
-              <TouchableOpacity style={styles.nextPhraseButton} onPress={fetchRandomText}>
+              <TouchableOpacity style={styles.nextPhraseButton} onPress={async () => {
+                await incrementLevelProgress(diff);
+                fetchRandomText();
+              }}>
                 <Text style={styles.nextPhraseButtonText}>Próxima Frase ➡️</Text>
               </TouchableOpacity>
             ) : (
@@ -543,5 +611,28 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: 'bold',
     fontSize: 16,
+  },
+  levelButton: {
+    padding: 20,
+    borderRadius: 12,
+    marginBottom: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  levelButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 20,
+    marginBottom: 5,
+  },
+  levelSubText: {
+    color: '#fff',
+    fontSize: 14,
+    opacity: 0.9,
   }
 });

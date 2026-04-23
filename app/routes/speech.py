@@ -26,7 +26,7 @@ class ComparacaoRequest(BaseModel):
 
 
 @router.get("/textos/aleatorio")
-async def obter_texto_aleatorio():
+async def obter_texto_aleatorio(dificuldade: str = None):
     # Caminho do arquivo JSON
     caminho_json = os.path.join(os.path.dirname(__file__), "..", "..", "data", "textos", "textos-treinamento.json")
     try:
@@ -36,8 +36,11 @@ async def obter_texto_aleatorio():
         # Junta textos normais e trava-línguas em uma única lista para sorteio
         todos_os_textos = dados.get("textos", []) + dados.get("trava_linguas", [])
         
+        if dificuldade:
+            todos_os_textos = [t for t in todos_os_textos if t.get("dificuldade") == dificuldade]
+            
         if not todos_os_textos:
-            raise HTTPException(status_code=404, detail="Nenhum texto encontrado no banco de dados.")
+            raise HTTPException(status_code=404, detail="Nenhum texto encontrado com os filtros especificados.")
             
         texto_sorteado = random.choice(todos_os_textos)
         return texto_sorteado
