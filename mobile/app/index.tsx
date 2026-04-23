@@ -20,7 +20,8 @@ export default function Index() {
   const [currentPhraseData, setCurrentPhraseData] = useState<any>(null);
   
   const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
-  const [levelProgress, setLevelProgress] = useState({ nivel1_completos: 0, nivel2_completos: 0, nivel3_completos: 0 });
+  const [levelProgress, setLevelProgress] = useState<any>({ nivel1_completos: 0, nivel2_completos: 0, nivel3_completos: 0 });
+  const [needsToRecord, setNeedsToRecord] = useState(false);
 
   useEffect(() => {
     async function loadProgress() {
@@ -43,6 +44,7 @@ export default function Index() {
         setCurrentPhraseData(data);
         setTranscriptionResult(null);
         setSeconds(0);
+        setNeedsToRecord(false);
       }
     } catch (e) {
       console.error(e);
@@ -54,6 +56,7 @@ export default function Index() {
   const handleRetry = () => {
     setTranscriptionResult(null);
     setSeconds(0);
+    setNeedsToRecord(true);
   };
 
   useEffect(() => {
@@ -100,6 +103,7 @@ export default function Index() {
         
         setRecording(newRecording);
         setIsRecording(true);
+        setNeedsToRecord(false);
         setTranscriptionResult(null); // Limpar resultado anterior
       } catch (err) {
         console.error('Failed to start recording', err);
@@ -195,8 +199,28 @@ export default function Index() {
   };
 
   if (!selectedLevel) {
-    const n2Unlocked = levelProgress.nivel1_completos >= 3;
-    const n3Unlocked = levelProgress.nivel2_completos >= 5;
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    
+    let isNextDay1 = false;
+    if (levelProgress.nivel1_completed_date) {
+      const d1 = new Date(levelProgress.nivel1_completed_date);
+      d1.setHours(0,0,0,0);
+      isNextDay1 = today.getTime() > d1.getTime();
+    }
+
+    let isNextDay2 = false;
+    if (levelProgress.nivel2_completed_date) {
+      const d2 = new Date(levelProgress.nivel2_completed_date);
+      d2.setHours(0,0,0,0);
+      isNextDay2 = today.getTime() > d2.getTime();
+    }
+
+    const n2Unlocked = levelProgress.nivel1_completos >= 3 && isNextDay1;
+    const n3Unlocked = levelProgress.nivel2_completos >= 3 && isNextDay2;
+    
+    const n1Full = levelProgress.nivel1_completos >= 3;
+    const n2Full = levelProgress.nivel2_completos >= 3;
 
     return (
       <View style={{ flex: 1, backgroundColor: '#FFFFFF', padding: 20, paddingTop: 60 }}>
@@ -214,7 +238,10 @@ export default function Index() {
           onPress={() => { setSelectedLevel('facil'); fetchRandomText('facil'); }}
         >
           <Text style={styles.levelButtonText}>Nível 1 (Fácil)</Text>
-          <Text style={styles.levelSubText}>Completos: {levelProgress.nivel1_completos}</Text>
+          <Text style={styles.levelSubText}>{n1Full && isNextDay1 ? 'Pronto para mais um dia!' : (n1Full ? 'Mestre Alcançado! 🏆' : `Tarefas de hoje: ${levelProgress.nivel1_completos}/6`)}</Text>
+          <View style={{width: '100%', height: 6, backgroundColor: 'rgba(255,255,255,0.3)', borderRadius: 3, marginTop: 10}}>
+            <View style={{width: `${(Math.min(levelProgress.nivel1_completos, 6) / 6) * 100}%`, height: '100%', backgroundColor: '#fff', borderRadius: 3}} />
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity 
@@ -226,8 +253,11 @@ export default function Index() {
             {n2Unlocked ? 'Nível 2 (Médio)' : '🔒 Nível 2 (Médio)'}
           </Text>
           <Text style={[styles.levelSubText, { color: n2Unlocked ? '#fff' : '#9ca3af' }]}>
-            {n2Unlocked ? `Completos: ${levelProgress.nivel2_completos}` : 'Complete 3 exercícios do Nível 1'}
+            {n2Unlocked ? (n2Full && isNextDay2 ? 'Pronto para mais um dia!' : (n2Full ? 'Mestre Alcançado! 🏆' : `Tarefas de hoje: ${levelProgress.nivel2_completos}/6`)) : (n1Full && !isNextDay1 ? '⏳ Desbloqueia amanhã' : 'Complete 6 tarefas do Nível 1')}
           </Text>
+          <View style={{width: '100%', height: 6, backgroundColor: n2Unlocked ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.1)', borderRadius: 3, marginTop: 10}}>
+            <View style={{width: `${(Math.min(levelProgress.nivel2_completos, 6) / 6) * 100}%`, height: '100%', backgroundColor: n2Unlocked ? '#fff' : '#9ca3af', borderRadius: 3}} />
+          </View>
         </TouchableOpacity>
 
         <TouchableOpacity 
@@ -239,8 +269,11 @@ export default function Index() {
             {n3Unlocked ? 'Nível 3 (Difícil)' : '🔒 Nível 3 (Difícil)'}
           </Text>
           <Text style={[styles.levelSubText, { color: n3Unlocked ? '#fff' : '#9ca3af' }]}>
-            {n3Unlocked ? `Completos: ${levelProgress.nivel3_completos}` : 'Complete 5 exercícios do Nível 2'}
+            {n3Unlocked ? `Tarefas de hoje: ${levelProgress.nivel3_completos}/6` : (n2Full && !isNextDay2 ? '⏳ Desbloqueia amanhã' : 'Complete 6 tarefas do Nível 2')}
           </Text>
+          <View style={{width: '100%', height: 6, backgroundColor: n3Unlocked ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.1)', borderRadius: 3, marginTop: 10}}>
+            <View style={{width: `${(Math.min(levelProgress.nivel3_completos, 6) / 6) * 100}%`, height: '100%', backgroundColor: n3Unlocked ? '#fff' : '#9ca3af', borderRadius: 3}} />
+          </View>
         </TouchableOpacity>
       </View>
     );
@@ -270,9 +303,19 @@ export default function Index() {
         "{textoTreino}"
       </Text>
 
+      {needsToRecord && !isRecording && (
+        <Text style={{ color: '#f59e0b', fontSize: 16, fontWeight: 'bold', textAlign: 'center', marginTop: 15, marginBottom: -5 }}>
+          👇 Aperte aqui para tentar de novo!
+        </Text>
+      )}
+
       <View style={styles.controlsContainer}>
         <TouchableOpacity
-          style={[styles.recordButton, isRecording && styles.recordButtonActive]}
+          style={[
+            styles.recordButton, 
+            isRecording && styles.recordButtonActive, 
+            needsToRecord && !isRecording && { backgroundColor: '#f59e0b', borderWidth: 4, borderColor: '#fcd34d', transform: [{ scale: 1.1 }] }
+          ]}
           onPress={handleRecordPress}
           disabled={isRecording}
           accessibilityLabel="Iniciar gravação"

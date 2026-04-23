@@ -79,23 +79,35 @@ export async function getLevelProgress() {
     if (progressStr) {
       return JSON.parse(progressStr);
     }
-    return { nivel1_completos: 0, nivel2_completos: 0, nivel3_completos: 0 };
+    return { 
+      nivel1_completos: 0, nivel1_completed_date: null,
+      nivel2_completos: 0, nivel2_completed_date: null,
+      nivel3_completos: 0, nivel3_completed_date: null
+    };
   } catch (error) {
     console.error("Erro ao buscar progresso dos níveis:", error);
-    return { nivel1_completos: 0, nivel2_completos: 0, nivel3_completos: 0 };
+    return { 
+      nivel1_completos: 0, nivel1_completed_date: null,
+      nivel2_completos: 0, nivel2_completed_date: null,
+      nivel3_completos: 0, nivel3_completed_date: null
+    };
   }
 }
 
 export async function incrementLevelProgress(dificuldade: string) {
   try {
     const progress = await getLevelProgress();
+    const todayStr = new Date().toISOString();
     
-    if (dificuldade === 'facil') {
+    if (dificuldade === 'facil' && progress.nivel1_completos < 6) {
       progress.nivel1_completos += 1;
-    } else if (dificuldade === 'medio') {
+      if (progress.nivel1_completos === 6) progress.nivel1_completed_date = todayStr;
+    } else if (dificuldade === 'medio' && progress.nivel2_completos < 6) {
       progress.nivel2_completos += 1;
-    } else if (dificuldade === 'dificil') {
+      if (progress.nivel2_completos === 6) progress.nivel2_completed_date = todayStr;
+    } else if (dificuldade === 'dificil' && progress.nivel3_completos < 6) {
       progress.nivel3_completos += 1;
+      if (progress.nivel3_completos === 6) progress.nivel3_completed_date = todayStr;
     }
     
     await AsyncStorage.setItem(STORAGE_KEYS.PROGRESS, JSON.stringify(progress));
