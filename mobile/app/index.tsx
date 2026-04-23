@@ -17,6 +17,7 @@ export default function Index() {
   
   const [textoTreino, setTextoTreino] = useState("Carregando frase...");
   const [textoTitulo, setTextoTitulo] = useState("Frase do Treino");
+  const [currentPhraseData, setCurrentPhraseData] = useState<any>(null);
 
   const fetchRandomText = async () => {
     try {
@@ -27,6 +28,7 @@ export default function Index() {
         const data = await res.json();
         setTextoTreino(data.conteudo);
         setTextoTitulo(data.titulo);
+        setCurrentPhraseData(data);
         setTranscriptionResult(null);
         setSeconds(0);
       }
@@ -35,6 +37,11 @@ export default function Index() {
       setTextoTreino("O rato roeu a roupa do rei de Roma.");
       setTextoTitulo("Trava-língua Clássico");
     }
+  };
+
+  const handleRetry = () => {
+    setTranscriptionResult(null);
+    setSeconds(0);
   };
 
   useEffect(() => {
@@ -283,9 +290,53 @@ export default function Index() {
             <Text style={styles.aiText}>{transcriptionResult.feedback_fono}</Text>
           </View>
           
-          <TouchableOpacity style={styles.nextPhraseButton} onPress={fetchRandomText}>
-            <Text style={styles.nextPhraseButtonText}>Próxima Frase 🔄</Text>
-          </TouchableOpacity>
+          {(() => {
+            const accuracy = transcriptionResult.score !== undefined ? (transcriptionResult.score * 100) : (transcriptionResult.precisao_alvo || 0);
+            const wpm = transcriptionResult.wpm || 0;
+            const hesitacoes = transcriptionResult.hesitacoes ? transcriptionResult.hesitacoes.length : 0;
+            const diff = currentPhraseData?.dificuldade || 'facil';
+
+            let passed = false;
+            let failMessage = "";
+
+            if (diff === 'facil') {
+              if (accuracy >= 80 && wpm >= 100 && wpm <= 150) {
+                passed = true;
+              } else {
+                failMessage = accuracy < 80 ? "Você precisa de 80% de precisão." : `Seu ritmo (WPM) está ${wpm < 100 ? 'muito lento' : 'muito rápido'}, mantenha entre 100 e 150.`;
+              }
+            } else if (diff === 'medio') {
+              if (accuracy >= 85 && hesitacoes === 0) {
+                passed = true;
+              } else {
+                failMessage = accuracy < 85 ? "Você precisa de 85% de precisão no nível médio." : "Tente novamente sem pausas ou hesitações.";
+              }
+            } else if (diff === 'dificil') {
+              if (accuracy >= 90) {
+                passed = true;
+              } else {
+                failMessage = "No nível difícil, você precisa de 90% de precisão de primeira!";
+              }
+            } else {
+              passed = accuracy >= 80;
+              failMessage = "Você precisa de pelo menos 80% de precisão para avançar!";
+            }
+
+            return passed ? (
+              <TouchableOpacity style={styles.nextPhraseButton} onPress={fetchRandomText}>
+                <Text style={styles.nextPhraseButtonText}>Próxima Frase ➡️</Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={{ alignItems: 'center', marginTop: 15 }}>
+                <Text style={{ color: '#ef4444', fontSize: 13, fontWeight: 'bold', marginBottom: 5, textAlign: 'center' }}>
+                  ⚠️ {failMessage}
+                </Text>
+                <TouchableOpacity style={[styles.nextPhraseButton, { backgroundColor: '#f59e0b', marginTop: 5, width: '100%' }]} onPress={handleRetry}>
+                  <Text style={styles.nextPhraseButtonText}>Tentar Novamente 🔄</Text>
+                </TouchableOpacity>
+              </View>
+            );
+          })()}
         </View>
       )}
     </ScrollView>
