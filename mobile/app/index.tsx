@@ -56,9 +56,21 @@ export default function Index() {
     return progress.nivel3_completos >= 3;
   };
 
+  const resetExerciseState = () => {
+    setTextoTreino('Carregando frase...');
+    setTextoTitulo('Frase do Treino');
+    setCurrentPhraseData(null);
+    setTranscriptionResult(null);
+    setSeconds(0);
+    setNeedsToRecord(false);
+    setIsRecording(false);
+  };
+
   const handleLevelPress = async (dificuldade: string) => {
     const nextLevel = getNextLevel(dificuldade);
     const alreadyComplete = isLevelComplete(levelProgress, dificuldade);
+
+    resetExerciseState();
 
     if (alreadyComplete) {
       if (nextLevel) {
@@ -78,6 +90,12 @@ export default function Index() {
   const fetchRandomText = async (dificuldade?: string, latestProgress?: any) => {
     const diff = dificuldade || selectedLevel || 'facil';
     const progressToUse = latestProgress || levelProgress;
+    setTextoTreino('Carregando frase...');
+    setTextoTitulo('Carregando...');
+    setCurrentPhraseData(null);
+    setTranscriptionResult(null);
+    setSeconds(0);
+    setNeedsToRecord(false);
     
     let completed = 0;
     if (diff === 'facil') completed = progressToUse.nivel1_completos || 0;
@@ -109,8 +127,11 @@ export default function Index() {
       }
     } catch (e) {
       console.error(e);
-      setTextoTreino("O rato roeu a roupa do rei de Roma.");
-      setTextoTitulo("Trava-língua Clássico");
+      setTextoTreino('O rato roeu a roupa do rei de Roma.');
+      setTextoTitulo('Trava-língua Clássico');
+      setCurrentPhraseData({ dificuldade: diff });
+      setTranscriptionResult(null);
+      setNeedsToRecord(false);
     }
   };
 
