@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, Text, ScrollView } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Text, ScrollView, ActivityIndicator } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { Redirect, useRouter } from 'expo-router';
@@ -7,9 +8,11 @@ import { calcularXP } from './utils/calcularXP';
 import { addXP, updateStreak, getLevelProgress, incrementLevelProgress } from './utils/storage';
 
 export default function Index() {
-  // Descomente a linha abaixo caso queira testar a tela de onboarding direto:
-  // return <Redirect href="/onboarding" />;
   const router = useRouter();
+  
+  const [isAppReady, setIsAppReady] = useState(false);
+  const [needsOnboarding, setNeedsOnboarding] = useState(true);
+
   const [permissionResponse, requestPermission] = Audio.usePermissions();
   const [isRecording, setIsRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
@@ -27,6 +30,24 @@ export default function Index() {
   const [needsToRecord, setNeedsToRecord] = useState(false);
 
   useEffect(() => {
+    async function checkOnboarding() {
+      try {
+        const completed = await AsyncStorage.getItem('hasCompletedOnboarding');
+        if (completed === 'true') {
+          setNeedsOnboarding(false);
+        }
+      } catch (e) {
+        console.log(e);
+      } finally {
+        setIsAppReady(true);
+      }
+    }
+    checkOnboarding();
+  }, []);
+
+  useEffect(() => {
+    if (needsOnboarding || !isAppReady) return; // Só carrega se não precisar do onboarding
+
     async function loadProgress() {
       const progress = await getLevelProgress();
       setLevelProgress(progress);
@@ -287,6 +308,14 @@ export default function Index() {
 
     return `${minutesString}:${secondsString}`; // Para formatar minutos e segundos como MM:SS
   };
+
+  if (!isAppReady) {
+    return <ActivityIndicator style={{ flex: 1, justifyContent: 'center' }} size="large" color="#3b82f6" />;
+  }
+
+  if (needsOnboarding) {
+    return <Redirect href="/board screens/ConhecerScreen" />;
+  }
 
   if (!selectedLevel) {
     const n2Unlocked = levelProgress.nivel1_completos >= 3;

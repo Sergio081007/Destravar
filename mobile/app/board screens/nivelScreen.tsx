@@ -2,8 +2,10 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView } from 'react-native';
 import LottieView from 'lottie-react-native';
 import { useFonts } from 'expo-font';
+import { useRouter } from 'expo-router';
 
 export default function NivelScreen() {
+  const router = useRouter();
   const [fontsLoaded] = useFonts({
     'Fredoka-Destaque': require('../../assets/fonts/Fredoka-Bold.ttf'),
     'Nunito-Corpo': require('../../assets/fonts/Nunito-Regular.ttf'),
@@ -36,7 +38,7 @@ export default function NivelScreen() {
         {/* Botão de Começar - Estilo Duolingo/Lúdico */}
         <TouchableOpacity 
           style={styles.button}
-          onPress={() => console.log("Iniciar diagnóstico")}
+          onPress={() => router.push('/board screens/teste_para_nivel')}
         >
           <Text style={styles.buttonText}>COMEÇAR</Text>
           {/* Efeito de sombra interna/borda inferior do botão */}

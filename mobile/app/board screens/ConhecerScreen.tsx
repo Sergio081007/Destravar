@@ -12,8 +12,10 @@ import {
 } from 'react-native';
 import LottieView from 'lottie-react-native';
 import { useFonts } from 'expo-font';
+import { useRouter } from 'expo-router';
 
 export default function ConhecerScreen() {
+  const router = useRouter();
   const [nome, setNome] = useState('');
   const [mostrarBoasVindas, setMostrarBoasVindas] = useState(false);
   
@@ -85,7 +87,7 @@ export default function ConhecerScreen() {
             style={styles.characterAnimation}
           />
 
-          {!mostrarBoasVindas && (
+          {!mostrarBoasVindas ? (
             <TouchableOpacity 
               style={[
                 styles.button, 
@@ -99,6 +101,15 @@ export default function ConhecerScreen() {
                 { color: nome.trim().length > 0 ? '#FFF' : '#AFAFAF' }
               ]}>
                 CONTINUAR
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity 
+              style={[styles.button, { backgroundColor: '#1CB0F6' }]}
+              onPress={() => router.push('/board screens/onboarding')}
+            >
+              <Text style={[styles.buttonText, { color: '#FFF' }]}>
+                AVANÇAR
               </Text>
             </TouchableOpacity>
           )}

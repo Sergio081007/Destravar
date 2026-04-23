@@ -1,8 +1,22 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, SafeAreaView, StatusBar } from 'react-native';
 import LottieView from 'lottie-react-native';
+import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ResultadoTesteScreen() {
+  const router = useRouter();
+
+  const handleFinishOnboarding = async () => {
+    try {
+      await AsyncStorage.setItem('hasCompletedOnboarding', 'true');
+      router.replace('/');
+    } catch (e) {
+      console.error(e);
+      // Fallback
+      router.replace('/');
+    }
+  };
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" />
@@ -37,7 +51,11 @@ export default function ResultadoTesteScreen() {
         </View>
 
         {/* 4. Botão de Ação (Amarelo para contraste máximo) */}
-        <TouchableOpacity style={styles.button} activeOpacity={0.8}>
+        <TouchableOpacity 
+          style={styles.button} 
+          activeOpacity={0.8}
+          onPress={handleFinishOnboarding}
+        >
           <Text style={styles.buttonText}>VER MINHA TRILHA</Text>
           <View style={styles.buttonShadow} />
         </TouchableOpacity>

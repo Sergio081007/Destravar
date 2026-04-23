@@ -2,8 +2,11 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import LottieView from 'lottie-react-native';
 import { useFonts } from 'expo-font';
+import { useRouter } from 'expo-router';
+import { TouchableOpacity } from 'react-native';
 
 export default function OnboardingScreen() {
+  const router = useRouter();
   // 1. Carregamos as duas fontes simultaneamente
   const [fontsLoaded] = useFonts({
     'Fredoka-Destaque': require('../../assets/fonts/Fredoka-Bold.ttf'),
@@ -33,6 +36,13 @@ export default function OnboardingScreen() {
           O aplicativo mais divertido para distúrbios de fluência
         </Text>
       </View>
+
+      <TouchableOpacity 
+        style={styles.button}
+        onPress={() => router.push('/board screens/nivelScreen')}
+      >
+        <Text style={styles.buttonText}>PRÓXIMO</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -65,5 +75,19 @@ const styles = StyleSheet.create({
     color: '#777',
     textAlign: 'center',
     lineHeight: 24,
+  },
+  button: {
+    backgroundColor: '#1CB0F6',
+    width: '80%',
+    height: 50,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 40,
+  },
+  buttonText: {
+    fontFamily: 'Fredoka-Destaque',
+    fontSize: 16,
+    color: '#FFF',
   },
 });

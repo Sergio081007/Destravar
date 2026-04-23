@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator, Animated } from 'react-native';
 import LottieView from 'lottie-react-native';
+import { useRouter } from 'expo-router';
 
 export default function NivelamentoFluxo() {
+  const router = useRouter();
   const [passo, setPasso] = useState(1); // Controla se é o exercício 1, 2 ou 3
   const [textoDados, setTextoDados] = useState(null);
   const [carregando, setCarregando] = useState(true);
@@ -36,7 +38,7 @@ export default function NivelamentoFluxo() {
       setPasso(passo + 1);
     } else {
       // Se for o último, navega para a tela de Resultado que fizemos antes
-      console.log("Navegar para Resultado");
+      router.push('/board screens/resultado_do_teste');
     }
   };
 
