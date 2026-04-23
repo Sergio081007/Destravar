@@ -8,21 +8,24 @@
 
 Antes de qualquer chamada ao service, garanta que:
 
-**1. O banco está rodando**
-- Abra o MySQL Workbench e confirme que a conexão WSL está ativa
-
-**2. O ambiente virtual está ativo**
+**1. O ambiente virtual está ativo**
 ```bash
 cd Destravar
 source venv/bin/activate
 ```
 
-**3. As dependências estão instaladas**
+**2. As dependências estão instaladas**
 ```bash
 pip install -r requirements.txt
 ```
 
+**3. Popular o banco pela primeira vez**
+```bash
+cd app/db
+python seed.py
+```
 ---
+> O banco é um arquivo local `app/db/destravar.db` — não precisa de servidor, Workbench ou senha.
 
 ## 🔌 Como requisitar um texto
 
@@ -41,7 +44,7 @@ fetch_text(perfil, dificuldade, ultimo_id=None)
 | Parâmetro | Tipo | Valores aceitos | Obrigatório |
 |-----------|------|-----------------|-------------|
 | `perfil` | string | `gagueira`, `fala_rapida`, `misto` | ✅ |
-| `dificuldade` | string | `facil`, `medio`, `dificil` | ❌ |
+| `dificuldade` | string | `facil`, `medio`, `dificil` | ✅ |
 | `ultimo_id` | int | ID do último texto exibido | ❌ |
 
 ---
@@ -120,4 +123,4 @@ else:
 
 ## ❓ Dúvidas
 
-Fala com o **Luciana* para qualquer dúvida sobre o service ou o banco de dados.
+Fala com o **Luciana** para qualquer dúvida sobre o service ou o banco de dados.
