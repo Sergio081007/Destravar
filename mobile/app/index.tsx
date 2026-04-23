@@ -3,8 +3,11 @@ import { View, StyleSheet, TouchableOpacity, Text, ScrollView } from 'react-nati
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { calcularXP } from './utils/calcularXP';
+import { useRouter } from 'expo-router';
+import { addXP, updateStreak } from './utils/storage';
 
 export default function Index() {
+  const router = useRouter();
   const [permissionResponse, requestPermission] = Audio.usePermissions();
   const [isRecording, setIsRecording] = useState(false);
   const [seconds, setSeconds] = useState(0);
@@ -96,12 +99,18 @@ export default function Index() {
         else if (data.fluencia === 'normal') numFluencia = 85;
         else if (data.fluencia === 'lento') numFluencia = 65;
 
-        data.xpGanho = calcularXP({
+        const finalXP = calcularXP({
           fluencia: numFluencia,
           taxaAcerto: data.score !== undefined ? (data.score * 100) : (data.precisao_alvo || 0),
           wpm: data.wpm,
           meta: { wpmMin: 130, wpmMax: 160 }
         });
+        
+        data.xpGanho = finalXP;
+        
+        // Salvar XP e Streak no banco local do celular em segundo plano
+        await addXP(finalXP);
+        await updateStreak();
         
         setTranscriptionResult(data);
       } else {
@@ -148,10 +157,16 @@ export default function Index() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.timerText}>
-        {formatTime(seconds)}
-      </Text>
+    <View style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
+      <ScrollView contentContainerStyle={styles.container}>
+        <TouchableOpacity style={styles.profileButton} onPress={() => router.push('/profile')}>
+          <Ionicons name="person-circle" size={40} color="#374151" />
+          <Text style={styles.profileButtonText}>Meu Perfil</Text>
+        </TouchableOpacity>
+
+        <Text style={styles.timerText}>
+          {formatTime(seconds)}
+        </Text>
       
       <Text style={styles.targetTextTitle}>
         Frase do Treino:
@@ -247,6 +262,7 @@ export default function Index() {
         </View>
       )}
     </ScrollView>
+    </View>
   );
 }
 
@@ -264,7 +280,20 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 50,
+    paddingVertical: 80,
+  },
+  profileButton: {
+    position: 'absolute',
+    top: 50,
+    right: 25,
+    alignItems: 'center',
+    zIndex: 10,
+  },
+  profileButtonText: {
+    fontSize: 12,
+    color: '#374151',
+    fontWeight: 'bold',
+    marginTop: 2,
   },
   controlsContainer: {
     flexDirection: 'row',
