@@ -15,8 +15,31 @@ export default function Index() {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [transcriptionResult, setTranscriptionResult] = useState<any>(null);
   
-  // O texto alvo do exercício atual
-  const textoTreino = "O rato roeu a roupa do rei de Roma";
+  const [textoTreino, setTextoTreino] = useState("Carregando frase...");
+  const [textoTitulo, setTextoTitulo] = useState("Frase do Treino");
+
+  const fetchRandomText = async () => {
+    try {
+      const res = await fetch('https://proud-owls-make.loca.lt/textos/aleatorio', {
+        headers: { 'Bypass-Tunnel-Reminder': 'true' }
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setTextoTreino(data.conteudo);
+        setTextoTitulo(data.titulo);
+        setTranscriptionResult(null);
+        setSeconds(0);
+      }
+    } catch (e) {
+      console.error(e);
+      setTextoTreino("O rato roeu a roupa do rei de Roma.");
+      setTextoTitulo("Trava-língua Clássico");
+    }
+  };
+
+  useEffect(() => {
+    fetchRandomText();
+  }, []);
 
   useEffect(() => {
     async function askForPermission() {
@@ -169,7 +192,7 @@ export default function Index() {
         </Text>
       
       <Text style={styles.targetTextTitle}>
-        Frase do Treino:
+        {textoTitulo.toUpperCase()}:
       </Text>
       <Text style={styles.targetText}>
         "{textoTreino}"
@@ -259,6 +282,10 @@ export default function Index() {
             <Text style={styles.aiTitle}>🧠 Feedback</Text>
             <Text style={styles.aiText}>{transcriptionResult.feedback_fono}</Text>
           </View>
+          
+          <TouchableOpacity style={styles.nextPhraseButton} onPress={fetchRandomText}>
+            <Text style={styles.nextPhraseButtonText}>Próxima Frase 🔄</Text>
+          </TouchableOpacity>
         </View>
       )}
     </ScrollView>
@@ -448,5 +475,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#164e63',
     lineHeight: 20,
+  },
+  nextPhraseButton: {
+    backgroundColor: '#3b82f6',
+    padding: 15,
+    borderRadius: 8,
+    marginTop: 20,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3,
+    elevation: 2,
+  },
+  nextPhraseButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
   }
 });

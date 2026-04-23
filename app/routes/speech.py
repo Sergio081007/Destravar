@@ -5,6 +5,8 @@ import math
 import re
 import difflib
 import unicodedata
+import json
+import random
 from groq import Groq
 from difflib import SequenceMatcher
 from pydantic import BaseModel
@@ -22,6 +24,27 @@ class ComparacaoRequest(BaseModel):
     texto_referencia: str
     texto_transcrito: str = ""  
 
+
+@router.get("/textos/aleatorio")
+async def obter_texto_aleatorio():
+    # Caminho do arquivo JSON
+    caminho_json = os.path.join(os.path.dirname(__file__), "..", "..", "data", "textos", "textos-treinamento.json")
+    try:
+        with open(caminho_json, "r", encoding="utf-8") as f:
+            dados = json.load(f)
+            
+        # Junta textos normais e trava-línguas em uma única lista para sorteio
+        todos_os_textos = dados.get("textos", []) + dados.get("trava_linguas", [])
+        
+        if not todos_os_textos:
+            raise HTTPException(status_code=404, detail="Nenhum texto encontrado no banco de dados.")
+            
+        texto_sorteado = random.choice(todos_os_textos)
+        return texto_sorteado
+    except FileNotFoundError:
+        raise HTTPException(status_code=500, detail="Arquivo de textos não encontrado.")
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=500, detail="Erro ao ler o arquivo de textos.")
 
 def normalizar(texto: str):
     # tudo minúsculo primeiro
