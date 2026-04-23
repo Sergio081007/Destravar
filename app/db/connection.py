@@ -1,9 +1,9 @@
-import mysql.connector
+import sqlite3
+import os
+
+DB_PATH = os.path.join(os.path.dirname(__file__), 'destravar.db')
 
 def get_connection():
-    return mysql.connector.connect(
-        host="localhost",
-        user="root",
-        password="sua_senha_aqui", #essa é a senha, eu sei que é ruim
-        database="Destravar"
-    )
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn

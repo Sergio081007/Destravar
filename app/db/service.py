@@ -1,21 +1,20 @@
 import random
 from connection import get_connection
 
-def fetch_text(perfil, dificuldade, ultimo_id=None): #ultimo_id é para garantir que não vai repetir o texto consecutivamente
+def fetch_text(perfil, dificuldade, ultimo_id=None):
     conn = get_connection()
-    cursor = conn.cursor(dictionary=True)
+    cursor = conn.cursor()
 
     query = """
-        SELECT id, externo_id, titulo, conteudo, tipo, categoria, dica, 
+        SELECT id, externo_id, titulo, conteudo, tipo, categoria, dica,
                foco_terapeutico, sons_alvo, repeticoes_sugeridas
         FROM TrainingTexts
-        WHERE perfil = %s AND dificuldade = %s
+        WHERE perfil = ? AND dificuldade = ?
     """
     params = [perfil, dificuldade]
 
-    #se passar a id do último texto exibido a query exclui ele para reafirmar que não recebe o texto 2x seguidas
     if ultimo_id:
-        query += " AND id != %s"
+        query += " AND id != ?"
         params.append(ultimo_id)
 
     cursor.execute(query, params)
@@ -27,5 +26,4 @@ def fetch_text(perfil, dificuldade, ultimo_id=None): #ultimo_id é para garantir
     if not resultados:
         return None
 
-    #pega todos os textos que passaram nos filtros e sorteia aleatoriamente
-    return random.choice(resultados)
+    return dict(random.choice(resultados))
