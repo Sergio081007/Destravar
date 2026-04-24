@@ -9,32 +9,43 @@ import { calcularNivel } from '../utils/calcularXP';
 const LEVELS = [
   {
     key: 'facil',
-    label: 'Nível 1',
-    title: 'Fácil — Trava-línguas',
+    label: 'Fácil',
+    title: 'Trava-línguas',
     subtitle: 'Pratique dicção com frases simples e divertidas',
     emoji: '🌱',
-    gradient: ['#3b82f6', '#2563eb'] as const,
+    thumbGrad: ['#4CAF6E', '#3D9659'] as const,
+    tag: 'Iniciante',
+    xp: '+40 XP',
+    time: '2 min',
     requiredKey: null as string | null,
   },
   {
     key: 'medio',
-    label: 'Nível 2',
-    title: 'Médio — Textos',
-    subtitle: 'Leia com fluidez, sem pausas e hesitações',
+    label: 'Médio',
+    title: 'Textos Fluentes',
+    subtitle: 'Leia com fluidez, sem pausas ou hesitações',
     emoji: '🚀',
-    gradient: ['#10b981', '#059669'] as const,
+    thumbGrad: ['#3DAA8F', '#2D9278'] as const,
+    tag: 'Intermediário',
+    xp: '+55 XP',
+    time: '3 min',
     requiredKey: 'facil',
   },
   {
     key: 'dificil',
-    label: 'Nível 3',
-    title: 'Difícil — Expressão Avançada',
-    subtitle: 'Complete o Nível 2 para desbloquear',
+    label: 'Difícil',
+    title: 'Expressão Avançada',
+    subtitle: 'Domine técnicas de dicção avançadas',
     emoji: '🔥',
-    gradient: ['#8b5cf6', '#7c3aed'] as const,
+    thumbGrad: ['#F07D52', '#D96A3F'] as const,
+    tag: 'Avançado',
+    xp: '+100 XP',
+    time: '5 min',
     requiredKey: 'medio',
   },
 ];
+
+const CATEGORIES = ['Todos', 'Fácil', 'Médio', 'Difícil'];
 
 export default function HomeTab() {
   const router = useRouter();
@@ -43,6 +54,7 @@ export default function HomeTab() {
   const [streak, setStreak] = useState(0);
   const [nivel, setNivel] = useState(1);
   const [progress, setProgress] = useState({ nivel1_completos: 0, nivel2_completos: 0, nivel3_completos: 0 });
+  const [activeCategory, setActiveCategory] = useState('Todos');
 
   useFocusEffect(
     useCallback(() => {
@@ -73,10 +85,18 @@ export default function HomeTab() {
     return getCompleted(level.requiredKey) >= 3;
   };
 
+  const filteredLevels = activeCategory === 'Todos'
+    ? LEVELS
+    : LEVELS.filter(l => l.label === activeCategory);
+
+  const initials = name.trim().slice(0, 2).toUpperCase() || 'AP';
+
   return (
     <View style={styles.root}>
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        <LinearGradient colors={['#7c3aed', '#6d28d9']} style={styles.header}>
+
+        {/* Header */}
+        <LinearGradient colors={['#F07D52', '#E06235']} style={styles.header}>
           <View style={styles.bubble1} />
           <View style={styles.bubble2} />
           <View style={styles.headerRow}>
@@ -84,152 +104,271 @@ export default function HomeTab() {
               <Text style={styles.greeting}>Olá de volta! 👋</Text>
               <Text style={styles.userName}>{name}</Text>
             </View>
-            <TouchableOpacity onPress={() => router.push('/profile')} style={styles.profileBtn}>
-              <Ionicons name="person-circle-outline" size={40} color="rgba(255,255,255,0.9)" />
+            <TouchableOpacity onPress={() => router.push('/profile')} style={styles.avatarBtn}>
+              <Text style={styles.avatarText}>{initials}</Text>
             </TouchableOpacity>
           </View>
-          <View style={styles.pills}>
-            <View style={styles.pill}><Text style={styles.pillText}>🔥 {streak} dias</Text></View>
-            <View style={styles.pill}><Text style={styles.pillText}>⚡ {xp} XP</Text></View>
-            <View style={styles.pill}><Text style={styles.pillText}>🏅 Nível {nivel}</Text></View>
+
+          {/* Search bar */}
+          <View style={styles.searchWrap}>
+            <Ionicons name="search-outline" size={17} color="#9CA3AF" />
+            <Text style={styles.searchPlaceholder}>Buscar módulo...</Text>
+            <Ionicons name="options-outline" size={17} color="#F07D52" />
           </View>
         </LinearGradient>
 
-        <Text style={styles.sectionTitle}>Seus Níveis</Text>
+        {/* Stats card */}
+        <View style={styles.statsCard}>
+          <View style={styles.statItem}>
+            <Text style={styles.statEmoji}>🔥</Text>
+            <Text style={styles.statVal}>{streak}</Text>
+            <Text style={styles.statLab}>Dias</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statEmoji}>⚡</Text>
+            <Text style={styles.statVal}>{xp}</Text>
+            <Text style={styles.statLab}>XP</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statEmoji}>🏅</Text>
+            <Text style={styles.statVal}>{nivel}</Text>
+            <Text style={styles.statLab}>Nível</Text>
+          </View>
+        </View>
 
-        <View style={styles.cards}>
-          {LEVELS.map((lvl) => {
+        {/* Categories */}
+        <Text style={styles.sectionTitle}>Categorias</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catScroll}>
+          {CATEGORIES.map(cat => (
+            <TouchableOpacity
+              key={cat}
+              style={[styles.catChip, activeCategory === cat && styles.catChipActive]}
+              onPress={() => setActiveCategory(cat)}
+              activeOpacity={0.8}
+            >
+              <Text style={[styles.catText, activeCategory === cat && styles.catTextActive]}>{cat}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
+        {/* Popular Courses – horizontal scroll */}
+        <Text style={styles.sectionTitle}>Módulos Populares</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cardsScroll}>
+          {filteredLevels.map((lvl) => {
             const unlocked = isUnlocked(lvl);
-            const completed = getCompleted(lvl.key);
-            const pct = Math.min((completed / 3) * 100, 100);
-            const progressLabel = !unlocked ? '🔒 Bloqueado' : completed >= 3 ? '🏆 Mestre!' : 'Em progresso';
-
-            if (!unlocked) {
-              return (
-                <View key={lvl.key} style={styles.cardLocked}>
-                  <View style={styles.deco1} />
-                  <View style={styles.deco2} />
-                  <Text style={styles.lockEmoji}>🔒</Text>
-                  <Text style={styles.lockedTitle}>{lvl.title}</Text>
-                  <Text style={styles.lockedSub}>{lvl.subtitle}</Text>
-                  <View style={styles.progressBgLocked}>
-                    <View style={[styles.progressFillLocked, { width: '0%' }]} />
-                  </View>
-                  <View style={styles.progressRow}>
-                    <Text style={styles.lockedLabel}>{completed}/3 concluídos</Text>
-                    <Text style={styles.lockedLabel}>{progressLabel}</Text>
-                  </View>
-                </View>
-              );
-            }
-
             return (
               <TouchableOpacity
                 key={lvl.key}
-                activeOpacity={0.88}
-                onPress={() => router.push({ pathname: '/treinar', params: { dificuldade: lvl.key } })}
+                style={[styles.courseCard, !unlocked && styles.courseCardLocked]}
+                activeOpacity={unlocked ? 0.88 : 1}
+                onPress={() => {
+                  if (unlocked) router.push({ pathname: '/treinar', params: { dificuldade: lvl.key } });
+                }}
               >
-                <LinearGradient colors={lvl.gradient} style={styles.card}>
-                  <View style={styles.deco1} />
-                  <View style={styles.deco2} />
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>{lvl.emoji} {lvl.label}</Text>
-                  </View>
-                  <Text style={styles.cardTitle}>{lvl.title}</Text>
-                  <Text style={styles.cardSub}>{lvl.subtitle}</Text>
-                  <View style={styles.progressBg}>
-                    <View style={[styles.progressFill, { width: `${pct}%` }]} />
-                  </View>
-                  <View style={styles.progressRow}>
-                    <Text style={styles.progressLabel}>{completed}/3 concluídos</Text>
-                    <Text style={styles.progressLabel}>{progressLabel}</Text>
+                <LinearGradient
+                  colors={unlocked ? lvl.thumbGrad : ['#D1D5DB', '#9CA3AF']}
+                  style={styles.cardThumb}
+                >
+                  <Text style={styles.cardThumbEmoji}>{unlocked ? lvl.emoji : '🔒'}</Text>
+                  <View style={styles.cardTagBadge}>
+                    <Text style={styles.cardTagText}>{lvl.tag}</Text>
                   </View>
                 </LinearGradient>
+                <View style={styles.cardBody}>
+                  <Text style={styles.cardTitle} numberOfLines={1}>{lvl.title}</Text>
+                  <Text style={styles.cardSubtitle} numberOfLines={2}>{lvl.subtitle}</Text>
+                  <View style={styles.cardMeta}>
+                    <Ionicons name="time-outline" size={11} color="#9CA3AF" />
+                    <Text style={styles.cardMetaText}>{lvl.time}</Text>
+                    <View style={styles.metaDot} />
+                    <Text style={styles.cardXp}>{lvl.xp}</Text>
+                  </View>
+                </View>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {/* Progress list – "Latest Learned" style */}
+        <Text style={styles.sectionTitle}>Seu Progresso</Text>
+        <View style={styles.progressList}>
+          {LEVELS.map((lvl) => {
+            const completed = getCompleted(lvl.key);
+            const pct = Math.min((completed / 3) * 100, 100);
+            const unlocked = isUnlocked(lvl);
+            return (
+              <TouchableOpacity
+                key={lvl.key}
+                style={styles.progressItem}
+                activeOpacity={unlocked ? 0.8 : 1}
+                onPress={() => {
+                  if (unlocked) router.push({ pathname: '/treinar', params: { dificuldade: lvl.key } });
+                }}
+              >
+                <LinearGradient
+                  colors={unlocked ? lvl.thumbGrad : ['#D1D5DB', '#9CA3AF']}
+                  style={styles.progressThumb}
+                >
+                  <Text style={{ fontSize: 20 }}>{unlocked ? lvl.emoji : '🔒'}</Text>
+                </LinearGradient>
+                <View style={styles.progressInfo}>
+                  <View style={styles.progressTopRow}>
+                    <Text style={styles.progressItemTitle}>{lvl.title}</Text>
+                    <Text style={[styles.progressPct, { color: unlocked ? lvl.thumbGrad[0] : '#9CA3AF' }]}>
+                      {Math.round(pct)}%
+                    </Text>
+                  </View>
+                  <Text style={styles.progressAuthor}>{completed}/3 Video</Text>
+                  <View style={styles.progressBarBg}>
+                    <View
+                      style={[
+                        styles.progressBarFill,
+                        { width: `${pct}%`, backgroundColor: unlocked ? lvl.thumbGrad[0] : '#D1D5DB' },
+                      ]}
+                    />
+                  </View>
+                </View>
               </TouchableOpacity>
             );
           })}
         </View>
+
       </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#fafafa' },
-  scroll: { paddingBottom: 32 },
+  root: { flex: 1, backgroundColor: '#FAF5F0' },
+  scroll: { paddingBottom: 36 },
+
+  // Header
   header: {
     paddingHorizontal: 20,
     paddingTop: 56,
-    paddingBottom: 28,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    paddingBottom: 20,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
     overflow: 'hidden',
     position: 'relative',
   },
   bubble1: {
-    position: 'absolute', top: -20, right: -20,
-    width: 130, height: 130, borderRadius: 65,
-    backgroundColor: 'rgba(255,255,255,0.06)',
+    position: 'absolute', top: -30, right: -30,
+    width: 150, height: 150, borderRadius: 75,
+    backgroundColor: 'rgba(255,255,255,0.08)',
   },
   bubble2: {
-    position: 'absolute', top: 40, right: 50,
-    width: 65, height: 65, borderRadius: 33,
+    position: 'absolute', top: 60, right: 70,
+    width: 70, height: 70, borderRadius: 35,
     backgroundColor: 'rgba(255,255,255,0.06)',
   },
-  headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 18 },
-  greeting: { color: 'rgba(255,255,255,0.72)', fontSize: 13, fontWeight: '600', marginBottom: 2 },
+  headerRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    marginBottom: 16,
+  },
+  greeting: { color: 'rgba(255,255,255,0.82)', fontSize: 13, fontWeight: '600', marginBottom: 2 },
   userName: { color: '#fff', fontSize: 22, fontWeight: '800' },
-  profileBtn: { padding: 4 },
-  pills: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  pill: {
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 20, paddingVertical: 6, paddingHorizontal: 14,
+  avatarBtn: {
+    width: 46, height: 46, borderRadius: 23,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 2, borderColor: 'rgba(255,255,255,0.45)',
   },
-  pillText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+  avatarText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  searchWrap: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    paddingHorizontal: 14, paddingVertical: 13,
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+  },
+  searchPlaceholder: { flex: 1, color: '#9CA3AF', fontSize: 14 },
+
+  // Stats
+  statsCard: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#fff',
+    marginHorizontal: 20, marginTop: 16,
+    borderRadius: 18, paddingVertical: 16,
+    shadowColor: '#D96A3F', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08, shadowRadius: 12, elevation: 3,
+  },
+  statItem: { flex: 1, alignItems: 'center' },
+  statEmoji: { fontSize: 22, marginBottom: 2 },
+  statVal: { fontWeight: '800', fontSize: 17, color: '#2D2D3E' },
+  statLab: { fontSize: 11, color: '#9CA3AF', fontWeight: '600', marginTop: 1 },
+  statDivider: { width: 1, height: 36, backgroundColor: '#F0EBE6' },
+
+  // Sections
   sectionTitle: {
-    fontWeight: '800', fontSize: 18, color: '#1a1a2e',
-    paddingHorizontal: 20, paddingTop: 22, paddingBottom: 14,
+    fontWeight: '800', fontSize: 17, color: '#2D2D3E',
+    paddingHorizontal: 20, paddingTop: 22, paddingBottom: 12,
   },
-  cards: { paddingHorizontal: 20, gap: 14 },
-  card: {
-    borderRadius: 22, padding: 20,
-    overflow: 'hidden', position: 'relative',
+
+  // Categories
+  catScroll: { paddingHorizontal: 20, gap: 8 },
+  catChip: {
+    paddingVertical: 9, paddingHorizontal: 20, borderRadius: 999,
+    backgroundColor: '#fff',
+    borderWidth: 1.5, borderColor: '#E8E3DF',
   },
-  cardLocked: {
-    borderRadius: 22, padding: 20,
-    backgroundColor: '#e5e7eb',
-    overflow: 'hidden', position: 'relative',
+  catChipActive: { backgroundColor: '#F07D52', borderColor: '#F07D52' },
+  catText: { fontWeight: '700', fontSize: 13, color: '#6B7280' },
+  catTextActive: { color: '#fff' },
+
+  // Course Cards horizontal
+  cardsScroll: { paddingHorizontal: 20, gap: 14, paddingBottom: 4 },
+  courseCard: {
+    width: 172,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    overflow: 'hidden',
+    shadowColor: '#D96A3F', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.09, shadowRadius: 12, elevation: 3,
   },
-  deco1: {
-    position: 'absolute', top: -10, right: -10,
-    width: 80, height: 80, borderRadius: 40,
-    backgroundColor: 'rgba(255,255,255,0.1)',
+  courseCardLocked: { opacity: 0.55 },
+  cardThumb: {
+    height: 112,
+    justifyContent: 'center', alignItems: 'center',
+    position: 'relative',
   },
-  deco2: {
-    position: 'absolute', right: 30, bottom: -20,
-    width: 60, height: 60, borderRadius: 30,
-    backgroundColor: 'rgba(255,255,255,0.07)',
+  cardThumbEmoji: { fontSize: 42 },
+  cardTagBadge: {
+    position: 'absolute', top: 8, left: 8,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    paddingVertical: 3, paddingHorizontal: 8, borderRadius: 999,
   },
-  badge: {
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    borderRadius: 20, paddingVertical: 4, paddingHorizontal: 12, marginBottom: 10,
+  cardTagText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+  cardBody: { padding: 12 },
+  cardTitle: { fontWeight: '700', fontSize: 13, color: '#2D2D3E', marginBottom: 4 },
+  cardSubtitle: { fontSize: 11, color: '#9CA3AF', lineHeight: 15, marginBottom: 8 },
+  cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  cardMetaText: { fontSize: 11, color: '#9CA3AF' },
+  metaDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: '#D1D5DB' },
+  cardXp: { fontSize: 11, color: '#F07D52', fontWeight: '700' },
+
+  // Progress list
+  progressList: { paddingHorizontal: 20, gap: 12 },
+  progressItem: {
+    backgroundColor: '#fff', borderRadius: 16, padding: 14,
+    flexDirection: 'row', alignItems: 'center', gap: 14,
+    shadowColor: '#D96A3F', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
   },
-  badgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
-  cardTitle: { color: '#fff', fontSize: 18, fontWeight: '800', marginBottom: 4 },
-  cardSub: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginBottom: 16 },
-  lockEmoji: { fontSize: 28, marginBottom: 6 },
-  lockedTitle: { color: '#9ca3af', fontSize: 18, fontWeight: '800', marginBottom: 4 },
-  lockedSub: { color: '#9ca3af', fontSize: 12, marginBottom: 16 },
-  progressBg: {
-    backgroundColor: 'rgba(255,255,255,0.22)', height: 8, borderRadius: 999, overflow: 'hidden',
+  progressThumb: {
+    width: 52, height: 52, borderRadius: 14,
+    justifyContent: 'center', alignItems: 'center',
   },
-  progressBgLocked: {
-    backgroundColor: 'rgba(0,0,0,0.08)', height: 8, borderRadius: 999, overflow: 'hidden',
+  progressInfo: { flex: 1 },
+  progressTopRow: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2,
   },
-  progressFill: { height: '100%', backgroundColor: '#fff', borderRadius: 999 },
-  progressFillLocked: { height: '100%', backgroundColor: '#d1d5db', borderRadius: 999 },
-  progressRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 6 },
-  progressLabel: { color: 'rgba(255,255,255,0.85)', fontSize: 11, fontWeight: '600' },
-  lockedLabel: { color: '#9ca3af', fontSize: 11, fontWeight: '600' },
+  progressItemTitle: { fontWeight: '700', fontSize: 13, color: '#2D2D3E' },
+  progressPct: { fontWeight: '700', fontSize: 12 },
+  progressAuthor: { fontSize: 11, color: '#9CA3AF', marginBottom: 7 },
+  progressBarBg: {
+    height: 6, backgroundColor: '#F0EBE6', borderRadius: 999, overflow: 'hidden',
+  },
+  progressBarFill: { height: '100%', borderRadius: 999 },
 });

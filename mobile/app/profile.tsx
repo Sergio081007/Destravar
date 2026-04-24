@@ -38,7 +38,9 @@ export default function Profile() {
 
   return (
     <View style={styles.root}>
-      <LinearGradient colors={['#7c3aed', '#6d28d9']} style={styles.header}>
+      <LinearGradient colors={['#F07D52', '#D96A3F']} style={styles.header}>
+        <View style={styles.deco1} />
+        <View style={styles.deco2} />
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color="#fff" />
         </TouchableOpacity>
@@ -48,8 +50,10 @@ export default function Profile() {
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.avatarWrap}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials}</Text>
+          <View style={styles.avatarRing}>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{initials}</Text>
+            </View>
           </View>
           <Text style={styles.name}>{name}</Text>
           <View style={styles.levelBadge}>
@@ -77,7 +81,7 @@ export default function Profile() {
           </View>
           <View style={styles.progressBg}>
             <LinearGradient
-              colors={['#7c3aed', '#a78bfa']}
+              colors={['#F07D52', '#FBCAAF']}
               start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
               style={[styles.progressFill, { width: `${progressPct}%` }]}
             />
@@ -90,10 +94,21 @@ export default function Profile() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#fafafa' },
+  root: { flex: 1, backgroundColor: '#FAF5F0' },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingTop: 52, paddingBottom: 16, paddingHorizontal: 16,
+    paddingTop: 52, paddingBottom: 20, paddingHorizontal: 16,
+    overflow: 'hidden', position: 'relative',
+  },
+  deco1: {
+    position: 'absolute', top: -30, right: -30,
+    width: 130, height: 130, borderRadius: 65,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  deco2: {
+    position: 'absolute', bottom: -20, left: 60,
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: 'rgba(255,255,255,0.06)',
   },
   backBtn: {
     width: 38, height: 38, borderRadius: 19,
@@ -101,44 +116,56 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center',
   },
   headerTitle: { color: '#fff', fontWeight: '700', fontSize: 17 },
+
   content: { padding: 24, paddingBottom: 48 },
   avatarWrap: { alignItems: 'center', marginBottom: 28, marginTop: 8 },
+  avatarRing: {
+    width: 112, height: 112, borderRadius: 56,
+    borderWidth: 3, borderColor: '#FBCAAF',
+    justifyContent: 'center', alignItems: 'center',
+    marginBottom: 14,
+  },
   avatar: {
     width: 100, height: 100, borderRadius: 50,
-    backgroundColor: '#7c3aed',
-    justifyContent: 'center', alignItems: 'center', marginBottom: 14,
-    shadowColor: '#7c3aed', shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.35, shadowRadius: 14, elevation: 8,
+    backgroundColor: '#F07D52',
+    justifyContent: 'center', alignItems: 'center',
+    shadowColor: '#F07D52', shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3, shadowRadius: 14, elevation: 8,
   },
   avatarText: { color: '#fff', fontSize: 36, fontWeight: '800' },
-  name: { fontSize: 24, fontWeight: '800', color: '#1a1a2e', marginBottom: 8 },
+  name: { fontSize: 24, fontWeight: '800', color: '#2D2D3E', marginBottom: 8 },
   levelBadge: {
-    backgroundColor: '#7c3aed', borderRadius: 20,
+    backgroundColor: '#F07D52', borderRadius: 20,
     paddingHorizontal: 16, paddingVertical: 5,
   },
   levelBadgeText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+
   statsRow: { flexDirection: 'row', gap: 14, marginBottom: 14 },
   statCard: {
     flex: 1, backgroundColor: '#fff', borderRadius: 18,
     padding: 20, alignItems: 'center',
-    shadowColor: '#5a32b4', shadowOffset: { width: 0, height: 2 },
+    shadowColor: '#D96A3F', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.07, shadowRadius: 8, elevation: 3,
   },
   statEmoji: { fontSize: 28, marginBottom: 8 },
-  statValue: { fontSize: 28, fontWeight: '800', color: '#1a1a2e', marginBottom: 4 },
-  statLabel: { fontSize: 13, color: '#9ca3af', fontWeight: '600' },
+  statValue: { fontSize: 28, fontWeight: '800', color: '#2D2D3E', marginBottom: 4 },
+  statLabel: { fontSize: 13, color: '#9CA3AF', fontWeight: '600' },
+
   progressCard: {
     backgroundColor: '#fff', borderRadius: 18, padding: 20,
-    shadowColor: '#5a32b4', shadowOffset: { width: 0, height: 2 },
+    shadowColor: '#D96A3F', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.07, shadowRadius: 8, elevation: 3,
   },
-  progressHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
-  progressTitle: { fontSize: 15, fontWeight: '700', color: '#1a1a2e' },
-  progressXp: { fontSize: 13, color: '#7c3aed', fontWeight: '700' },
+  progressHeader: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', marginBottom: 14,
+  },
+  progressTitle: { fontSize: 15, fontWeight: '700', color: '#2D2D3E' },
+  progressXp: { fontSize: 13, color: '#F07D52', fontWeight: '700' },
   progressBg: {
-    height: 10, backgroundColor: '#f0edf8', borderRadius: 999,
+    height: 10, backgroundColor: '#FEF3EE', borderRadius: 999,
     overflow: 'hidden', marginBottom: 10,
   },
   progressFill: { height: '100%', borderRadius: 999 },
-  progressSub: { fontSize: 13, color: '#9ca3af', textAlign: 'center' },
+  progressSub: { fontSize: 13, color: '#9CA3AF', textAlign: 'center' },
 });

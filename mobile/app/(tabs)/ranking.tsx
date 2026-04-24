@@ -5,12 +5,12 @@ import { useFocusEffect } from 'expo-router';
 import { getProfileData, getUserName } from '../utils/storage';
 
 const MOCK_PLAYERS = [
-  { name: 'Ana Julia', initials: 'AJ', xp: 540, color: '#f59e0b' },
-  { name: 'Pedro Lima', initials: 'PL', xp: 480, color: '#3b82f6' },
-  { name: 'Rafael Melo', initials: 'RM', xp: 410, color: '#10b981' },
-  { name: 'Juliana S.', initials: 'JS', xp: 370, color: '#8b5cf6' },
-  { name: 'Tiago S.', initials: 'TS', xp: 280, color: '#f87171' },
-  { name: 'Carla S.', initials: 'CS', xp: 210, color: '#6b7280' },
+  { name: 'Ana Julia', initials: 'AJ', xp: 540, color: '#F07D52' },
+  { name: 'Pedro Lima', initials: 'PL', xp: 480, color: '#3DAA8F' },
+  { name: 'Rafael Melo', initials: 'RM', xp: 410, color: '#4CAF6E' },
+  { name: 'Juliana S.', initials: 'JS', xp: 370, color: '#F5A623' },
+  { name: 'Tiago S.', initials: 'TS', xp: 280, color: '#F87171' },
+  { name: 'Carla S.', initials: 'CS', xp: 210, color: '#9CA3AF' },
 ];
 
 type Player = {
@@ -41,21 +41,20 @@ export default function RankingTab() {
 
   const allPlayers: Player[] = [
     ...MOCK_PLAYERS,
-    { name: `${myName} (você)`, initials: myInitials, xp: myXp, color: '#7c3aed', isMe: true },
+    { name: `${myName} (você)`, initials: myInitials, xp: myXp, color: '#F07D52', isMe: true },
   ]
     .sort((a, b) => b.xp - a.xp)
     .map((p, i) => ({ ...p, rank: i + 1 }));
 
   const top3 = allPlayers.slice(0, 3);
-  const rest = allPlayers.slice(3);
-
-  // Podium order: 2nd, 1st, 3rd
   const podium = [top3[1], top3[0], top3[2]].filter(Boolean);
 
   return (
     <View style={styles.root}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        <LinearGradient colors={['#6d28d9', '#7c3aed']} style={styles.header}>
+        <LinearGradient colors={['#F07D52', '#D96A3F']} style={styles.header}>
+          <View style={styles.deco1} />
+          <View style={styles.deco2} />
           <Text style={styles.headerTitle}>🏆 Ranking Semanal</Text>
           <Text style={styles.headerSub}>Top jogadores da semana</Text>
 
@@ -87,7 +86,7 @@ export default function RankingTab() {
               <View style={[styles.avatar, { backgroundColor: p.color }]}>
                 <Text style={styles.avatarText}>{p.initials}</Text>
               </View>
-              <Text style={styles.playerName}>{p.name}</Text>
+              <Text style={[styles.playerName, p.isMe && styles.playerNameMe]}>{p.name}</Text>
               <View style={[styles.xpBadge, p.isMe && styles.xpBadgeMe]}>
                 <Text style={[styles.xpText, p.isMe && styles.xpTextMe]}>⚡ {p.xp} XP</Text>
               </View>
@@ -102,15 +101,26 @@ export default function RankingTab() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#fafafa' },
+  root: { flex: 1, backgroundColor: '#FAF5F0' },
   header: {
     paddingTop: 56, paddingBottom: 0,
     paddingHorizontal: 20,
-    borderBottomLeftRadius: 24, borderBottomRightRadius: 24,
-    overflow: 'hidden',
+    borderBottomLeftRadius: 28, borderBottomRightRadius: 28,
+    overflow: 'hidden', position: 'relative',
+  },
+  deco1: {
+    position: 'absolute', top: -30, right: -30,
+    width: 140, height: 140, borderRadius: 70,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  deco2: {
+    position: 'absolute', bottom: 20, left: -40,
+    width: 100, height: 100, borderRadius: 50,
+    backgroundColor: 'rgba(255,255,255,0.06)',
   },
   headerTitle: { fontWeight: '800', fontSize: 22, color: '#fff', marginBottom: 4 },
-  headerSub: { color: 'rgba(255,255,255,0.7)', fontSize: 13, marginBottom: 28 },
+  headerSub: { color: 'rgba(255,255,255,0.75)', fontSize: 13, marginBottom: 28 },
+
   podium: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 8 },
   podiumItem: { alignItems: 'center', gap: 6 },
   podiumAvatar: {
@@ -123,25 +133,27 @@ const styles = StyleSheet.create({
   podiumInitialsFirst: { fontSize: 22 },
   podiumName: { color: 'rgba(255,255,255,0.9)', fontWeight: '700', fontSize: 11, textAlign: 'center' },
   podiumBase: { borderRadius: 10, width: 80, alignItems: 'center', paddingTop: 8 },
-  base1: { height: 70, backgroundColor: 'rgba(255,255,255,0.2)' },
-  base2: { height: 50, backgroundColor: 'rgba(255,255,255,0.13)' },
+  base1: { height: 70, backgroundColor: 'rgba(255,255,255,0.22)' },
+  base2: { height: 50, backgroundColor: 'rgba(255,255,255,0.14)' },
   base3: { height: 36, backgroundColor: 'rgba(255,255,255,0.09)' },
   podiumPos: { color: 'rgba(255,255,255,0.9)', fontWeight: '800', fontSize: 18 },
+
   list: { padding: 16, gap: 8 },
   row: {
     backgroundColor: '#fff', borderRadius: 14, padding: 14,
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    shadowColor: '#5a32b4', shadowOffset: { width: 0, height: 2 },
+    shadowColor: '#D96A3F', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
   },
-  rowMe: { backgroundColor: '#ede9fe', borderWidth: 2, borderColor: '#c4b5fd' },
-  rankNum: { fontWeight: '800', fontSize: 15, color: '#9ca3af', width: 20, textAlign: 'center' },
-  rankNumTop: { color: '#7c3aed' },
+  rowMe: { backgroundColor: '#FEF3EE', borderWidth: 2, borderColor: '#FBCAAF' },
+  rankNum: { fontWeight: '800', fontSize: 15, color: '#9CA3AF', width: 20, textAlign: 'center' },
+  rankNumTop: { color: '#F07D52' },
   avatar: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
   avatarText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  playerName: { flex: 1, fontWeight: '700', fontSize: 14, color: '#1a1a2e' },
-  xpBadge: { backgroundColor: '#ede9fe', borderRadius: 20, paddingVertical: 4, paddingHorizontal: 10 },
-  xpBadgeMe: { backgroundColor: '#c4b5fd' },
-  xpText: { fontWeight: '700', fontSize: 12, color: '#7c3aed' },
-  xpTextMe: { color: '#4c1d95' },
+  playerName: { flex: 1, fontWeight: '700', fontSize: 14, color: '#2D2D3E' },
+  playerNameMe: { color: '#D96A3F' },
+  xpBadge: { backgroundColor: '#FEF3EE', borderRadius: 20, paddingVertical: 4, paddingHorizontal: 10 },
+  xpBadgeMe: { backgroundColor: '#FBCAAF' },
+  xpText: { fontWeight: '700', fontSize: 12, color: '#F07D52' },
+  xpTextMe: { color: '#D96A3F' },
 });

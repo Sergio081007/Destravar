@@ -25,19 +25,21 @@ export default function SequenciaTab() {
     }, [])
   );
 
-  const jsDay = new Date().getDay(); // 0=Dom, 1=Seg... 6=Sab
-  const todayIdx = (jsDay + 6) % 7;  // remap to Mon=0..Sun=6
+  const jsDay = new Date().getDay();
+  const todayIdx = (jsDay + 6) % 7;
 
   const RECORDS = [
-    { icon: '🔥', iconBg: '#fff7ed', title: 'Sequência atual', sub: 'Dias consecutivos', value: `${streak}d` },
-    { icon: '⚡', iconBg: '#f5f3ff', title: 'Total de XP', sub: 'Desde o início', value: `${xp}` },
-    { icon: '✅', iconBg: '#ecfdf5', title: 'Tarefas concluídas', sub: 'Total acumulado', value: `${totalCompleted}` },
+    { icon: '🔥', iconBg: '#FEF3EE', title: 'Sequência atual', sub: 'Dias consecutivos', value: `${streak}d`, color: '#F07D52' },
+    { icon: '⚡', iconBg: '#E4F5F1', title: 'Total de XP', sub: 'Desde o início', value: `${xp}`, color: '#3DAA8F' },
+    { icon: '✅', iconBg: '#E8F5EC', title: 'Tarefas concluídas', sub: 'Total acumulado', value: `${totalCompleted}`, color: '#4CAF6E' },
   ];
 
   return (
     <View style={styles.root}>
       <ScrollView showsVerticalScrollIndicator={false}>
-        <LinearGradient colors={['#f59e0b', '#d97706']} style={styles.header}>
+        <LinearGradient colors={['#F07D52', '#D96A3F']} style={styles.header}>
+          <View style={styles.deco1} />
+          <View style={styles.deco2} />
           <Text style={styles.fireEmoji}>🔥</Text>
           <Text style={styles.count}>{streak}</Text>
           <Text style={styles.countLabel}>dias de sequência</Text>
@@ -54,14 +56,14 @@ export default function SequenciaTab() {
                   <View style={[styles.dayDot, isDone && styles.dotDone, isToday && styles.dotToday]}>
                     <Text style={styles.dotText}>{isToday ? '⭐' : isDone ? '✓' : ''}</Text>
                   </View>
-                  <Text style={styles.dayName}>{day}</Text>
+                  <Text style={[styles.dayName, isToday && styles.dayNameToday]}>{day}</Text>
                 </View>
               );
             })}
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Seus recordes</Text>
+        <Text style={styles.sectionTitle}>Seus Recordes</Text>
 
         <View style={styles.records}>
           {RECORDS.map((r) => (
@@ -73,7 +75,7 @@ export default function SequenciaTab() {
                 <Text style={styles.recordTitle}>{r.title}</Text>
                 <Text style={styles.recordSub}>{r.sub}</Text>
               </View>
-              <Text style={styles.recordValue}>{r.value}</Text>
+              <Text style={[styles.recordValue, { color: r.color }]}>{r.value}</Text>
             </View>
           ))}
         </View>
@@ -85,48 +87,66 @@ export default function SequenciaTab() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#fafafa' },
+  root: { flex: 1, backgroundColor: '#FAF5F0' },
   header: {
     alignItems: 'center',
-    paddingTop: 64,
-    paddingBottom: 40,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    paddingTop: 64, paddingBottom: 40,
+    borderBottomLeftRadius: 28, borderBottomRightRadius: 28,
+    overflow: 'hidden', position: 'relative',
   },
-  fireEmoji: { fontSize: 56, marginBottom: 8 },
+  deco1: {
+    position: 'absolute', top: -40, right: -40,
+    width: 160, height: 160, borderRadius: 80,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  deco2: {
+    position: 'absolute', bottom: -20, left: -30,
+    width: 120, height: 120, borderRadius: 60,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  fireEmoji: { fontSize: 52, marginBottom: 8 },
   count: {
-    fontSize: 56, fontWeight: '900', color: '#fff', lineHeight: 64,
-    textShadowColor: 'rgba(0,0,0,0.15)', textShadowOffset: { width: 0, height: 3 }, textShadowRadius: 10,
+    fontSize: 60, fontWeight: '900', color: '#fff', lineHeight: 68,
+    textShadowColor: 'rgba(0,0,0,0.12)', textShadowOffset: { width: 0, height: 3 }, textShadowRadius: 10,
   },
   countLabel: { color: 'rgba(255,255,255,0.85)', fontWeight: '600', fontSize: 16, marginTop: 4 },
+
   weekWrap: { padding: 20, paddingBottom: 8 },
-  weekLabel: { fontWeight: '700', fontSize: 12, color: '#6b7280', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 14 },
+  weekLabel: {
+    fontWeight: '700', fontSize: 12, color: '#6B7280',
+    textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 14,
+  },
   daysRow: { flexDirection: 'row', justifyContent: 'space-between' },
   dayCol: { alignItems: 'center', gap: 6 },
   dayDot: {
     width: 38, height: 38, borderRadius: 19,
-    backgroundColor: '#f3f4f6',
+    backgroundColor: '#F0EBE6',
     justifyContent: 'center', alignItems: 'center',
   },
-  dotDone: { backgroundColor: '#f59e0b' },
+  dotDone: { backgroundColor: '#FBCAAF' },
   dotToday: {
-    backgroundColor: '#7c3aed',
-    shadowColor: '#7c3aed', shadowOffset: { width: 0, height: 0 },
+    backgroundColor: '#F07D52',
+    shadowColor: '#F07D52', shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.45, shadowRadius: 8, elevation: 5,
   },
-  dotText: { fontSize: 15 },
-  dayName: { fontSize: 10, fontWeight: '600', color: '#9ca3af', textTransform: 'uppercase' },
-  sectionTitle: { fontWeight: '800', fontSize: 18, color: '#1a1a2e', paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12 },
+  dotText: { fontSize: 14 },
+  dayName: { fontSize: 10, fontWeight: '600', color: '#9CA3AF', textTransform: 'uppercase' },
+  dayNameToday: { color: '#F07D52' },
+
+  sectionTitle: {
+    fontWeight: '800', fontSize: 18, color: '#2D2D3E',
+    paddingHorizontal: 20, paddingTop: 8, paddingBottom: 12,
+  },
   records: { paddingHorizontal: 20, gap: 10 },
   recordCard: {
     backgroundColor: '#fff', borderRadius: 16, padding: 16,
     flexDirection: 'row', alignItems: 'center', gap: 14,
-    shadowColor: '#5a32b4', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
+    shadowColor: '#D96A3F', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
   },
   recordIcon: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
   recordInfo: { flex: 1 },
-  recordTitle: { fontWeight: '700', fontSize: 14, color: '#1a1a2e', marginBottom: 2 },
-  recordSub: { fontSize: 12, color: '#9ca3af' },
-  recordValue: { fontWeight: '800', fontSize: 22, color: '#7c3aed' },
+  recordTitle: { fontWeight: '700', fontSize: 14, color: '#2D2D3E', marginBottom: 2 },
+  recordSub: { fontSize: 12, color: '#9CA3AF' },
+  recordValue: { fontWeight: '800', fontSize: 22 },
 });

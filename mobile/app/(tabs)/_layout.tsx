@@ -21,11 +21,11 @@ export default function TabLayout() {
         tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
         tabBarStyle: {
           backgroundColor: '#fff',
-          borderTopColor: '#f0edf8',
+          borderTopColor: '#F0EBE6',
           height: 68,
           paddingBottom: 10,
           paddingTop: 4,
-          shadowColor: '#5a32b4',
+          shadowColor: '#D96A3F',
           shadowOffset: { width: 0, height: -4 },
           shadowOpacity: 0.07,
           shadowRadius: 12,
@@ -45,7 +45,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="atividades"
         options={{
-          title: 'Atividades',
+          title: 'Módulos',
           tabBarIcon: ({ focused }) => (
             <TabIcon name={focused ? 'book' : 'book-outline'} focused={focused} />
           ),
@@ -76,7 +76,7 @@ export default function TabLayout() {
 const styles = StyleSheet.create({
   icon: { padding: 6 },
   activeIcon: {
-    backgroundColor: '#ede9fe',
+    backgroundColor: Colors.primaryLight,
     borderRadius: 12,
     padding: 6,
   },

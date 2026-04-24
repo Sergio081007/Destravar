@@ -7,21 +7,24 @@ import { setOnboardingComplete, setUserName } from './utils/storage';
 const SLIDES = [
   {
     emoji: '🎙️',
-    title: 'Bem-vindo ao\nDestravar',
-    subtitle: 'O app que vai transformar a sua fala em algo incrível.',
-    gradient: ['#7c3aed', '#5b21b6'] as const,
+    title: 'Encontre sua\nVoz Ideal',
+    subtitle: 'O app que vai transformar a sua fala em algo incrível, com IA em tempo real.',
+    gradient: ['#F07D52', '#D96A3F'] as const,
+    accent: '#FEF3EE',
   },
   {
     emoji: '📖',
-    title: 'Pratique com\ntextos reais',
-    subtitle: 'Leia trava-línguas e textos. A IA analisa sua dicção em tempo real.',
-    gradient: ['#3b82f6', '#1d4ed8'] as const,
+    title: 'Pratique com\nTextos Reais',
+    subtitle: 'Leia trava-línguas e textos. A IA analisa sua dicção e fluência na hora.',
+    gradient: ['#3DAA8F', '#2D9278'] as const,
+    accent: '#E4F5F1',
   },
   {
     emoji: '🏆',
-    title: 'Suba de nível\na cada dia',
-    subtitle: 'Acumule XP, mantenha sua sequência e apareça no ranking.',
-    gradient: ['#10b981', '#047857'] as const,
+    title: 'Suba de Nível\nCada Dia',
+    subtitle: 'Acumule XP, mantenha sua sequência e apareça no ranking dos melhores.',
+    gradient: ['#4CAF6E', '#3D9659'] as const,
+    accent: '#E8F5EC',
   },
 ];
 
@@ -41,19 +44,29 @@ export default function Onboarding() {
     const slide = SLIDES[step];
     return (
       <LinearGradient colors={slide.gradient} style={styles.fill}>
+        <View style={styles.decoCircle1} />
+        <View style={styles.decoCircle2} />
+
         <View style={styles.slide}>
+          <View style={styles.illustrationWrap}>
+            <Text style={styles.illustrationEmoji}>{slide.emoji}</Text>
+          </View>
+
+          <View style={styles.textBlock}>
+            <Text style={styles.title}>{slide.title}</Text>
+            <Text style={styles.subtitle}>{slide.subtitle}</Text>
+          </View>
+
           <View style={styles.dots}>
             {SLIDES.map((_, i) => (
               <View key={i} style={[styles.dot, i === step && styles.dotActive]} />
             ))}
           </View>
 
-          <Text style={styles.emoji}>{slide.emoji}</Text>
-          <Text style={styles.title}>{slide.title}</Text>
-          <Text style={styles.subtitle}>{slide.subtitle}</Text>
-
           <TouchableOpacity style={styles.btn} onPress={() => setStep(step + 1)} activeOpacity={0.85}>
-            <Text style={styles.btnText}>{step === SLIDES.length - 1 ? 'Continuar' : 'Próximo →'}</Text>
+            <Text style={styles.btnText}>
+              {step === SLIDES.length - 1 ? 'Continuar →' : 'Próximo →'}
+            </Text>
           </TouchableOpacity>
 
           {step > 0 && (
@@ -67,12 +80,19 @@ export default function Onboarding() {
   }
 
   return (
-    <LinearGradient colors={['#7c3aed', '#5b21b6']} style={styles.fill}>
+    <LinearGradient colors={['#F07D52', '#D96A3F']} style={styles.fill}>
+      <View style={styles.decoCircle1} />
+      <View style={styles.decoCircle2} />
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.fill}>
         <View style={styles.slide}>
-          <Text style={[styles.emoji, { fontSize: 64 }]}>👤</Text>
-          <Text style={styles.title}>{'Como você quer\nser chamado?'}</Text>
-          <Text style={styles.subtitle}>Esse nome vai aparecer no seu perfil e no ranking!</Text>
+          <View style={styles.illustrationWrap}>
+            <Text style={styles.illustrationEmoji}>👤</Text>
+          </View>
+
+          <View style={styles.textBlock}>
+            <Text style={styles.title}>{'Como você quer\nser chamado?'}</Text>
+            <Text style={styles.subtitle}>Seu nome vai aparecer no perfil e no ranking!</Text>
+          </View>
 
           <TextInput
             style={styles.input}
@@ -105,6 +125,16 @@ export default function Onboarding() {
 
 const styles = StyleSheet.create({
   fill: { flex: 1 },
+  decoCircle1: {
+    position: 'absolute', top: -60, right: -60,
+    width: 240, height: 240, borderRadius: 120,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  decoCircle2: {
+    position: 'absolute', bottom: 80, left: -80,
+    width: 200, height: 200, borderRadius: 100,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
   slide: {
     flex: 1,
     justifyContent: 'center',
@@ -112,39 +142,41 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingVertical: 60,
   },
+  illustrationWrap: {
+    width: 140, height: 140, borderRadius: 70,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    justifyContent: 'center', alignItems: 'center',
+    marginBottom: 40,
+    borderWidth: 2, borderColor: 'rgba(255,255,255,0.25)',
+  },
+  illustrationEmoji: { fontSize: 68 },
+  textBlock: { alignItems: 'center', marginBottom: 36 },
+  title: {
+    fontSize: 34,
+    fontWeight: '800',
+    color: '#fff',
+    textAlign: 'center',
+    marginBottom: 14,
+    lineHeight: 42,
+  },
+  subtitle: {
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.78)',
+    textAlign: 'center',
+    lineHeight: 23,
+  },
   dots: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 52,
+    marginBottom: 32,
   },
   dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 8, height: 8, borderRadius: 4,
     backgroundColor: 'rgba(255,255,255,0.3)',
   },
   dotActive: {
     width: 28,
     backgroundColor: '#fff',
-  },
-  emoji: {
-    fontSize: 80,
-    marginBottom: 28,
-  },
-  title: {
-    fontSize: 36,
-    fontWeight: '800',
-    color: '#fff',
-    textAlign: 'center',
-    marginBottom: 16,
-    lineHeight: 44,
-  },
-  subtitle: {
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.78)',
-    textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 52,
   },
   btn: {
     backgroundColor: '#fff',
@@ -159,18 +191,13 @@ const styles = StyleSheet.create({
     shadowRadius: 14,
     elevation: 8,
   },
-  btnDisabled: {
-    opacity: 0.45,
-  },
+  btnDisabled: { opacity: 0.45 },
   btnText: {
-    color: '#7c3aed',
+    color: '#F07D52',
     fontWeight: '800',
     fontSize: 17,
   },
-  backLink: {
-    marginTop: 20,
-    padding: 8,
-  },
+  backLink: { marginTop: 20, padding: 8 },
   backLinkText: {
     color: 'rgba(255,255,255,0.55)',
     fontSize: 14,
