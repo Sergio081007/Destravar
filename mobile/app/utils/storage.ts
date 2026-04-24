@@ -4,7 +4,9 @@ export const STORAGE_KEYS = {
   TOTAL_XP: '@destravar_total_xp',
   STREAK: '@destravar_streak',
   LAST_PRACTICE_DATE: '@destravar_last_practice_date',
-  PROGRESS: '@destravar_progress'
+  PROGRESS: '@destravar_progress',
+  ONBOARDING: '@destravar_onboarding_done',
+  USER_NAME: '@destravar_user_name',
 };
 
 export async function addXP(amount: number) {
@@ -71,6 +73,32 @@ export async function getProfileData() {
     console.error("Erro ao buscar dados do perfil:", error);
     return { xp: 0, streak: 0 };
   }
+}
+
+export async function getOnboardingComplete(): Promise<boolean> {
+  try {
+    const val = await AsyncStorage.getItem(STORAGE_KEYS.ONBOARDING);
+    return val === 'true';
+  } catch {
+    return false;
+  }
+}
+
+export async function setOnboardingComplete() {
+  await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING, 'true');
+}
+
+export async function getUserName(): Promise<string> {
+  try {
+    const name = await AsyncStorage.getItem(STORAGE_KEYS.USER_NAME);
+    return name || 'Aprendiz';
+  } catch {
+    return 'Aprendiz';
+  }
+}
+
+export async function setUserName(name: string) {
+  await AsyncStorage.setItem(STORAGE_KEYS.USER_NAME, name);
 }
 
 const LEVEL_COMPLETE_THRESHOLD = 3;
