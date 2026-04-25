@@ -97,11 +97,16 @@ def get_prob_from_segments(word_start: float, segmentos: list) -> float:
 def carregar_calibracao() -> dict | None:
     """Busca o perfil de calibração mais recente. Retorna None se não houver."""
     try:
-        with get_connection() as conn:
-            row = conn.execute(
-                "SELECT * FROM calibracao ORDER BY criado_em DESC LIMIT 1"
-            ).fetchone()
-        if row:
+        supabase = get_connection()
+        response = (
+            supabase.table("calibracao")
+            .select("wpm_base, limite_inferior, limite_superior")
+            .order("criado_em", desc=True)
+            .limit(1)
+            .execute()
+        )
+        if response.data:
+            row = response.data[0]
             return {
                 "wpm_base":        row["wpm_base"],
                 "limite_inferior": row["limite_inferior"],
@@ -110,7 +115,6 @@ def carregar_calibracao() -> dict | None:
     except Exception:
         pass
     return None
-
 
 def wpm_local(palavras: list, indice: int, janela: int) -> float:
     """WPM numa janela deslizante centrada em `indice`."""

@@ -3,15 +3,14 @@ import random
 from connection import get_connection
 
 
-def _row_to_dict(row):
-    """Converte Row em dict e desserializa sons_alvo de JSON string."""
-    d = dict(row)
-    if d.get('sons_alvo'):
+def _deserialize(row: dict) -> dict:
+    """Desserializa sons_alvo se vier como string JSON."""
+    if row and isinstance(row.get('sons_alvo'), str):
         try:
-            d['sons_alvo'] = json.loads(d['sons_alvo'])
+            row['sons_alvo'] = json.loads(row['sons_alvo'])
         except (json.JSONDecodeError, TypeError):
             pass
-    return d
+    return row
 
 
 def fetch_text(perfil, dificuldade, fase=None, ultimo_id=None):
@@ -24,38 +23,34 @@ def fetch_text(perfil, dificuldade, fase=None, ultimo_id=None):
         fase        – (opcional) filtra pela fase exata
         ultimo_id   – (opcional) exclui o último texto usado (evita repetição)
     """
-    conn = get_connection()
-    cursor = conn.cursor()
+    supabase = get_connection()
 
-    query = """
-        SELECT id, externo_id, perfil, fase, titulo, conteudo, dificuldade,
-               ex2_dica_velocidade, ex2_wpm_min, ex2_wpm_max,
-               ex3_som_alvo, ex3_instrucao, ex3_exemplo_palavra,
-               ex3_nivel_suavizacao, ex3_trava_lingua_id
-        FROM TrainingTexts
-        WHERE categoria = 'texto'
-          AND perfil = ?
-          AND dificuldade = ?
-    """
-    params = [perfil, dificuldade]
+    query = (
+        supabase.table("TrainingTexts")
+        .select(
+            "id, externo_id, perfil, fase, titulo, conteudo, dificuldade, "
+            "ex2_dica_velocidade, ex2_wpm_min, ex2_wpm_max, "
+            "ex3_som_alvo, ex3_instrucao, ex3_exemplo_palavra, "
+            "ex3_nivel_suavizacao, ex3_trava_lingua_id"
+        )
+        .eq("categoria", "texto")
+        .eq("perfil", perfil)
+        .eq("dificuldade", dificuldade)
+    )
 
     if fase is not None:
-        query += " AND fase = ?"
-        params.append(fase)
+        query = query.eq("fase", fase)
 
     if ultimo_id:
-        query += " AND id != ?"
-        params.append(ultimo_id)
+        query = query.neq("id", ultimo_id)
 
-    cursor.execute(query, params)
-    resultados = cursor.fetchall()
-    cursor.close()
-    conn.close()
+    response = query.execute()
+    resultados = response.data
 
     if not resultados:
         return None
 
-    return _row_to_dict(random.choice(resultados))
+    return _deserialize(random.choice(resultados))
 
 
 def fetch_trava_lingua(trava_lingua_id=None, dificuldade=None, fase_atual=None, ultimo_id=None):
@@ -68,47 +63,44 @@ def fetch_trava_lingua(trava_lingua_id=None, dificuldade=None, fase_atual=None, 
         fase_atual      – respeita o campo fase_minima do trava-língua
         ultimo_id       – exclui o último usado
     """
-    conn = get_connection()
-    cursor = conn.cursor()
+    supabase = get_connection()
+
+    cols = (
+        "id, externo_id, titulo, conteudo, dificuldade, "
+        "sons_alvo, repeticoes_sugeridas, fase_minima, dica"
+    )
 
     if trava_lingua_id:
-        cursor.execute("""
-            SELECT id, externo_id, titulo, conteudo, dificuldade,
-                   sons_alvo, repeticoes_sugeridas, fase_minima, dica
-            FROM TrainingTexts
-            WHERE categoria = 'trava_lingua' AND externo_id = ?
-        """, (trava_lingua_id,))
-        row = cursor.fetchone()
-        cursor.close()
-        conn.close()
-        return _row_to_dict(row) if row else None
+        response = (
+            supabase.table("TrainingTexts")
+            .select(cols)
+            .eq("categoria", "trava_lingua")
+            .eq("externo_id", trava_lingua_id)
+            .single()
+            .execute()
+        )
+        return _deserialize(response.data) if response.data else None
 
-    query = """
-        SELECT id, externo_id, titulo, conteudo, dificuldade,
-               sons_alvo, repeticoes_sugeridas, fase_minima, dica
-        FROM TrainingTexts
-        WHERE categoria = 'trava_lingua'
-    """
-    params = []
+    query = (
+        supabase.table("TrainingTexts")
+        .select(cols)
+        .eq("categoria", "trava_lingua")
+    )
 
     if dificuldade:
-        query += " AND dificuldade = ?"
-        params.append(dificuldade)
+        query = query.eq("dificuldade", dificuldade)
 
     if fase_atual is not None:
-        query += " AND (fase_minima IS NULL OR fase_minima <= ?)"
-        params.append(fase_atual)
+        # fase_minima IS NULL OR fase_minima <= fase_atual
+        query = query.or_(f"fase_minima.is.null,fase_minima.lte.{fase_atual}")
 
     if ultimo_id:
-        query += " AND id != ?"
-        params.append(ultimo_id)
+        query = query.neq("id", ultimo_id)
 
-    cursor.execute(query, params)
-    resultados = cursor.fetchall()
-    cursor.close()
-    conn.close()
+    response = query.execute()
+    resultados = response.data
 
     if not resultados:
         return None
 
-    return _row_to_dict(random.choice(resultados))
+    return _deserialize(random.choice(resultados))
