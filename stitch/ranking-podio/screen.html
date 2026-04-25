@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+
+<html class="light" lang="pt-br"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&amp;family=Lexend:wght@400;600&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+        /* Connected podium styles with dynamic tilted top edges */
+        .podium-block-1 { 
+            background-color: #FFD700; 
+            border-bottom: 8px solid #B8860B;
+            border-radius: 12px 12px 0 0;
+            clip-path: polygon(0 15%, 100% 0%, 100% 100%, 0% 100%);
+            z-index: 20;
+        }
+        .podium-block-2 { 
+            background-color: #E0E3E6; 
+            border-bottom: 8px solid #A0A5AA;
+            border-radius: 12px 0 0 0;
+            clip-path: polygon(0 10%, 100% 0%, 100% 100%, 0% 100%);
+            margin-right: -2px;
+            z-index: 10;
+        }
+        .podium-block-3 { 
+            background-color: #CD7F32; 
+            border-bottom: 8px solid #8B4513;
+            border-radius: 0 12px 0 0;
+            clip-path: polygon(0 0%, 100% 20%, 100% 100%, 0% 100%);
+            margin-left: -2px;
+            z-index: 10;
+        }
+        .rank-number-face {
+            font-family: 'Plus Jakarta Sans';
+            font-weight: 800;
+            opacity: 0.4;
+            line-height: 1;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface-variant": "#404751",
+                        "surface-container-highest": "#e0e3e6",
+                        "inverse-primary": "#9dcaff",
+                        "on-secondary-container": "#fffbff",
+                        "surface-variant": "#e0e3e6",
+                        "on-primary-fixed": "#001d35",
+                        "inverse-surface": "#2d3133",
+                        "primary-container": "#4da9ff",
+                        "on-tertiary-container": "#543400",
+                        "on-secondary": "#ffffff",
+                        "on-primary-container": "#003c67",
+                        "surface-dim": "#d7dadd",
+                        "tertiary-container": "#dd962b",
+                        "on-tertiary-fixed": "#2a1800",
+                        "outline-variant": "#c0c7d3",
+                        "on-surface": "#181c1e",
+                        "surface-bright": "#f7fafd",
+                        "primary": "#0061a2",
+                        "tertiary-fixed": "#ffddb6",
+                        "primary-fixed": "#d1e4ff",
+                        "error": "#ba1a1a",
+                        "surface": "#f7fafd",
+                        "surface-container-high": "#e5e8eb",
+                        "tertiary": "#845400",
+                        "on-tertiary": "#ffffff",
+                        "surface-container": "#ebeef1",
+                        "error-container": "#ffdad6",
+                        "on-background": "#181c1e",
+                        "inverse-on-surface": "#eef1f4",
+                        "on-primary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary": "#5e41d0",
+                        "surface-container-low": "#f1f4f7",
+                        "on-primary-fixed-variant": "#00497c",
+                        "on-secondary-fixed-variant": "#4825ba",
+                        "on-tertiary-fixed-variant": "#643f00",
+                        "on-error": "#ffffff",
+                        "secondary-container": "#775ceb",
+                        "secondary-fixed": "#e6deff",
+                        "background": "#f7fafd",
+                        "surface-tint": "#0061a2",
+                        "primary-fixed-dim": "#9dcaff",
+                        "outline": "#707883",
+                        "on-secondary-fixed": "#1c0062",
+                        "on-error-container": "#93000a",
+                        "secondary-fixed-dim": "#cabeff",
+                        "tertiary-fixed-dim": "#ffb95a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "container-margin": "20px",
+                        "gutter": "16px",
+                        "base": "8px",
+                        "sm": "12px",
+                        "xl": "64px",
+                        "md": "24px",
+                        "lg": "40px",
+                        "xs": "4px"
+                    },
+                    "fontFamily": {
+                        "h1": ["Plus Jakarta Sans"],
+                        "label-caps": ["Lexend"],
+                        "button-text": ["Plus Jakarta Sans"],
+                        "h2": ["Plus Jakarta Sans"],
+                        "body-md": ["Lexend"],
+                        "body-lg": ["Lexend"]
+                    },
+                    "fontSize": {
+                        "h1": ["32px", {"lineHeight": "1.2", "fontWeight": "700"}],
+                        "label-caps": ["12px", {"lineHeight": "1.0", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                        "button-text": ["16px", {"lineHeight": "1.0", "fontWeight": "600"}],
+                        "h2": ["24px", {"lineHeight": "1.3", "fontWeight": "700"}],
+                        "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                        "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            min-height: max(884px, 100dvh);
+        }
+    </style>
+</head>
+<body class="bg-background font-body-md text-on-background min-h-screen pb-32">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-6 h-16 bg-white/70 backdrop-blur-xl border-b border-white/20 shadow-sm">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full overflow-hidden border-2 border-primary-container">
+<img alt="User Profile" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/ADBb0uiufRBA3gSIIQppyR5a5tBAFKVnPzz1gDgn_zzlIK9HWEQuV7a7hPJYPv9zeWkdcqhkoP7KLFDryuRRb80yJSIqoAQWUpXQB1jARXizTfot8eaZP1Vmwe2_RPaLblrroBcp0Tw89EA8zw4OYa8Ak7ftsZmgbmrIC2pW8nRcbMDvfmhZe6H98XN0lMpIXf8QcmUFioz3uGJ3_kZxEdLfHfvR6mfsQN-nJzdKnsg_hBRour-l0OSLcxieLV0qiYJefy59bZkE1SxxMw"/>
+</div>
+</div>
+<h1 class="text-xl font-black tracking-tight text-blue-600 font-['Plus_Jakarta_Sans']">Destravar</h1>
+<button class="w-10 h-10 flex items-center justify-center rounded-full text-blue-500 hover:bg-blue-50/50 transition-colors">
+<span class="material-symbols-outlined" data-icon="local_fire_department">local_fire_department</span>
+</button>
+</header>
+<main class="pt-24 px-container-margin max-w-2xl mx-auto">
+<!-- Ranking Header -->
+<div class="mb-12 text-center">
+<h2 class="font-h1 text-h1 text-on-surface mb-xs">Mural dos Heróis</h2>
+<p class="text-on-surface-variant font-body-md">Cada palavra é uma nova conquista!</p>
+</div>
+<!-- Podium Section -->
+<div class="flex justify-center items-end mb-xl h-[420px] px-2 gap-0 mt-16">
+<!-- 2nd Place -->
+<div class="flex flex-col items-center flex-1">
+<div class="flex flex-col items-center mb-4">
+<div class="w-20 h-24 rounded-[2.5rem] overflow-hidden border-4 border-[#E0E3E6] bg-white shadow-sm mb-2">
+<img alt="Gabriel" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/ADBb0uhbBXL2E-K8352_oWjVVgt9Lh5YvzyKPgjBFQbWXBJBPJZxnefwFmUuJCAByuGpf3GfnmnZvL5jRlIxh_AYCDtTO6zMwzvaVb1-6TIOcYZn7Njnn4fi--uFXB_W_Gi3FOaYdGODFxM20WiZ107leGiOM53jJ4LAgLgZmp5ew3lOWOHLyjivwNDemOfv2rnO1xTsW1Mb5Csc5XPGvJjQy96IeHhY8gGbF6Ldw-ung5JxHszqE6DZAXIH-hMf0wS5KcqEmoL7dgQK"/>
+</div>
+<div class="text-center">
+<p class="text-on-surface-variant font-bold text-[13px] leading-tight truncate w-20">Gabriel</p>
+<p class="text-on-surface-variant/70 text-[11px] font-semibold">2.450 XP</p>
+</div>
+</div>
+<div class="podium-block-2 w-full h-36 flex flex-col items-center pt-10 relative shadow-[-4px_0_12px_rgba(0,0,0,0.05)]">
+<span class="rank-number-face text-5xl text-[#707883]">II</span>
+</div>
+</div>
+<!-- 1st Place -->
+<div class="flex flex-col items-center flex-[1.2] z-20">
+<div class="flex flex-col items-center mb-6">
+<div class="relative">
+<!-- Larger 1st place avatar with prominent shield-like border -->
+<div class="relative">
+<div class="w-28 h-36 rounded-[3.5rem] overflow-hidden border-[6px] border-[#FFD700] bg-white shadow-xl mb-3 flex items-center justify-center ring-4 ring-yellow-400/20">
+<img alt="Lucas" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/ADBb0uhxZo7_zu-a9Wzvx6bkIqtVx-CyaT6AVRF8_lrd8oQLwVsNwYieAoYMM_7PRCld4ujNoZpjHmdwtTTG3KEnDquRHeVWIl4hsNr6uBY1bsb2y4PvlQGFu0tNhfEau-NrFywNb55h3faqwLWhid9krboyJc8_PbFv-6L0eNc8wxmlBVIK6eSktZvnLjGtKvICMxFjROw7fes1o-ylTp2JMpcZdpdAD8WlkHqj-qH2dR9PheSqa7Lxtz3ANG547qEtaMrcHHw0ITK_AA"/>
+</div>
+<div class="absolute -bottom-1 -right-1 w-10 h-10 rounded-full flex items-center justify-center"><img alt="Medalha" class="w-full h-full object-contain p-1" src="https://lh3.googleusercontent.com/aida/ADBb0uieBr6QmyzsKjuofuvP1FQXdwym2n7JOZH_Avn5jfeutSUIqXHti-wol7tre9qhF2DNlt8MVm48AL5C_xHuhGNH8R7Cv5WqQuMcJgIir7lJ17z3of400ySHBdmSBLqxfwL1vWZ1QlI8OXzD2ibUi4VnLbYE0PhVTjryV9FudRv7MhWrN3u1d6M3oNay-nO5cjnW_ij4hXBtUL1ioKngmCKDtDQc8rX_Y8RKWya6RAWL_krxlA9OaYKpb5wH8QoV4qQ6xkPuBB7BeQ"/></div>
+</div>
+</div>
+<div class="text-center">
+<p class="text-on-surface font-black text-body-md leading-tight truncate w-28">Lucas</p>
+<p class="text-primary font-bold text-sm">2.890 XP</p>
+</div>
+</div>
+<div class="podium-block-1 w-full h-56 flex flex-col items-center pt-14 relative shadow-[0_-8px_20px_rgba(255,215,0,0.2)]">
+<span class="rank-number-face text-8xl text-[#B8860B]">I</span>
+</div>
+</div>
+<!-- 3rd Place -->
+<div class="flex flex-col items-center flex-1">
+<div class="flex flex-col items-center mb-4">
+<div class="w-20 h-24 rounded-[2.5rem] overflow-hidden border-4 border-[#CD7F32] bg-white shadow-sm mb-2">
+<img alt="Juliana" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/ADBb0uhdHLMJxwsEcvowgKButT1DzK8m14by7e5NlsFgOyxzJqhuhRF_91Se5_imPMiVH_uHjNveSMQO88OEBtNp9f9Yhof8NwHWiAYGkApyD_lbnDAZynhmGFYzvfRJWM2WfrV751Egl08g3QZVE9qnYU1K-bG3s2nzC8aFrCg3g2zW3qAhETeEegQuG_qBG0Rm8y7735wDszcNf5UaLlWALyMaGGWDQ5NDbqP6hRvwqLeODhTO90vW21nls4Ay9rFhGj8FBZAhnhgvHA"/>
+</div>
+<div class="text-center">
+<p class="text-on-surface-variant font-bold text-[13px] leading-tight truncate w-20">Juliana</p>
+<p class="text-on-surface-variant/70 text-[11px] font-semibold">2.100 XP</p>
+</div>
+</div>
+<div class="podium-block-3 w-full h-28 flex flex-col items-center pt-8 relative shadow-[4px_0_12px_rgba(0,0,0,0.05)]">
+<span class="rank-number-face text-4xl text-[#8B4513]">III</span>
+</div>
+</div>
+</div>
+<!-- Scrollable Ranking List -->
+<div class="space-y-base">
+<!-- Rank 4 -->
+<div class="glass-card p-md rounded-DEFAULT flex items-center justify-between transition-all hover:translate-x-1">
+<div class="flex items-center gap-md">
+<span class="w-6 text-on-surface-variant font-bold text-center">4</span>
+<div class="w-12 h-12 rounded-full overflow-hidden">
+<img alt="Ricardo" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/ADBb0uhdHLMJxwsEcvowgKButT1DzK8m14by7e5NlsFgOyxzJqhuhRF_91Se5_imPMiVH_uHjNveSMQO88OEBtNp9f9Yhof8NwHWiAYGkApyD_lbnDAZynhmGFYzvfRJWM2WfrV751Egl08g3QZVE9qnYU1K-bG3s2nzC8aFrCg3g2zW3qAhETeEegQuG_qBG0Rm8y7735wDszcNf5UaLlWALyMaGGWDQ5NDbqP6hRvwqLeODhTO90vW21nls4Ay9rFhGj8FBZAhnhgvHA"/>
+</div>
+<span class="font-bold text-on-surface">Ricardo Alves</span>
+</div>
+<div class="flex items-center gap-xs text-primary">
+<span class="font-bold">1.950</span>
+<span class="text-xs font-semibold">XP</span>
+</div>
+</div>
+<!-- Rank 5 (Current User: Maria Clara) - Highlighted -->
+<div class="p-md rounded-DEFAULT flex items-center justify-between transition-all hover:translate-x-1 ring-2 ring-primary bg-primary-container/10 shadow-[0_4px_12px_rgba(0,97,162,0.15)] relative overflow-hidden">
+<div class="absolute left-0 top-0 bottom-0 w-1.5 bg-primary"></div>
+<div class="flex items-center gap-md">
+<span class="w-6 text-primary font-bold text-center">5</span>
+<div class="w-12 h-12 rounded-full overflow-hidden border-2 border-primary">
+<img alt="Maria Clara" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/ADBb0uiufRBA3gSIIQppyR5a5tBAFKVnPzz1gDgn_zzlIK9HWEQuV7a7hPJYPv9zeWkdcqhkoP7KLFDryuRRb80yJSIqoAQWUpXQB1jARXizTfot8eaZP1Vmwe2_RPaLblrroBcp0Tw89EA8zw4OYa8Ak7ftsZmgbmrIC2pW8nRcbMDvfmhZe6H98XN0lMpIXf8QcmUFioz3uGJ3_kZxEdLfHfvR6mfsQN-nJzdKnsg_hBRour-l0OSLcxieLV0qiYJefy59bZkE1SxxMw"/>
+</div>
+<div>
+<span class="font-bold text-on-surface block">Maria Clara</span>
+<span class="text-[10px] uppercase tracking-wider text-primary font-bold">Você</span>
+</div>
+</div>
+<div class="flex items-center gap-xs text-primary">
+<span class="font-bold">1.820</span>
+<span class="text-xs font-semibold">XP</span>
+</div>
+</div>
+<!-- Rank 6 -->
+<div class="glass-card p-md rounded-DEFAULT flex items-center justify-between transition-all hover:translate-x-1">
+<div class="flex items-center gap-md">
+<span class="w-6 text-on-surface-variant font-bold text-center">6</span>
+<div class="w-12 h-12 rounded-full overflow-hidden">
+<img alt="Tiago" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/ADBb0uhbBXL2E-K8352_oWjVVgt9Lh5YvzyKPgjBFQbWXBJBPJZxnefwFmUuJCAByuGpf3GfnmnZvL5jRlIxh_AYCDtTO6zMwzvaVb1-6TIOcYZn7Njnn4fi--uFXB_W_Gi3FOaYdGODFxM20WiZ107leGiOM53jJ4LAgLgZmp5ew3lOWOHLyjivwNDemOfv2rnO1xTsW1Mb5Csc5XPGvJjQy96IeHhY8gGbF6Ldw-ung5JxHszqE6DZAXIH-hMf0wS5KcqEmoL7dgQK"/>
+</div>
+<span class="font-bold text-on-surface">Tiago Souza</span>
+</div>
+<div class="flex items-center gap-xs text-on-surface-variant">
+<span class="font-bold">1.740</span>
+<span class="text-xs font-semibold">XP</span>
+</div>
+</div>
+<!-- Rank 7 -->
+<div class="glass-card p-md rounded-DEFAULT flex items-center justify-between transition-all hover:translate-x-1">
+<div class="flex items-center gap-md">
+<span class="w-6 text-on-surface-variant font-bold text-center">7</span>
+<div class="w-12 h-12 rounded-full overflow-hidden">
+<img alt="Bia" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/ADBb0uiufRBA3gSIIQppyR5a5tBAFKVnPzz1gDgn_zzlIK9HWEQuV7a7hPJYPv9zeWkdcqhkoP7KLFDryuRRb80yJSIqoAQWUpXQB1jARXizTfot8eaZP1Vmwe2_RPaLblrroBcp0Tw89EA8zw4OYa8Ak7ftsZmgbmrIC2pW8nRcbMDvfmhZe6H98XN0lMpIXf8QcmUFioz3uGJ3_kZxEdLfHfvR6mfsQN-nJzdKnsg_hBRour-l0OSLcxieLV0qiYJefy59bZkE1SxxMw"/>
+</div>
+<span class="font-bold text-on-surface">Beatriz Mendes</span>
+</div>
+<div class="flex items-center gap-xs text-on-surface-variant">
+<span class="font-bold">1.600</span>
+<span class="text-xs font-semibold">XP</span>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-6 pt-3 bg-white/80 backdrop-blur-2xl border-t border-white/30 shadow-[0_-4px_20px_rgba(77,169,255,0.1)] rounded-t-[32px]">
+<div class="flex flex-col items-center justify-center text-slate-400 px-6 py-2 hover:text-blue-400 cursor-pointer">
+<span class="material-symbols-outlined" data-icon="extension">extension</span>
+<span class="font-['Plus_Jakarta_Sans'] text-[12px] font-semibold">Desafios</span>
+</div>
+<div class="flex flex-col items-center justify-center bg-blue-50 text-blue-600 rounded-full px-6 py-2 cursor-pointer">
+<span class="material-symbols-outlined" data-icon="leaderboard" style="font-variation-settings: 'FILL' 1;">leaderboard</span>
+<span class="font-['Plus_Jakarta_Sans'] text-[12px] font-semibold">Ranking</span>
+</div>
+<div class="flex flex-col items-center justify-center text-slate-400 px-6 py-2 hover:text-blue-400 cursor-pointer">
+<span class="material-symbols-outlined" data-icon="person">person</span>
+<span class="font-['Plus_Jakarta_Sans'] text-[12px] font-semibold">Perfil</span>
+</div>
+</nav>
+</body></html>

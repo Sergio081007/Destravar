@@ -1,374 +1,451 @@
-import { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  View, Text, StyleSheet, ScrollView, TouchableOpacity,
+  Animated, Platform, Dimensions,
+} from 'react-native';
+import Svg, { Path, Defs, LinearGradient as SvgLinearGradient, Stop } from 'react-native-svg';
+import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { getProfileData, getLevelProgress, getUserName } from '../utils/storage';
-import { calcularNivel } from '../utils/calcularXP';
+import AppHeader from '../components/AppHeader';
 
-const LEVELS = [
-  {
-    key: 'facil',
-    label: 'Fácil',
-    title: 'Trava-línguas',
-    subtitle: 'Pratique dicção com frases simples e divertidas',
-    emoji: '🌱',
-    thumbGrad: ['#4CAF6E', '#3D9659'] as const,
-    tag: 'Iniciante',
-    xp: '+40 XP',
-    time: '2 min',
-    requiredKey: null as string | null,
-  },
-  {
-    key: 'medio',
-    label: 'Médio',
-    title: 'Textos Fluentes',
-    subtitle: 'Leia com fluidez, sem pausas ou hesitações',
-    emoji: '🚀',
-    thumbGrad: ['#3DAA8F', '#2D9278'] as const,
-    tag: 'Intermediário',
-    xp: '+55 XP',
-    time: '3 min',
-    requiredKey: 'facil',
-  },
-  {
-    key: 'dificil',
-    label: 'Difícil',
-    title: 'Expressão Avançada',
-    subtitle: 'Domine técnicas de dicção avançadas',
-    emoji: '🔥',
-    thumbGrad: ['#F07D52', '#D96A3F'] as const,
-    tag: 'Avançado',
-    xp: '+100 XP',
-    time: '5 min',
-    requiredKey: 'medio',
-  },
-];
+const CHAR1 = require('../../assets/characters/char1.png');
 
-const CATEGORIES = ['Todos', 'Fácil', 'Médio', 'Difícil'];
+const { width: SCREEN_W } = Dimensions.get('window');
 
-export default function HomeTab() {
+// SVG path that passes through each node center with cubic Bézier curves
+function buildSvgPath(): string {
+  const cx = SCREEN_W / 2;
+  const pts = ACTIVITY_NODES.map((n, i) => ({
+    x: cx + n.offset,
+    y: SVG_PATH_TOP + i * NODE_ROW_H + NODE_ROW_H / 2,
+  }));
+
+  let d = `M ${pts[0].x} ${pts[0].y}`;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const curr = pts[i];
+    const next = pts[i + 1];
+    const cy = (curr.y + next.y) / 2;
+    d += ` C ${curr.x} ${cy}, ${next.x} ${cy}, ${next.x} ${next.y}`;
+  }
+  return d;
+}
+
+// Each node defines its horizontal offset (px) from center — offsets match Stitch design
+const ACTIVITY_NODES = [
+  { id: 'f1', title: 'Aventura Inicial',   dif: 'facil',   lvl: 0, step: 0, offset:   0, label: 'Aventura Inicial' },
+  { id: 'f2', title: 'Trava-língua',        dif: 'facil',   lvl: 0, step: 1, offset:  80, label: undefined },
+  { id: 'f3', title: 'Texto Simples',       dif: 'facil',   lvl: 0, step: 2, offset: -48, label: undefined },
+  { id: 'm1', title: 'Ritmo das Palavras',  dif: 'medio',   lvl: 1, step: 0, offset:  64, label: undefined },
+  { id: 'm2', title: 'Discurso Formal',     dif: 'medio',   lvl: 1, step: 1, offset: -16, label: undefined },
+  { id: 'm3', title: 'Texto Médio',         dif: 'medio',   lvl: 1, step: 2, offset:  48, label: undefined },
+  { id: 'd1', title: 'Nível Avançado',      dif: 'dificil', lvl: 2, step: 0, offset: -64, label: undefined },
+  { id: 'd2', title: 'Discurso Elite',      dif: 'dificil', lvl: 2, step: 1, offset:  48, label: undefined },
+  { id: 'd3', title: 'Mestre Final',        dif: 'dificil', lvl: 2, step: 2, offset:   0, label: undefined },
+] as const;
+
+type NodeType = 'completed' | 'active' | 'locked' | 'special';
+
+const NODE_ROW_H = 155;
+const SVG_PATH_TOP = 20;
+
+export default function DesafiosTab() {
   const router = useRouter();
-  const [name, setName] = useState('');
-  const [xp, setXp] = useState(0);
+  const bounceAnim  = useRef(new Animated.Value(0)).current;
+  const floatAnim1  = useRef(new Animated.Value(0)).current;
+  const floatAnim2  = useRef(new Animated.Value(0)).current;
+  const floatAnim3  = useRef(new Animated.Value(0)).current;
+
+  const [xp, setXp]         = useState(0);
   const [streak, setStreak] = useState(0);
-  const [nivel, setNivel] = useState(1);
-  const [progress, setProgress] = useState({ nivel1_completos: 0, nivel2_completos: 0, nivel3_completos: 0 });
-  const [activeCategory, setActiveCategory] = useState('Todos');
+  const [myInitials, setMyInitials] = useState('AP');
+  const [progress, setProgress] = useState({
+    nivel1_completos: 0, nivel2_completos: 0, nivel3_completos: 0,
+  });
+
+  // Animations
+  useEffect(() => {
+    const bounce = Animated.loop(
+      Animated.sequence([
+        Animated.timing(bounceAnim, { toValue: -8, duration: 550, useNativeDriver: true }),
+        Animated.timing(bounceAnim, { toValue: 0,  duration: 550, useNativeDriver: true }),
+      ])
+    );
+    const float1 = Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim1, { toValue: -10, duration: 3000, useNativeDriver: true }),
+        Animated.timing(floatAnim1, { toValue: 0,   duration: 3000, useNativeDriver: true }),
+      ])
+    );
+    const float2 = Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim2, { toValue: -8, duration: 4000, useNativeDriver: true }),
+        Animated.timing(floatAnim2, { toValue: 0,  duration: 4000, useNativeDriver: true }),
+      ])
+    );
+    const float3 = Animated.loop(
+      Animated.sequence([
+        Animated.timing(floatAnim3, { toValue: -12, duration: 3500, useNativeDriver: true }),
+        Animated.timing(floatAnim3, { toValue: 0,   duration: 3500, useNativeDriver: true }),
+      ])
+    );
+    bounce.start();
+    float1.start();
+    float2.start();
+    float3.start();
+    return () => { bounce.stop(); float1.stop(); float2.stop(); float3.stop(); };
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
-      async function load() {
-        const [profile, prog, userName] = await Promise.all([
-          getProfileData(),
-          getLevelProgress(),
-          getUserName(),
-        ]);
+      (async () => {
+        const [profile, prog, name] = await Promise.all([getProfileData(), getLevelProgress(), getUserName()]);
         setXp(profile.xp);
         setStreak(profile.streak);
-        setNivel(calcularNivel(profile.xp));
+        setMyInitials(name.trim().slice(0, 2).toUpperCase() || 'AP');
         setProgress(prog);
-        setName(userName);
-      }
-      load();
+      })();
     }, [])
   );
 
-  const getCompleted = (key: string) => {
-    if (key === 'facil') return progress.nivel1_completos;
-    if (key === 'medio') return progress.nivel2_completos;
-    return progress.nivel3_completos;
-  };
+  // Derive node states
+  const counts = [progress.nivel1_completos, progress.nivel2_completos, progress.nivel3_completos];
+  let activeAssigned = false;
+  const nodes = ACTIVITY_NODES.map((node, idx): typeof node & { type: NodeType } => {
+    const prevDone = node.lvl === 0 ? 3 : counts[node.lvl - 1];
+    if (prevDone < 3) {
+      return { ...node, type: idx === ACTIVITY_NODES.length - 1 ? 'special' : 'locked' };
+    }
+    if (node.step < counts[node.lvl]) return { ...node, type: 'completed' };
+    if (!activeAssigned) { activeAssigned = true; return { ...node, type: 'active' }; }
+    return { ...node, type: 'locked' };
+  });
 
-  const isUnlocked = (level: typeof LEVELS[number]) => {
-    if (!level.requiredKey) return true;
-    return getCompleted(level.requiredKey) >= 3;
-  };
-
-  const filteredLevels = activeCategory === 'Todos'
-    ? LEVELS
-    : LEVELS.filter(l => l.label === activeCategory);
-
-  const initials = name.trim().slice(0, 2).toUpperCase() || 'AP';
+  const xpToday  = Math.min(xp % 300, 300);
+  const xpPct    = (xpToday / 300) * 100;
+  const svgPath  = buildSvgPath();
+  const svgH     = ACTIVITY_NODES.length * NODE_ROW_H + NODE_ROW_H;
 
   return (
-    <View style={styles.root}>
+    <ExpoLinearGradient
+      colors={['#f7fafd', '#f1f4f7']}
+      style={styles.root}
+    >
+      <AppHeader
+        initials={myInitials}
+        avatarSource={CHAR1}
+        rightSlot={
+          <View style={styles.flameBadge}>
+            <Ionicons name="flame" size={18} color="#ea580c" />
+            <Text style={styles.flameNum}>{streak}</Text>
+          </View>
+        }
+      />
+
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
 
-        {/* Header */}
-        <LinearGradient colors={['#F07D52', '#E06235']} style={styles.header}>
-          <View style={styles.bubble1} />
-          <View style={styles.bubble2} />
-          <View style={styles.headerRow}>
-            <View>
-              <Text style={styles.greeting}>Olá de volta! 👋</Text>
-              <Text style={styles.userName}>{name}</Text>
-            </View>
-            <TouchableOpacity onPress={() => router.push('/profile')} style={styles.avatarBtn}>
-              <Text style={styles.avatarText}>{initials}</Text>
-            </TouchableOpacity>
+        {/* Decorative background — floating clouds & trees */}
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.decoLayer]}>
+          <Animated.View style={[styles.deco, { top: 70,  left: '8%',  transform: [{ translateY: floatAnim1 }] }]}>
+            <MaterialCommunityIcons name="cloud" size={80} color="rgba(0,97,162,0.10)" />
+          </Animated.View>
+          <Animated.View style={[styles.deco, { top: 300, right: '10%', transform: [{ translateY: floatAnim2 }] }]}>
+            <MaterialCommunityIcons name="cloud" size={60} color="rgba(94,65,208,0.10)" />
+          </Animated.View>
+          <Animated.View style={[styles.deco, { top: 600, left: '5%',  transform: [{ translateY: floatAnim1 }] }]}>
+            <MaterialCommunityIcons name="cloud" size={70} color="rgba(0,97,162,0.10)" />
+          </Animated.View>
+          <View style={[styles.deco, { top: 200, left: '14%' }]}>
+            <MaterialCommunityIcons name="tree" size={36} color="rgba(0,97,162,0.15)" />
+          </View>
+          <View style={[styles.deco, { top: 430, right: '10%' }]}>
+            <MaterialCommunityIcons name="tree" size={44} color="rgba(0,97,162,0.15)" />
+          </View>
+          <View style={[styles.deco, { top: 720, left: '10%' }]}>
+            <MaterialCommunityIcons name="tree" size={44} color="rgba(94,65,208,0.15)" />
+          </View>
+          <View style={[styles.deco, { top: 930, right: '12%' }]}>
+            <MaterialCommunityIcons name="tree" size={44} color="rgba(0,97,162,0.15)" />
           </View>
 
-          {/* Search bar */}
-          <View style={styles.searchWrap}>
-            <Ionicons name="search-outline" size={17} color="#9CA3AF" />
-            <Text style={styles.searchPlaceholder}>Buscar módulo...</Text>
-            <Ionicons name="options-outline" size={17} color="#F07D52" />
-          </View>
-        </LinearGradient>
+          {/* Clouds — lower section */}
+          <Animated.View style={[styles.deco, { top: 480, right: '6%', transform: [{ translateY: floatAnim3 }] }]}>
+            <MaterialCommunityIcons name="cloud" size={55} color="rgba(94,65,208,0.10)" />
+          </Animated.View>
+          <Animated.View style={[styles.deco, { top: 850, right: '8%', transform: [{ translateY: floatAnim2 }] }]}>
+            <MaterialCommunityIcons name="cloud" size={65} color="rgba(0,97,162,0.10)" />
+          </Animated.View>
+          <Animated.View style={[styles.deco, { top: 1100, left: '4%', transform: [{ translateY: floatAnim1 }] }]}>
+            <MaterialCommunityIcons name="cloud" size={72} color="rgba(94,65,208,0.08)" />
+          </Animated.View>
+          <Animated.View style={[styles.deco, { top: 1310, right: '10%', transform: [{ translateY: floatAnim3 }] }]}>
+            <MaterialCommunityIcons name="cloud" size={52} color="rgba(0,97,162,0.10)" />
+          </Animated.View>
 
-        {/* Stats card */}
-        <View style={styles.statsCard}>
-          <View style={styles.statItem}>
-            <Text style={styles.statEmoji}>🔥</Text>
-            <Text style={styles.statVal}>{streak}</Text>
-            <Text style={styles.statLab}>Dias</Text>
+          {/* Trees — lower section */}
+          <View style={[styles.deco, { top: 560, right: '14%' }]}>
+            <MaterialCommunityIcons name="tree" size={38} color="rgba(94,65,208,0.15)" />
           </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statEmoji}>⚡</Text>
-            <Text style={styles.statVal}>{xp}</Text>
-            <Text style={styles.statLab}>XP</Text>
+          <View style={[styles.deco, { top: 1000, right: '8%' }]}>
+            <MaterialCommunityIcons name="tree" size={40} color="rgba(0,97,162,0.15)" />
           </View>
-          <View style={styles.statDivider} />
-          <View style={styles.statItem}>
-            <Text style={styles.statEmoji}>🏅</Text>
-            <Text style={styles.statVal}>{nivel}</Text>
-            <Text style={styles.statLab}>Nível</Text>
+          <View style={[styles.deco, { top: 1220, left: '8%' }]}>
+            <MaterialCommunityIcons name="tree" size={44} color="rgba(94,65,208,0.15)" />
           </View>
+
         </View>
 
-        {/* Categories */}
-        <Text style={styles.sectionTitle}>Categorias</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.catScroll}>
-          {CATEGORIES.map(cat => (
-            <TouchableOpacity
-              key={cat}
-              style={[styles.catChip, activeCategory === cat && styles.catChipActive]}
-              onPress={() => setActiveCategory(cat)}
-              activeOpacity={0.8}
-            >
-              <Text style={[styles.catText, activeCategory === cat && styles.catTextActive]}>{cat}</Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        {/* Caminho SVG sinusoidal real com gradiente */}
+        <View style={[StyleSheet.absoluteFill, { top: SVG_PATH_TOP }]} pointerEvents="none">
+          <Svg width={SCREEN_W} height={svgH}>
+            <Defs>
+              <SvgLinearGradient id="pathGrad" x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0%"   stopColor="#0061a2" stopOpacity="1" />
+                <Stop offset="50%"  stopColor="#5e41d0" stopOpacity="1" />
+                <Stop offset="100%" stopColor="#4da9ff" stopOpacity="1" />
+              </SvgLinearGradient>
+            </Defs>
+            <Path
+              d={svgPath}
+              stroke="url(#pathGrad)"
+              strokeWidth={32}
+              strokeLinecap="round"
+              fill="none"
+              opacity={0.1}
+            />
+          </Svg>
+        </View>
 
-        {/* Popular Courses – horizontal scroll */}
-        <Text style={styles.sectionTitle}>Módulos Populares</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cardsScroll}>
-          {filteredLevels.map((lvl) => {
-            const unlocked = isUnlocked(lvl);
-            return (
-              <TouchableOpacity
-                key={lvl.key}
-                style={[styles.courseCard, !unlocked && styles.courseCardLocked]}
-                activeOpacity={unlocked ? 0.88 : 1}
-                onPress={() => {
-                  if (unlocked) router.push({ pathname: '/treinar', params: { dificuldade: lvl.key } });
-                }}
-              >
-                <LinearGradient
-                  colors={unlocked ? lvl.thumbGrad : ['#D1D5DB', '#9CA3AF']}
-                  style={styles.cardThumb}
-                >
-                  <Text style={styles.cardThumbEmoji}>{unlocked ? lvl.emoji : '🔒'}</Text>
-                  <View style={styles.cardTagBadge}>
-                    <Text style={styles.cardTagText}>{lvl.tag}</Text>
-                  </View>
-                </LinearGradient>
-                <View style={styles.cardBody}>
-                  <Text style={styles.cardTitle} numberOfLines={1}>{lvl.title}</Text>
-                  <Text style={styles.cardSubtitle} numberOfLines={2}>{lvl.subtitle}</Text>
-                  <View style={styles.cardMeta}>
-                    <Ionicons name="time-outline" size={11} color="#9CA3AF" />
-                    <Text style={styles.cardMetaText}>{lvl.time}</Text>
-                    <View style={styles.metaDot} />
-                    <Text style={styles.cardXp}>{lvl.xp}</Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
+        {/* Nodes */}
+        <View style={styles.nodesContainer}>
+          {nodes.map((node) => {
+            const isActive    = node.type === 'active';
+            const isCompleted = node.type === 'completed';
+            const isSpecial   = node.type === 'special';
+            const canTap      = isActive || isCompleted;
 
-        {/* Progress list – "Latest Learned" style */}
-        <Text style={styles.sectionTitle}>Seu Progresso</Text>
-        <View style={styles.progressList}>
-          {LEVELS.map((lvl) => {
-            const completed = getCompleted(lvl.key);
-            const pct = Math.min((completed / 3) * 100, 100);
-            const unlocked = isUnlocked(lvl);
             return (
-              <TouchableOpacity
-                key={lvl.key}
-                style={styles.progressItem}
-                activeOpacity={unlocked ? 0.8 : 1}
-                onPress={() => {
-                  if (unlocked) router.push({ pathname: '/treinar', params: { dificuldade: lvl.key } });
-                }}
-              >
-                <LinearGradient
-                  colors={unlocked ? lvl.thumbGrad : ['#D1D5DB', '#9CA3AF']}
-                  style={styles.progressThumb}
+              <View key={node.id} style={styles.nodeRow}>
+                {node.label && !isActive && (
+                  <View style={[styles.labelPill, { transform: [{ translateX: node.offset }] }]}>
+                    <Text style={styles.labelText}>{node.label}</Text>
+                  </View>
+                )}
+
+                <TouchableOpacity
+                  disabled={!canTap}
+                  activeOpacity={0.8}
+                  onPress={() => router.push({ pathname: '/treinar', params: { dificuldade: node.dif } })}
+                  style={{ transform: [{ translateX: node.offset }], alignItems: 'center' }}
                 >
-                  <Text style={{ fontSize: 20 }}>{unlocked ? lvl.emoji : '🔒'}</Text>
-                </LinearGradient>
-                <View style={styles.progressInfo}>
-                  <View style={styles.progressTopRow}>
-                    <Text style={styles.progressItemTitle}>{lvl.title}</Text>
-                    <Text style={[styles.progressPct, { color: unlocked ? lvl.thumbGrad[0] : '#9CA3AF' }]}>
-                      {Math.round(pct)}%
-                    </Text>
-                  </View>
-                  <Text style={styles.progressAuthor}>{completed}/3 Video</Text>
-                  <View style={styles.progressBarBg}>
-                    <View
-                      style={[
-                        styles.progressBarFill,
-                        { width: `${pct}%`, backgroundColor: unlocked ? lvl.thumbGrad[0] : '#D1D5DB' },
-                      ]}
-                    />
-                  </View>
-                </View>
-              </TouchableOpacity>
+                  {isSpecial ? (
+                    <View style={styles.nodeSpecial}>
+                      <Ionicons name="gift-outline" size={32} color="rgba(64,71,81,0.4)" />
+                    </View>
+                  ) : isCompleted ? (
+                    <View style={styles.nodeCompleted}>
+                      <Ionicons name="star" size={28} color="#fff" />
+                    </View>
+                  ) : isActive ? (
+                    <View style={styles.nodeActive}>
+                      <Ionicons name="extension-puzzle" size={32} color="#fff" />
+                    </View>
+                  ) : (
+                    <View style={styles.nodeLocked}>
+                      <Ionicons name="lock-closed" size={22} color="#404751" />
+                    </View>
+                  )}
+
+                  {isActive && (
+                    <Animated.View style={[styles.startBadge, { transform: [{ translateY: bounceAnim }] }]}>
+                      <Text style={styles.startBadgeText}>Começar</Text>
+                      <Ionicons name="play" size={11} color="#fff" />
+                    </Animated.View>
+                  )}
+                </TouchableOpacity>
+              </View>
             );
           })}
         </View>
 
+        <View style={{ height: 110 }} />
       </ScrollView>
-    </View>
+
+      {/* Stats card */}
+      <View style={styles.statsCard}>
+        <View style={styles.statsLeft}>
+          <View style={styles.statsLabelRow}>
+            <Text style={styles.statsSmLabel}>XP Hoje</Text>
+            <Text style={styles.statsXpVal}>{xpToday} / 300</Text>
+          </View>
+          <View style={styles.statsBarBg}>
+            <View style={[styles.statsBarFill, { width: `${xpPct}%` as any }]} />
+          </View>
+        </View>
+        <View style={styles.statsDivider} />
+        <View style={styles.statsRight}>
+          <View>
+            <Text style={styles.statsSmLabel}>Streak</Text>
+            <Text style={styles.streakNum}>{streak}</Text>
+          </View>
+          <View style={styles.streakIconBg}>
+            <Ionicons name="flame" size={22} color="#5e41d0" />
+          </View>
+        </View>
+      </View>
+    </ExpoLinearGradient>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#FAF5F0' },
-  scroll: { paddingBottom: 36 },
+  root: { flex: 1, backgroundColor: '#f7fafd' },
 
-  // Header
-  header: {
+  flameBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: '#fff7ed', borderRadius: 999,
+    paddingHorizontal: 8, paddingVertical: 4,
+    borderWidth: 1, borderColor: '#fed7aa',
+  },
+  flameNum: { fontSize: 13, fontWeight: '800', color: '#ea580c' },
+
+  scroll: { paddingTop: 20, position: 'relative' },
+
+  decoLayer: { zIndex: 0 },
+  deco: { position: 'absolute' },
+
+
+  nodesContainer: {
+    paddingHorizontal: 40,
+    paddingTop: SVG_PATH_TOP,
+    alignItems: 'center',
+    zIndex: 10,
+  },
+
+  nodeRow: {
+    height: NODE_ROW_H,
+    width: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  labelPill: {
+    position: 'absolute',
+    top: 2,
+    backgroundColor: 'rgba(255,255,255,0.80)',
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  labelText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#5e41d0',
+    textTransform: 'uppercase',
+    letterSpacing: 0.6,
+  },
+
+  startBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#0061a2',
     paddingHorizontal: 20,
-    paddingTop: 56,
-    paddingBottom: 20,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
-    overflow: 'hidden',
-    position: 'relative',
+    paddingVertical: 8,
+    borderRadius: 999,
+    marginTop: 20,
+    shadowColor: '#0061a2',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3,
+    shadowRadius: 14,
+    elevation: 8,
   },
-  bubble1: {
-    position: 'absolute', top: -30, right: -30,
-    width: 150, height: 150, borderRadius: 75,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-  },
-  bubble2: {
-    position: 'absolute', top: 60, right: 70,
-    width: 70, height: 70, borderRadius: 35,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-  headerRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    marginBottom: 16,
-  },
-  greeting: { color: 'rgba(255,255,255,0.82)', fontSize: 13, fontWeight: '600', marginBottom: 2 },
-  userName: { color: '#fff', fontSize: 22, fontWeight: '800' },
-  avatarBtn: {
-    width: 46, height: 46, borderRadius: 23,
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    justifyContent: 'center', alignItems: 'center',
-    borderWidth: 2, borderColor: 'rgba(255,255,255,0.45)',
-  },
-  avatarText: { color: '#fff', fontWeight: '800', fontSize: 15 },
-  searchWrap: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    paddingHorizontal: 14, paddingVertical: 13,
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-  },
-  searchPlaceholder: { flex: 1, color: '#9CA3AF', fontSize: 14 },
+  startBadgeText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 
-  // Stats
+  nodeCompleted: {
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: '#5e41d0',
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 4, borderColor: '#fff',
+    shadowColor: '#5e41d0',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 6,
+  },
+
+  nodeActive: {
+    width: 96, height: 96, borderRadius: 48,
+    backgroundColor: '#0061a2',
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 8, borderColor: 'rgba(77,169,255,0.3)',
+    shadowColor: '#0061a2',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 20,
+    elevation: 12,
+  },
+
+  nodeLocked: {
+    width: 64, height: 64, borderRadius: 32,
+    backgroundColor: '#e0e3e6',
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 4, borderColor: 'rgba(192,199,211,0.6)',
+  },
+
+  nodeSpecial: {
+    width: 96, height: 96, borderRadius: 48,
+    backgroundColor: '#f1f4f7',
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 4, borderColor: '#c0c7d3',
+    borderStyle: 'dashed',
+  },
+
   statsCard: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#fff',
-    marginHorizontal: 20, marginTop: 16,
-    borderRadius: 18, paddingVertical: 16,
-    shadowColor: '#D96A3F', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08, shadowRadius: 12, elevation: 3,
-  },
-  statItem: { flex: 1, alignItems: 'center' },
-  statEmoji: { fontSize: 22, marginBottom: 2 },
-  statVal: { fontWeight: '800', fontSize: 17, color: '#2D2D3E' },
-  statLab: { fontSize: 11, color: '#9CA3AF', fontWeight: '600', marginTop: 1 },
-  statDivider: { width: 1, height: 36, backgroundColor: '#F0EBE6' },
-
-  // Sections
-  sectionTitle: {
-    fontWeight: '800', fontSize: 17, color: '#2D2D3E',
-    paddingHorizontal: 20, paddingTop: 22, paddingBottom: 12,
-  },
-
-  // Categories
-  catScroll: { paddingHorizontal: 20, gap: 8 },
-  catChip: {
-    paddingVertical: 9, paddingHorizontal: 20, borderRadius: 999,
-    backgroundColor: '#fff',
-    borderWidth: 1.5, borderColor: '#E8E3DF',
-  },
-  catChipActive: { backgroundColor: '#F07D52', borderColor: '#F07D52' },
-  catText: { fontWeight: '700', fontSize: 13, color: '#6B7280' },
-  catTextActive: { color: '#fff' },
-
-  // Course Cards horizontal
-  cardsScroll: { paddingHorizontal: 20, gap: 14, paddingBottom: 4 },
-  courseCard: {
-    width: 172,
-    backgroundColor: '#fff',
+    position: 'absolute',
+    left: 20,
+    right: 20,
+    bottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
     borderRadius: 20,
-    overflow: 'hidden',
-    shadowColor: '#D96A3F', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.09, shadowRadius: 12, elevation: 3,
+    backgroundColor: '#fff',
+    shadowColor: '#0061a2',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.14,
+    shadowRadius: 24,
+    elevation: 12,
   },
-  courseCardLocked: { opacity: 0.55 },
-  cardThumb: {
-    height: 112,
-    justifyContent: 'center', alignItems: 'center',
-    position: 'relative',
+  statsLeft: { flex: 1 },
+  statsLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
   },
-  cardThumbEmoji: { fontSize: 42 },
-  cardTagBadge: {
-    position: 'absolute', top: 8, left: 8,
-    backgroundColor: 'rgba(255,255,255,0.22)',
-    paddingVertical: 3, paddingHorizontal: 8, borderRadius: 999,
+  statsSmLabel: {
+    fontSize: 10, fontWeight: '700',
+    color: '#707883', textTransform: 'uppercase', letterSpacing: 0.5,
   },
-  cardTagText: { color: '#fff', fontSize: 10, fontWeight: '700' },
-  cardBody: { padding: 12 },
-  cardTitle: { fontWeight: '700', fontSize: 13, color: '#2D2D3E', marginBottom: 4 },
-  cardSubtitle: { fontSize: 11, color: '#9CA3AF', lineHeight: 15, marginBottom: 8 },
-  cardMeta: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  cardMetaText: { fontSize: 11, color: '#9CA3AF' },
-  metaDot: { width: 3, height: 3, borderRadius: 1.5, backgroundColor: '#D1D5DB' },
-  cardXp: { fontSize: 11, color: '#F07D52', fontWeight: '700' },
-
-  // Progress list
-  progressList: { paddingHorizontal: 20, gap: 12 },
-  progressItem: {
-    backgroundColor: '#fff', borderRadius: 16, padding: 14,
-    flexDirection: 'row', alignItems: 'center', gap: 14,
-    shadowColor: '#D96A3F', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
+  statsXpVal: { fontSize: 12, fontWeight: '700', color: '#0061a2' },
+  statsBarBg: { height: 10, backgroundColor: '#ebeef1', borderRadius: 999, overflow: 'hidden' },
+  statsBarFill: {
+    height: '100%', backgroundColor: '#0061a2', borderRadius: 999,
+    shadowColor: '#0061a2', shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.3, shadowRadius: 6,
   },
-  progressThumb: {
-    width: 52, height: 52, borderRadius: 14,
+  statsDivider: { width: 1, height: 40, backgroundColor: '#c0c7d3', marginHorizontal: 16 },
+  statsRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  streakNum: { fontSize: 26, fontWeight: '900', color: '#5e41d0', lineHeight: 30 },
+  streakIconBg: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: 'rgba(94,65,208,0.1)',
     justifyContent: 'center', alignItems: 'center',
   },
-  progressInfo: { flex: 1 },
-  progressTopRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2,
-  },
-  progressItemTitle: { fontWeight: '700', fontSize: 13, color: '#2D2D3E' },
-  progressPct: { fontWeight: '700', fontSize: 12 },
-  progressAuthor: { fontSize: 11, color: '#9CA3AF', marginBottom: 7 },
-  progressBarBg: {
-    height: 6, backgroundColor: '#F0EBE6', borderRadius: 999, overflow: 'hidden',
-  },
-  progressBarFill: { height: '100%', borderRadius: 999 },
 });

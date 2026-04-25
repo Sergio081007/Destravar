@@ -1,97 +1,197 @@
 import { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import {
+  View, Text, StyleSheet, ScrollView,
+  ImageSourcePropType, Dimensions,
+} from 'react-native';
+import Svg, { Polygon, Rect } from 'react-native-svg';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
 import { getProfileData, getUserName } from '../utils/storage';
+import Avatar from '../components/Avatar';
+import AppHeader from '../components/AppHeader';
+
+const { width: SCREEN_W } = Dimensions.get('window');
+const CONTENT_W = SCREEN_W - 40;
+const COL1_W  = Math.floor(CONTENT_W * 1.2 / 3.2); // 1st place (wider)
+const COL23_W = Math.floor(CONTENT_W / 3.2);        // 2nd & 3rd place
+
+const CHARS: Record<number, ImageSourcePropType> = {
+  1: require('../../assets/characters/char1.png'),
+  2: require('../../assets/characters/char2.png'),
+  3: require('../../assets/characters/char3.png'),
+  4: require('../../assets/characters/char4.png'),
+  5: require('../../assets/characters/char5.png'),
+};
 
 const MOCK_PLAYERS = [
-  { name: 'Ana Julia', initials: 'AJ', xp: 540, color: '#F07D52' },
-  { name: 'Pedro Lima', initials: 'PL', xp: 480, color: '#3DAA8F' },
-  { name: 'Rafael Melo', initials: 'RM', xp: 410, color: '#4CAF6E' },
-  { name: 'Juliana S.', initials: 'JS', xp: 370, color: '#F5A623' },
-  { name: 'Tiago S.', initials: 'TS', xp: 280, color: '#F87171' },
-  { name: 'Carla S.', initials: 'CS', xp: 210, color: '#9CA3AF' },
+  { name: 'Lucas Ferreira', initials: 'LF', xp: 2890, color: '#E8650A', char: 1 },
+  { name: 'Gabriel Costa',  initials: 'GC', xp: 2450, color: '#E07BB5', char: 2 },
+  { name: 'Juliana Rocha',  initials: 'JR', xp: 2100, color: '#D4A720', char: 3 },
+  { name: 'Ricardo Alves',  initials: 'RA', xp: 1950, color: '#5DADA0', char: 4 },
+  { name: 'Tiago Souza',    initials: 'TS', xp: 1740, color: '#2B3FA0', char: 5 },
+  { name: 'Beatriz Mendes', initials: 'BM', xp: 1600, color: '#E07BB5', char: 2 },
 ];
 
 type Player = {
-  name: string;
-  initials: string;
-  xp: number;
-  color: string;
-  isMe?: boolean;
-  rank?: number;
+  name: string; initials: string; xp: number;
+  color: string; char?: number; isMe?: boolean; rank?: number;
 };
 
+// tl/tr: top-left and top-right Y as fraction of block height (matches clip-path percentages)
+const PODIUM_CFG = {
+  1: { color: '#FFD700', shade: '#B8860B', blockH: 220, colW: COL1_W,  tl: 0.15, tr: 0,    numLabel: 'I',   numSize: 60 },
+  2: { color: '#E0E3E6', shade: '#A0A5AA', blockH: 148, colW: COL23_W, tl: 0.10, tr: 0,    numLabel: 'II',  numSize: 36 },
+  3: { color: '#CD7F32', shade: '#8B4513', blockH: 112, colW: COL23_W, tl: 0,    tr: 0.20, numLabel: 'III', numSize: 28 },
+} as const;
+
+function PodiumBlock({ player, cfg }: {
+  player: Player & { rank: 1 | 2 | 3 };
+  cfg: typeof PODIUM_CFG[1 | 2 | 3];
+}) {
+  const isFirst = player.rank === 1;
+  const W = cfg.colW;
+  const H = cfg.blockH;
+  const tlY = H * cfg.tl;
+  const trY = H * cfg.tr;
+  const polyPts = `0,${tlY} ${W},${trY} ${W},${H} 0,${H}`;
+  const numPaddingTop = Math.max(tlY, trY) + 12;
+
+  return (
+    <View style={[styles.podiumCol, { width: W, zIndex: isFirst ? 20 : 10 }]}>
+      {/* Avatar + info above block */}
+      <View style={[styles.podiumAvatarWrap, { marginBottom: isFirst ? 10 : 6 }]}>
+        <Avatar
+          initials={player.initials}
+          color={player.color}
+          source={player.char ? CHARS[player.char] : undefined}
+          width={isFirst ? 88 : 70}
+          height={isFirst ? 110 : 88}
+          borderRadius={isFirst ? 44 : 35}
+          borderWidth={isFirst ? 5 : 3}
+          borderColor={cfg.color}
+        />
+        <Text style={[styles.podiumName, { fontSize: isFirst ? 13 : 11 }]} numberOfLines={1}>
+          {player.name.split(' ')[0]}
+        </Text>
+        <Text style={[styles.podiumXp, { color: cfg.shade, fontSize: isFirst ? 13 : 11 }]}>
+          {player.xp.toLocaleString()} XP
+        </Text>
+      </View>
+
+      {/* SVG tilted block */}
+      <View style={{ width: W, height: H }}>
+        <Svg width={W} height={H} style={StyleSheet.absoluteFill}>
+          <Polygon points={polyPts} fill={cfg.color} />
+          <Rect x={0} y={H - 10} width={W} height={10} fill={cfg.shade} />
+        </Svg>
+        <View style={[StyleSheet.absoluteFill, { alignItems: 'center', paddingTop: numPaddingTop }]}>
+          <Text style={{ fontSize: cfg.numSize, fontWeight: '900', color: cfg.shade, opacity: 0.4, lineHeight: cfg.numSize * 1.15 }}>
+            {cfg.numLabel}
+          </Text>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 export default function RankingTab() {
-  const [myXp, setMyXp] = useState(0);
-  const [myName, setMyName] = useState('Você');
+  const [myXp, setMyXp]             = useState(0);
+  const [myName, setMyName]         = useState('Você');
   const [myInitials, setMyInitials] = useState('EU');
 
   useFocusEffect(
     useCallback(() => {
-      async function load() {
+      (async () => {
         const [profile, name] = await Promise.all([getProfileData(), getUserName()]);
         setMyXp(profile.xp);
         setMyName(name);
         setMyInitials(name.trim().slice(0, 2).toUpperCase() || 'EU');
-      }
-      load();
+      })();
     }, [])
   );
 
-  const allPlayers: Player[] = [
+  const allPlayers = [
     ...MOCK_PLAYERS,
-    { name: `${myName} (você)`, initials: myInitials, xp: myXp, color: '#F07D52', isMe: true },
+    { name: myName, initials: myInitials, xp: myXp, color: '#0061a2', char: 1, isMe: true },
   ]
     .sort((a, b) => b.xp - a.xp)
-    .map((p, i) => ({ ...p, rank: i + 1 }));
+    .map((p, i) => ({ ...p, rank: i + 1 })) as (Player & { rank: number })[];
 
-  const top3 = allPlayers.slice(0, 3);
-  const podium = [top3[1], top3[0], top3[2]].filter(Boolean);
+  const top3 = allPlayers.slice(0, 3) as (Player & { rank: 1 | 2 | 3 })[];
+  // Podium order: 2nd (left) → 1st (center) → 3rd (right)
+  const podiumOrder = [top3[1], top3[0], top3[2]].filter(Boolean);
 
   return (
     <View style={styles.root}>
-      <ScrollView showsVerticalScrollIndicator={false}>
-        <LinearGradient colors={['#F07D52', '#D96A3F']} style={styles.header}>
-          <View style={styles.deco1} />
-          <View style={styles.deco2} />
-          <Text style={styles.headerTitle}>🏆 Ranking Semanal</Text>
-          <Text style={styles.headerSub}>Top jogadores da semana</Text>
-
-          <View style={styles.podium}>
-            {podium.map((p, i) => {
-              if (!p) return null;
-              const isFirst = p.rank === 1;
-              const baseStyle = i === 1 ? styles.base1 : i === 0 ? styles.base2 : styles.base3;
-              return (
-                <View key={p.name} style={styles.podiumItem}>
-                  <View style={[styles.podiumAvatar, isFirst && styles.podiumAvatarFirst, { backgroundColor: p.color }]}>
-                    {isFirst && <Text style={styles.crown}>👑</Text>}
-                    <Text style={[styles.podiumInitials, isFirst && styles.podiumInitialsFirst]}>{p.initials}</Text>
-                  </View>
-                  <Text style={styles.podiumName}>{p.name.split(' ')[0]}</Text>
-                  <View style={[styles.podiumBase, baseStyle]}>
-                    <Text style={styles.podiumPos}>{p.rank}°</Text>
-                  </View>
-                </View>
-              );
-            })}
+      <AppHeader
+        initials={myInitials}
+        avatarSource={CHARS[1]}
+        rightSlot={
+          <View style={styles.trophyBadge}>
+            <Ionicons name="trophy" size={18} color="#ca8a04" />
           </View>
-        </LinearGradient>
+        }
+      />
 
-        <View style={styles.list}>
-          {allPlayers.map((p) => (
-            <View key={p.name} style={[styles.row, p.isMe && styles.rowMe]}>
-              <Text style={[styles.rankNum, (p.rank ?? 0) <= 3 && styles.rankNumTop]}>{p.rank}</Text>
-              <View style={[styles.avatar, { backgroundColor: p.color }]}>
-                <Text style={styles.avatarText}>{p.initials}</Text>
-              </View>
-              <Text style={[styles.playerName, p.isMe && styles.playerNameMe]}>{p.name}</Text>
-              <View style={[styles.xpBadge, p.isMe && styles.xpBadgeMe]}>
-                <Text style={[styles.xpText, p.isMe && styles.xpTextMe]}>⚡ {p.xp} XP</Text>
-              </View>
-            </View>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+        <Text style={styles.pageTitle}>Mural dos Heróis</Text>
+        <Text style={styles.pageSub}>Cada palavra é uma nova conquista!</Text>
+
+        {/* Podium */}
+        <View style={styles.podiumWrap}>
+          {podiumOrder.map((p) => (
+            <PodiumBlock
+              key={p.name}
+              player={p as Player & { rank: 1 | 2 | 3 }}
+              cfg={PODIUM_CFG[p.rank as 1 | 2 | 3]}
+            />
           ))}
+        </View>
+
+        {/* Ranking list — positions 4+ */}
+        <View style={styles.listSection}>
+          {allPlayers
+            .filter((p) => p.rank > 3)
+            .map((p) =>
+              p.isMe ? (
+                <View key={`${p.name}-${p.rank}`} style={styles.rowMe}>
+                  <Text style={[styles.rankNum, styles.rankNumMe]}>{p.rank}</Text>
+                  <Avatar
+                    initials={p.initials}
+                    color={p.color}
+                    source={p.char ? CHARS[p.char] : undefined}
+                    size={48}
+                    borderRadius={24}
+                    borderWidth={2}
+                    borderColor="#0061a2"
+                  />
+                  <View style={styles.playerInfo}>
+                    <Text style={[styles.playerName, styles.playerNameMe]}>{p.name}</Text>
+                    <Text style={styles.youLabel}>Você</Text>
+                  </View>
+                  <Text style={[styles.xpText, styles.xpTextMe]}>
+                    {p.xp.toLocaleString()}<Text style={styles.xpUnit}> XP</Text>
+                  </Text>
+                </View>
+              ) : (
+                <View key={`${p.name}-${p.rank}`} style={styles.rowRegular}>
+                  <Text style={styles.rankNum}>{p.rank}</Text>
+                  <Avatar
+                    initials={p.initials}
+                    color={p.color}
+                    source={p.char ? CHARS[p.char] : undefined}
+                    size={48}
+                    borderRadius={24}
+                  />
+                  <View style={styles.playerInfo}>
+                    <Text style={styles.playerName}>{p.name}</Text>
+                  </View>
+                  <Text style={styles.xpText}>
+                    {p.xp.toLocaleString()}<Text style={styles.xpUnit}> XP</Text>
+                  </Text>
+                </View>
+              )
+            )}
         </View>
 
         <View style={{ height: 24 }} />
@@ -101,59 +201,55 @@ export default function RankingTab() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#FAF5F0' },
-  header: {
-    paddingTop: 56, paddingBottom: 0,
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 28, borderBottomRightRadius: 28,
-    overflow: 'hidden', position: 'relative',
-  },
-  deco1: {
-    position: 'absolute', top: -30, right: -30,
-    width: 140, height: 140, borderRadius: 70,
-    backgroundColor: 'rgba(255,255,255,0.08)',
-  },
-  deco2: {
-    position: 'absolute', bottom: 20, left: -40,
-    width: 100, height: 100, borderRadius: 50,
-    backgroundColor: 'rgba(255,255,255,0.06)',
-  },
-  headerTitle: { fontWeight: '800', fontSize: 22, color: '#fff', marginBottom: 4 },
-  headerSub: { color: 'rgba(255,255,255,0.75)', fontSize: 13, marginBottom: 28 },
+  root: { flex: 1, backgroundColor: '#f7fafd' },
 
-  podium: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'center', gap: 8 },
-  podiumItem: { alignItems: 'center', gap: 6 },
-  podiumAvatar: {
-    width: 44, height: 44, borderRadius: 22,
-    justifyContent: 'center', alignItems: 'center', position: 'relative',
+  trophyBadge: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: '#fefce8',
+    borderWidth: 1, borderColor: '#fde68a',
+    justifyContent: 'center', alignItems: 'center',
   },
-  podiumAvatarFirst: { width: 54, height: 54, borderRadius: 27 },
-  crown: { position: 'absolute', top: -15, fontSize: 16 },
-  podiumInitials: { color: '#fff', fontWeight: '800', fontSize: 18 },
-  podiumInitialsFirst: { fontSize: 22 },
-  podiumName: { color: 'rgba(255,255,255,0.9)', fontWeight: '700', fontSize: 11, textAlign: 'center' },
-  podiumBase: { borderRadius: 10, width: 80, alignItems: 'center', paddingTop: 8 },
-  base1: { height: 70, backgroundColor: 'rgba(255,255,255,0.22)' },
-  base2: { height: 50, backgroundColor: 'rgba(255,255,255,0.14)' },
-  base3: { height: 36, backgroundColor: 'rgba(255,255,255,0.09)' },
-  podiumPos: { color: 'rgba(255,255,255,0.9)', fontWeight: '800', fontSize: 18 },
 
-  list: { padding: 16, gap: 8 },
-  row: {
-    backgroundColor: '#fff', borderRadius: 14, padding: 14,
+  scroll: { paddingHorizontal: 20, paddingBottom: 16 },
+
+  pageTitle: {
+    fontSize: 30, fontWeight: '800', color: '#181c1e',
+    textAlign: 'center', marginTop: 20, marginBottom: 4, letterSpacing: -0.5,
+  },
+  pageSub: { fontSize: 14, color: '#707883', textAlign: 'center', marginBottom: 20 },
+
+  podiumWrap: {
+    flexDirection: 'row', alignItems: 'flex-end',
+    justifyContent: 'center', marginBottom: 28, marginTop: 8,
+  },
+  podiumCol: { alignItems: 'center' },
+  podiumAvatarWrap: { alignItems: 'center', gap: 4 },
+  podiumName: { fontWeight: '700', color: '#181c1e', textAlign: 'center', maxWidth: 80 },
+  podiumXp:   { fontWeight: '600', textAlign: 'center' },
+
+  listSection: { gap: 8 },
+
+  rowRegular: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    shadowColor: '#D96A3F', shadowOffset: { width: 0, height: 2 },
+    padding: 16, borderRadius: 16, backgroundColor: '#fff',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
   },
-  rowMe: { backgroundColor: '#FEF3EE', borderWidth: 2, borderColor: '#FBCAAF' },
-  rankNum: { fontWeight: '800', fontSize: 15, color: '#9CA3AF', width: 20, textAlign: 'center' },
-  rankNumTop: { color: '#F07D52' },
-  avatar: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
-  avatarText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  playerName: { flex: 1, fontWeight: '700', fontSize: 14, color: '#2D2D3E' },
-  playerNameMe: { color: '#D96A3F' },
-  xpBadge: { backgroundColor: '#FEF3EE', borderRadius: 20, paddingVertical: 4, paddingHorizontal: 10 },
-  xpBadgeMe: { backgroundColor: '#FBCAAF' },
-  xpText: { fontWeight: '700', fontSize: 12, color: '#F07D52' },
-  xpTextMe: { color: '#D96A3F' },
+  rowMe: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    padding: 16, borderRadius: 16,
+    backgroundColor: '#dbeafe',
+    borderWidth: 2, borderColor: '#0061a2',
+    elevation: 3,
+  },
+
+  rankNum:   { fontSize: 14, fontWeight: '800', color: '#9CA3AF', width: 22, textAlign: 'center' },
+  rankNumMe: { color: '#0061a2' },
+  playerInfo:    { flex: 1 },
+  playerName:    { fontSize: 14, fontWeight: '700', color: '#181c1e' },
+  playerNameMe:  { color: '#0061a2' },
+  youLabel: { fontSize: 10, fontWeight: '700', color: '#0061a2', letterSpacing: 0.5, marginTop: 1 },
+  xpText:   { fontSize: 14, fontWeight: '700', color: '#707883' },
+  xpTextMe: { color: '#0061a2', fontWeight: '800' },
+  xpUnit:   { fontSize: 11, fontWeight: '600' },
 });

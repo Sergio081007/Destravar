@@ -101,6 +101,10 @@ export async function setUserName(name: string) {
   await AsyncStorage.setItem(STORAGE_KEYS.USER_NAME, name);
 }
 
+export async function clearAllData() {
+  await AsyncStorage.multiRemove(Object.values(STORAGE_KEYS));
+}
+
 const LEVEL_COMPLETE_THRESHOLD = 3;
 
 export async function getLevelProgress() {

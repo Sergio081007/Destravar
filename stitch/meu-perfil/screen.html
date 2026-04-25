@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+
+<html lang="pt-BR"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&amp;family=Lexend:wght@400;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-surface-variant": "#404751",
+                        "surface-container-highest": "#e0e3e6",
+                        "inverse-primary": "#9dcaff",
+                        "on-secondary-container": "#fffbff",
+                        "surface-variant": "#e0e3e6",
+                        "on-primary-fixed": "#001d35",
+                        "inverse-surface": "#2d3133",
+                        "primary-container": "#4da9ff",
+                        "on-tertiary-container": "#543400",
+                        "on-secondary": "#ffffff",
+                        "on-primary-container": "#003c67",
+                        "surface-dim": "#d7dadd",
+                        "tertiary-container": "#dd962b",
+                        "on-tertiary-fixed": "#2a1800",
+                        "outline-variant": "#c0c7d3",
+                        "on-surface": "#181c1e",
+                        "surface-bright": "#f7fafd",
+                        "primary": "#0061a2",
+                        "tertiary-fixed": "#ffddb6",
+                        "primary-fixed": "#d1e4ff",
+                        "error": "#ba1a1a",
+                        "surface": "#f7fafd",
+                        "surface-container-high": "#e5e8eb",
+                        "tertiary": "#845400",
+                        "on-tertiary": "#ffffff",
+                        "surface-container": "#ebeef1",
+                        "error-container": "#ffdad6",
+                        "on-background": "#181c1e",
+                        "inverse-on-surface": "#eef1f4",
+                        "on-primary": "#ffffff",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary": "#5e41d0",
+                        "surface-container-low": "#f1f4f7",
+                        "on-primary-fixed-variant": "#00497c",
+                        "on-secondary-fixed-variant": "#4825ba",
+                        "on-tertiary-fixed-variant": "#643f00",
+                        "on-error": "#ffffff",
+                        "secondary-container": "#775ceb",
+                        "secondary-fixed": "#e6deff",
+                        "background": "#f7fafd",
+                        "surface-tint": "#0061a2",
+                        "primary-fixed-dim": "#9dcaff",
+                        "outline": "#707883",
+                        "on-secondary-fixed": "#1c0062",
+                        "on-error-container": "#93000a",
+                        "secondary-fixed-dim": "#cabeff",
+                        "tertiary-fixed-dim": "#ffb95a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "1rem",
+                        "lg": "2rem",
+                        "xl": "3rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "container-margin": "20px",
+                        "gutter": "16px",
+                        "base": "8px",
+                        "sm": "12px",
+                        "xl": "64px",
+                        "md": "24px",
+                        "lg": "40px",
+                        "xs": "4px"
+                    },
+                    "fontFamily": {
+                        "h1": ["Plus Jakarta Sans"],
+                        "label-caps": ["Lexend"],
+                        "button-text": ["Plus Jakarta Sans"],
+                        "h2": ["Plus Jakarta Sans"],
+                        "body-md": ["Lexend"],
+                        "body-lg": ["Lexend"]
+                    },
+                    "fontSize": {
+                        "h1": ["32px", {"lineHeight": "1.2", "fontWeight": "700"}],
+                        "label-caps": ["12px", {"lineHeight": "1.0", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                        "button-text": ["16px", {"lineHeight": "1.0", "fontWeight": "600"}],
+                        "h2": ["24px", {"lineHeight": "1.3", "fontWeight": "700"}],
+                        "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                        "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .glass-card {
+            background: rgba(255, 255, 255, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+        .achievement-locked {
+            filter: grayscale(1) opacity(0.5);
+        }
+        .main-gradient {
+            background: linear-gradient(135deg, #0061a2 0%, #5e41d0 100%);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+</head>
+<body class="bg-background text-on-surface font-body-md min-h-screen pb-32 selection:bg-primary-fixed selection:text-on-primary-fixed">
+<!-- Top AppBar Shell -->
+<header class="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-6 h-16 bg-white/70 backdrop-blur-xl border-b border-white/20 shadow-sm"><div class="flex items-center justify-between w-full"><span class="font-h1 text-xl font-black tracking-tight text-blue-600">Destravar</span><button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container transition-colors text-on-surface-variant">
+<span class="material-symbols-outlined text-2xl">settings</span>
+</button></div></header>
+<main class="mt-20 px-container-margin space-y-md">
+<!-- Profile Header Section -->
+<section class="glass-card rounded-lg p-md flex flex-col items-center text-center space-y-sm">
+<div class="relative">
+<div class="w-24 h-24 rounded-full p-1 bg-gradient-to-tr from-primary to-secondary shadow-lg shadow-primary/20">
+<div class="w-full h-full rounded-full overflow-hidden border-4 border-white">
+<div class="w-full h-full bg-gradient-to-br from-blue-100 to-indigo-50 flex items-center justify-center"><img alt="Maria Clara's Avatar" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida/ADBb0uiSa3L9oalQM_0wW788piMG7S5XRXdiYVve1kai2LMmsgO5xw7TuUaP1Uz-3YE0x-Er4-kCvTB53AT9PhupA9GPU0jsU0OHUncsAbC7JbMHI0KIN0q_Uy8Avi7Dz3ldH29DhISgEHtbzMXYCXwkhyNUgY3silFai1GeaHNyfqaQxIQd6xr5K1pt4aJc33i48PHTv7FKvyhCcm7bt7q7iV6gcXDbeW9MoYH0mmss1p0RcclFiBR9oUwpRHdYdrQdsdO4PvD5IrVj3Q"/></div>
+</div>
+</div>
+<div class="absolute -bottom-1 -right-1 bg-tertiary-container text-on-tertiary-container px-3 py-1 rounded-full text-[10px] font-bold shadow-md border-2 border-white uppercase tracking-wider">
+                    Nível 12
+                </div>
+</div>
+<div>
+<h1 class="font-h1 text-h2 text-on-surface">Maria Clara</h1>
+<p class="font-body-md text-on-surface-variant">Exploradora de Palavras</p>
+</div>
+<button class="w-full py-3 main-gradient text-white font-button-text text-button-text rounded-full shadow-[0_10px_20px_rgba(0,97,162,0.2)] active:scale-95 transition-transform">
+                Editar Perfil
+            </button>
+</section>
+<!-- Quick Stats Bento Row -->
+<section class="grid grid-cols-3 gap-sm">
+<div class="glass-card rounded-xl p-sm flex flex-col items-center justify-center text-center space-y-1">
+<span class="material-symbols-outlined text-orange-500 text-3xl" data-icon="local_fire_department" style="font-variation-settings: 'FILL' 1;">local_fire_department</span>
+<span class="font-h2 text-h2 leading-none">7</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant">Dias</span>
+</div>
+<div class="glass-card rounded-xl p-sm flex flex-col items-center justify-center text-center space-y-1 border-primary/20 bg-blue-50/50">
+<span class="material-symbols-outlined text-blue-500 text-3xl" data-icon="electric_bolt" style="font-variation-settings: 'FILL' 1;">electric_bolt</span>
+<span class="font-h2 text-h2 leading-none">1.2k</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant">Total XP</span>
+</div>
+<div class="glass-card rounded-xl p-sm flex flex-col items-center justify-center text-center space-y-1">
+<span class="material-symbols-outlined text-amber-500 text-3xl" data-icon="emoji_events" style="font-variation-settings: 'FILL' 1;">emoji_events</span>
+<span class="font-h2 text-h2 leading-none">#5</span>
+<span class="font-label-caps text-label-caps text-on-surface-variant">Ranking</span>
+</div>
+</section>
+<!-- Achievements Section -->
+<section class="glass-card rounded-lg p-md space-y-md">
+<div class="flex justify-between items-center">
+<h2 class="font-h2 text-h2 text-on-surface">Conquistas</h2>
+<span class="font-label-caps text-primary">Ver Todas</span>
+</div>
+<div class="grid grid-cols-4 gap-md">
+<!-- Unlocked -->
+<div class="flex flex-col items-center space-y-xs">
+<div class="w-14 h-14 rounded-full bg-orange-100 flex items-center justify-center shadow-inner">
+<span class="material-symbols-outlined text-orange-600 text-2xl" data-icon="auto_stories" style="font-variation-settings: 'FILL' 1;">auto_stories</span>
+</div>
+<span class="font-label-caps text-[10px] text-center text-on-surface-variant">Leitora</span>
+</div>
+<div class="flex flex-col items-center space-y-xs">
+<div class="w-14 h-14 rounded-full bg-blue-100 flex items-center justify-center shadow-inner">
+<span class="material-symbols-outlined text-blue-600 text-2xl" data-icon="campaign" style="font-variation-settings: 'FILL' 1;">campaign</span>
+</div>
+<span class="font-label-caps text-[10px] text-center text-on-surface-variant">Oradora</span>
+</div>
+<!-- Locked -->
+<div class="flex flex-col items-center space-y-xs achievement-locked">
+<div class="w-14 h-14 rounded-full bg-surface-container flex items-center justify-center border-2 border-dashed border-outline-variant">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="lock">lock</span>
+</div>
+<span class="font-label-caps text-[10px] text-center text-on-surface-variant">Mestre</span>
+</div>
+<div class="flex flex-col items-center space-y-xs achievement-locked">
+<div class="w-14 h-14 rounded-full bg-surface-container flex items-center justify-center border-2 border-dashed border-outline-variant">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="stars">stars</span>
+</div>
+<span class="font-label-caps text-[10px] text-center text-on-surface-variant">Elite</span>
+</div>
+</div>
+</section>
+<!-- Progress Card -->
+<section class="glass-card rounded-lg p-md space-y-sm">
+<h3 class="font-h2 text-body-lg font-bold text-on-surface">Caminho do Sucesso</h3>
+<div class="space-y-xs">
+<div class="flex justify-between font-label-caps text-on-surface-variant">
+<span>Próximo nível</span>
+<span>850 / 1000 XP</span>
+</div>
+<div class="w-full h-3 bg-surface-container rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full w-[85%] shadow-[0_0_8px_rgba(0,97,162,0.3)]"></div>
+</div>
+</div>
+</section>
+<section class="pt-4 pb-8">
+<button class="w-full py-4 flex items-center justify-center space-x-2 border font-button-text text-button-text rounded-full active:scale-95 transition-transform hover:bg-red-50 hover:text-red-600 hover:border-red-200 bg-red-50 text-red-600 border-red-200">
+<span class="material-symbols-outlined text-xl">logout</span>
+<span>Sair da conta</span>
+</button>
+</section></main>
+<!-- Bottom Navigation Shell -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-4 pb-6 pt-3 bg-white/80 backdrop-blur-2xl border-t border-white/30 rounded-t-[32px] shadow-[0_-4px_20px_rgba(77,169,255,0.1)]">
+<a class="flex flex-col items-center justify-center text-slate-400 px-6 py-2 hover:text-blue-400 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="extension">extension</span>
+<span class="font-['Plus_Jakarta_Sans'] text-[12px] font-semibold mt-1">Desafios</span>
+</a>
+<a class="flex flex-col items-center justify-center text-slate-400 px-6 py-2 hover:text-blue-400 transition-colors" href="#">
+<span class="material-symbols-outlined" data-icon="leaderboard">leaderboard</span>
+<span class="font-['Plus_Jakarta_Sans'] text-[12px] font-semibold mt-1">Ranking</span>
+</a>
+<a class="flex flex-col items-center justify-center bg-blue-50 text-blue-600 rounded-full px-6 py-2 transform scale-90 transition-transform duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="person" style="font-variation-settings: 'FILL' 1;">person</span>
+<span class="font-['Plus_Jakarta_Sans'] text-[12px] font-semibold mt-1">Perfil</span>
+</a>
+</nav>
+</body></html>
