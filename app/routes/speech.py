@@ -178,6 +178,7 @@ async def transcrever(file: UploadFile = File(...), texto_referencia: str = Form
                 response_format="verbose_json",
                 timestamp_granularities=["segment", "word"],
                 temperature=0,
+                prompt="Transcreva exatamente o que foi dito, incluindo repetições, gaguejos, hesitações e disfluências. Não corrija nem suavize a fala. Exemplo: 'eu eu eu fui ao ao mercado'."
             )
 
         texto = resultado.text.strip()
