@@ -1,348 +1,151 @@
 {
-  "versao": "3.0.0",
-  "descricao": "Matriz de conteúdo para app Destravar — 3 exercícios por fase: respiração (guia), velocidade (WPM), suavização (automonitoramento de início suave)",
-  "modelo_exercicios": {
-    "exercicio_1_respiracao": {
-      "tipo": "guia_visual",
-      "backend": false,
-      "descricao": "Círculo animado guia o usuário. Sem gravação, sem análise.",
-      "ciclo_padrao": { "inspirar_s": 4, "segurar_s": 2, "soltar_s": 4 },
-      "ciclos_por_sessao": 5,
-      "avaliacao": "timer — conclui automaticamente"
-    },
-    "exercicio_2_velocidade": {
-      "tipo": "gravacao_wpm",
-      "backend": true,
-      "descricao": "Usuário lê o texto da fase em voz alta. Backend retorna WPM e classificação.",
-      "wpm_alvo": { "lento": 120, "normal_min": 120, "normal_max": 150, "rapido": 160 },
-      "avaliacao": "WPM dentro da faixa = aprovado"
-    },
-    "exercicio_3_suavizacao": {
-      "tipo": "automonitoramento",
-      "backend": false,
-      "descricao": "Instrução mostra o som-alvo da fase. Usuário tenta produzir com início suave e avalia si mesmo.",
-      "avaliacao": "botão binário: consegui / precisei forçar",
-      "nota_clinica": "Automonitoramento é a abordagem correta — tensão muscular não é detectável via áudio. Sem análise automática."
-    }
-  },
+  "versao": "5.0.0",
+  "descricao": "Conteudo do app Destravar - textos de calibracao, exercicios por fase e trava-linguas.",
 
-  "progressao_suavizacao": {
-    "descricao": "O som-alvo do exercício 3 evolui por dificuldade articulatória ao longo das fases",
-    "niveis": [
-      { "nivel": "facil",    "sons": ["a", "e", "i", "o", "u"],      "descricao": "Vogais — início suave mais simples, sem contato entre órgãos da fala" },
-      { "nivel": "medio",    "sons": ["f", "v", "s", "l", "m", "n"], "descricao": "Consoantes suaves — pouca tensão, contato leve" },
-      { "nivel": "dificil",  "sons": ["p", "b", "t", "d"],           "descricao": "Bilabiais e alveolares — sons que costumam gerar bloqueio" },
-      { "nivel": "avancado", "sons": ["trava_lingua"],                "descricao": "Trava-línguas com sons bilabiais — desafio final, só fases avançadas" }
-    ]
+  "calibracao": {
+    "id": "texto_calibracao",
+    "uso": "calibracao",
+    "titulo": "Texto de calibracao",
+    "conteudo": "Hoje o ceu estava azul e sem nuvens. Fui ao parque com minha familia e ficamos la por um tempo. Tinha criancas brincando e passaros cantando. Foi um dia muito tranquilo e feliz.",
+    "palavras": 35,
+    "instrucoes": {
+      "rapido":      "Leia esse texto da forma mais rapida que conseguir.",
+      "devagar":     "Agora leia esse mesmo texto de forma bem lenta.",
+      "confortavel": "E por ultimo, leia esse texto de forma confortavel para voce."
+    }
   },
 
   "textos": [
     {
-      "id": "txt_001",
-      "fase": 1,
-      "dificuldade": "facil",
-      "perfil": "gagueira",
-      "titulo": "Apresentação simples",
-      "conteudo": "Meu nome é Ana. Eu moro em São Paulo. Eu gosto de ler.",
+      "id": "txt_001", "fase": 1, "dificuldade": "facil",
+      "titulo": "Apresentacao simples",
+      "conteudo": "Meu nome e Ana. Eu moro em Sao Paulo. Eu gosto de ler.",
       "palavras": 11,
-      "exercicio_2": {
-        "dica_velocidade": "Fale com calma. Cada ponto é uma pausa real.",
-        "wpm_alvo": { "min": 100, "max": 140 }
-      },
-      "exercicio_3": {
-        "som_alvo": "a",
-        "instrucao": "Comece a palavra 'Ana' com o som 'a' bem suave, quase sussurrado. Sinta que a voz entra sem esforço.",
-        "exemplo_palavra": "Ana",
-        "nivel_suavizacao": "facil"
-      }
+      "ex2_wpm_min": 100, "ex2_wpm_max": 140,
+      "ex2_dica": "Fale com calma. Cada ponto e uma pausa real.",
+      "ex3_som_alvo": "a",
+      "ex3_instrucao": "Fale o som a bem suave, como se fosse um sussurro. Sinta a voz entrar sem esforco.",
+      "ex3_exemplo_palavra": "Ana"
     },
     {
-      "id": "txt_002",
-      "fase": 1,
-      "dificuldade": "facil",
-      "perfil": "gagueira",
+      "id": "txt_002", "fase": 2, "dificuldade": "facil",
       "titulo": "O dia a dia",
-      "conteudo": "Hoje eu acordei cedo. Tomei café com pão. O dia estava bonito.",
+      "conteudo": "Hoje eu acordei cedo. Tomei cafe com pao. O dia estava bonito.",
       "palavras": 13,
-      "exercicio_2": {
-        "dica_velocidade": "Respire antes de cada frase.",
-        "wpm_alvo": { "min": 100, "max": 140 }
-      },
-      "exercicio_3": {
-        "som_alvo": "o",
-        "instrucao": "Comece 'Hoje' com o 'o' bem aberto e suave. Não force a garganta.",
-        "exemplo_palavra": "Hoje",
-        "nivel_suavizacao": "facil"
-      }
+      "ex2_wpm_min": 100, "ex2_wpm_max": 140,
+      "ex2_dica": "Respire antes de cada frase.",
+      "ex3_som_alvo": "o",
+      "ex3_instrucao": "Fale o som o bem aberto e solto. Nao aperte a garganta.",
+      "ex3_exemplo_palavra": "Hoje"
     },
     {
-      "id": "txt_003",
-      "fase": 2,
-      "dificuldade": "facil",
-      "perfil": "gagueira",
+      "id": "txt_003", "fase": 3, "dificuldade": "facil",
       "titulo": "Rotina matinal",
-      "conteudo": "Acordo às sete. Bebo água, me alongo e preparo o café. O dia começa bem.",
-      "palavras": 15,
-      "exercicio_2": {
-        "dica_velocidade": "Equilíbrio: nem rápido demais, nem com pausas longas.",
-        "wpm_alvo": { "min": 110, "max": 145 }
-      },
-      "exercicio_3": {
-        "som_alvo": "e",
-        "instrucao": "Comece 'Eu' ou 'e' com o som saindo suavemente, sem apertar a garganta.",
-        "exemplo_palavra": "Eu",
-        "nivel_suavizacao": "facil"
-      }
+      "conteudo": "Acordo as sete. Bebo agua, me alongo e preparo o cafe. O dia comeca bem quando a gente respira fundo.",
+      "palavras": 19,
+      "ex2_wpm_min": 105, "ex2_wpm_max": 145,
+      "ex2_dica": "Equilibrio: nem rapido demais, nem com pausas longas.",
+      "ex3_som_alvo": "f",
+      "ex3_instrucao": "Diga fundo deixando o ar sair pelo f bem suave. O som f nao precisa de forca.",
+      "ex3_exemplo_palavra": "fundo"
     },
     {
-      "id": "txt_004",
-      "fase": 2,
-      "dificuldade": "facil",
-      "perfil": "fala_rapida",
+      "id": "txt_004", "fase": 4, "dificuldade": "facil",
       "titulo": "Passeio no parque",
-      "conteudo": "Fui ao parque. Vi pássaros, flores e crianças. Foi muito bom.",
-      "palavras": 11,
-      "exercicio_2": {
-        "dica_velocidade": "Cada vírgula vale dois segundos de pausa.",
-        "wpm_alvo": { "min": 100, "max": 135 }
-      },
-      "exercicio_3": {
-        "som_alvo": "f",
-        "instrucao": "Comece 'Fui' deixando o ar sair pelo 'f' bem suave, sem pressão. O som 'f' não precisa de força.",
-        "exemplo_palavra": "Fui",
-        "nivel_suavizacao": "medio"
-      }
+      "conteudo": "Fui ao parque e vi passaros, flores e criancas. O sol estava forte mas havia uma brisa boa. Fiquei la por um tempo so observando.",
+      "palavras": 27,
+      "ex2_wpm_min": 105, "ex2_wpm_max": 145,
+      "ex2_dica": "Cada virgula vale uma pausa real. Nao atropele.",
+      "ex3_som_alvo": "v",
+      "ex3_instrucao": "Diga vi deixando o ar passar suavemente entre os dentes e o labio no v. Sem pressao.",
+      "ex3_exemplo_palavra": "vi"
     },
     {
-      "id": "txt_005",
-      "fase": 3,
-      "dificuldade": "facil",
-      "perfil": "fala_rapida",
+      "id": "txt_005", "fase": 5, "dificuldade": "medio",
       "titulo": "A chuva",
-      "conteudo": "Começou a chover. As gotas caíam devagar. A rua ficou molhada.",
-      "palavras": 12,
-      "exercicio_2": {
-        "dica_velocidade": "Fale no ritmo da chuva fina. Lento e constante.",
-        "wpm_alvo": { "min": 105, "max": 140 }
-      },
-      "exercicio_3": {
-        "som_alvo": "v",
-        "instrucao": "Comece 'vento' ou 'veio' com o 'v' suave — apenas o ar passando entre os dentes e o lábio, sem pressão.",
-        "exemplo_palavra": "veio",
-        "nivel_suavizacao": "medio"
-      }
+      "conteudo": "Comecou a chover de repente. As gotas caiam devagar no comeco e foram ficando mais fortes. A rua ficou molhada e as pessoas correram para se abrigar. Foi uma chuva curta mas intensa.",
+      "palavras": 37,
+      "ex2_wpm_min": 110, "ex2_wpm_max": 150,
+      "ex2_dica": "Fale no ritmo da chuva fina. Lento e constante.",
+      "ex3_som_alvo": "m",
+      "ex3_instrucao": "Diga mais com os labios se tocando levemente no m. Nao prenda o ar, deixe a voz entrar junto.",
+      "ex3_exemplo_palavra": "mais"
     },
     {
-      "id": "txt_006",
-      "fase": 3,
-      "dificuldade": "medio",
-      "perfil": "misto",
-      "titulo": "Crítica construtiva",
-      "conteudo": "O relatório ficou bom, mas pode melhorar. Sugiro revisar a introdução e detalhar as conclusões.",
-      "palavras": 16,
-      "exercicio_2": {
-        "dica_velocidade": "Seja firme sem ser abrupto. Fluidez com assertividade.",
-        "wpm_alvo": { "min": 115, "max": 150 }
-      },
-      "exercicio_3": {
-        "som_alvo": "m",
-        "instrucao": "Comece 'melhorar' com os lábios se tocando levemente no 'm'. Não prenda o ar — deixe a voz entrar junto.",
-        "exemplo_palavra": "melhorar",
-        "nivel_suavizacao": "medio"
-      }
+      "id": "txt_006", "fase": 6, "dificuldade": "medio",
+      "titulo": "Planos para amanha",
+      "conteudo": "Amanha vou ao medico pela manha. Depois encontro um amigo no cafe da esquina. A tarde preciso terminar um trabalho importante. A noite quero assistir um filme em casa com a familia.",
+      "palavras": 35,
+      "ex2_wpm_min": 110, "ex2_wpm_max": 150,
+      "ex2_dica": "Pense no que vai dizer antes de comecar cada frase.",
+      "ex3_som_alvo": "b",
+      "ex3_instrucao": "Diga bem com os labios se tocando muito levemente. Nao prenda o ar antes, solte junto com a voz.",
+      "ex3_exemplo_palavra": "bem"
     },
     {
-      "id": "txt_007",
-      "fase": 4,
-      "dificuldade": "medio",
-      "perfil": "gagueira",
-      "titulo": "Planos para o futuro",
-      "conteudo": "Amanhã vou ao médico pela manhã. Depois encontro minha amiga no café da esquina. À noite, tenho uma reunião online com minha equipe de trabalho.",
-      "palavras": 28,
-      "exercicio_2": {
-        "dica_velocidade": "Pense no que vai dizer antes de começar cada frase.",
-        "wpm_alvo": { "min": 115, "max": 150 }
-      },
-      "exercicio_3": {
-        "som_alvo": "b",
-        "instrucao": "Comece 'bem' ou 'bom' com os lábios se tocando muito levemente. Não prenda o ar antes — solte junto com a voz.",
-        "exemplo_palavra": "bem",
-        "nivel_suavizacao": "dificil"
-      }
+      "id": "txt_007", "fase": 7, "dificuldade": "medio",
+      "titulo": "Sobre perseveranca",
+      "conteudo": "Persistir em algo dificil e um desafio que todo mundo enfrenta em algum momento. A vontade de desistir aparece quando os resultados demoram a chegar. Mas e exatamente nesses momentos que o crescimento acontece de forma mais intensa e duradoura.",
+      "palavras": 43,
+      "ex2_wpm_min": 115, "ex2_wpm_max": 155,
+      "ex2_dica": "Voz firme, ritmo constante. Nem acelerado nem entrecortado.",
+      "ex3_som_alvo": "p",
+      "ex3_instrucao": "Diga persistir com o p muito leve. Labios se tocam quase sem pressao e soltam o ar suavemente.",
+      "ex3_exemplo_palavra": "persistir"
     },
     {
-      "id": "txt_008",
-      "fase": 4,
-      "dificuldade": "medio",
-      "perfil": "fala_rapida",
-      "titulo": "Reunião de trabalho",
-      "conteudo": "O projeto tem três etapas principais. Primeiro, o planejamento detalhado. Depois, o desenvolvimento do código. Por fim, os testes e a validação com o cliente.",
-      "palavras": 26,
-      "exercicio_2": {
-        "dica_velocidade": "Enumerar é ótimo para treinar pausas. Um item por vez.",
-        "wpm_alvo": { "min": 115, "max": 150 }
-      },
-      "exercicio_3": {
-        "som_alvo": "p",
-        "instrucao": "Comece 'projeto' ou 'por fim' com o 'p' bem leve — lábios se tocam quase sem pressão e soltam o ar suavemente.",
-        "exemplo_palavra": "projeto",
-        "nivel_suavizacao": "dificil"
-      }
-    },
-    {
-      "id": "txt_009",
-      "fase": 5,
-      "dificuldade": "medio",
-      "perfil": "misto",
-      "titulo": "Sobre perseverança",
-      "conteudo": "Persistir em algo difícil é um desafio que todo mundo enfrenta em algum momento. A vontade de desistir aparece quando os resultados demoram. Mas é exatamente nesses momentos que o crescimento acontece de forma mais intensa.",
-      "palavras": 40,
-      "exercicio_2": {
-        "dica_velocidade": "Voz firme, ritmo constante. Nem acelerado nem entrecortado.",
-        "wpm_alvo": { "min": 120, "max": 155 }
-      },
-      "exercicio_3": {
-        "som_alvo": "t",
-        "instrucao": "Comece 'todo' com a língua tocando os dentes suavemente no 't'. Não prenda o ar — a consoante é leve.",
-        "exemplo_palavra": "todo",
-        "nivel_suavizacao": "dificil"
-      }
-    },
-    {
-      "id": "txt_010",
-      "fase": 5,
-      "dificuldade": "medio",
-      "perfil": "gagueira",
+      "id": "txt_008", "fase": 8, "dificuldade": "medio",
       "titulo": "O parque da cidade",
-      "conteudo": "Perto de casa existe um parque grande e arborizado. Toda manhã, pessoas de todas as idades caminham, correm ou simplesmente sentam nos bancos. É um lugar onde o tempo parece mais lento.",
-      "palavras": 36,
-      "exercicio_2": {
-        "dica_velocidade": "Visualize o parque enquanto fala. Isso ajuda o ritmo a ficar natural.",
-        "wpm_alvo": { "min": 115, "max": 150 }
-      },
-      "exercicio_3": {
-        "som_alvo": "d",
-        "instrucao": "Comece 'da' ou 'de' com a língua tocando levemente os dentes superiores. Não trave — solte o som junto com a voz.",
-        "exemplo_palavra": "de",
-        "nivel_suavizacao": "dificil"
-      }
+      "conteudo": "Perto de casa existe um parque grande e arborizado. Toda manha, pessoas de todas as idades caminham, correm ou simplesmente sentam nos bancos para descansar. E um lugar onde o tempo parece mais lento e a mente descansa do ritmo agitado do dia a dia.",
+      "palavras": 48,
+      "ex2_wpm_min": 115, "ex2_wpm_max": 155,
+      "ex2_dica": "Visualize o parque enquanto fala. Isso ajuda o ritmo a ficar natural.",
+      "ex3_som_alvo": "trava_lingua",
+      "ex3_trava_lingua_id": "tl_002",
+      "ex3_instrucao": "Leia devagar. No p de pato e prato, sinta os labios se tocando levemente. Nao prenda o ar antes."
     },
     {
-      "id": "txt_011",
-      "fase": 6,
-      "dificuldade": "dificil",
-      "perfil": "gagueira",
-      "titulo": "Explicação técnica clara",
-      "conteudo": "O processador executa instruções em sequência, ciclo por ciclo. Cada instrução passa por etapas: busca, decodificação e execução. Em processadores modernos, essas etapas ocorrem em paralelo, o que aumenta significativamente o desempenho.",
-      "palavras": 42,
-      "exercicio_2": {
-        "dica_velocidade": "Palavras longas: divida em sílabas mentalmente antes de falar.",
-        "wpm_alvo": { "min": 120, "max": 160 }
-      },
-      "exercicio_3": {
-        "som_alvo": "p",
-        "instrucao": "Comece 'processador' com o 'p' muito leve — quase um sopro. Se sentir que prendeu o ar antes, pare e recomece.",
-        "exemplo_palavra": "processador",
-        "nivel_suavizacao": "dificil"
-      }
+      "id": "txt_009", "fase": 9, "dificuldade": "dificil",
+      "titulo": "Defesa de ideia",
+      "conteudo": "A tecnologia nao substitui a criatividade humana, mas potencializa nossa capacidade de resolver problemas em escala. Ferramentas digitais aceleram processos, mas a tomada de decisao, o julgamento critico e a empatia continuam sendo habilidades profundamente humanas e insubstituiveis.",
+      "palavras": 43,
+      "ex2_wpm_min": 120, "ex2_wpm_max": 160,
+      "ex2_dica": "Texto com argumento. Equilibre precisao e fluidez.",
+      "ex3_som_alvo": "trava_lingua",
+      "ex3_trava_lingua_id": "tl_009",
+      "ex3_instrucao": "Alta frequencia de p. Respire antes de comecar. Cada p e um toque leve dos labios, nunca uma explosao."
     },
     {
-      "id": "txt_012",
-      "fase": 6,
-      "dificuldade": "dificil",
-      "perfil": "misto",
-      "titulo": "Defesa de ideia técnica",
-      "conteudo": "A inteligência artificial não substitui a criatividade humana, mas potencializa nossa capacidade de resolver problemas complexos em escala. Modelos de linguagem aceleram a geração de hipóteses, mas a curadoria e o julgamento crítico continuam sendo humanos.",
-      "palavras": 44,
-      "exercicio_2": {
-        "dica_velocidade": "Texto técnico com argumento. Equilibre precisão e fluidez.",
-        "wpm_alvo": { "min": 125, "max": 160 }
-      },
-      "exercicio_3": {
-        "som_alvo": "b",
-        "instrucao": "Comece 'but' ou 'mas' — sinta os lábios se tocando com leveza no 'b' ou 'm'. Não aperte. A voz entra junto.",
-        "exemplo_palavra": "mas",
-        "nivel_suavizacao": "dificil"
-      }
-    },
-    {
-      "id": "txt_013",
-      "fase": 7,
-      "dificuldade": "dificil",
-      "perfil": "fala_rapida",
-      "titulo": "Argumento sobre educação",
-      "conteudo": "Investir em educação pública de qualidade é uma das formas mais eficazes de reduzir desigualdades sociais a longo prazo. Os resultados, embora lentos e difíceis de mensurar no curto prazo, são consistentes e duradouros.",
-      "palavras": 40,
-      "exercicio_2": {
-        "dica_velocidade": "Fale para convencer. Cada palavra tem peso. Não atropele os argumentos.",
-        "wpm_alvo": { "min": 120, "max": 155 }
-      },
-      "exercicio_3": {
-        "som_alvo": "trava_lingua",
-        "trava_lingua_id": "tl_002",
-        "instrucao": "Leia o trava-língua devagar. No 'p' de 'pato' e 'prato', sinta os lábios se tocando levemente — não prenda o ar antes.",
-        "nivel_suavizacao": "avancado"
-      }
-    },
-    {
-      "id": "txt_014",
-      "fase": 7,
-      "dificuldade": "dificil",
-      "perfil": "gagueira",
+      "id": "txt_010", "fase": 10, "dificuldade": "dificil",
       "titulo": "Discurso de encerramento",
-      "conteudo": "Chegamos ao fim de uma jornada que exigiu muito de cada um de nós. Não foi fácil. Houve obstáculos, dúvidas e momentos em que a continuidade parecia impossível. Mas aqui estamos. Cada pequeno avanço que fizemos construiu algo que ninguém pode tirar: confiança na própria voz.",
+      "conteudo": "Chegamos ao fim de uma jornada que exigiu muito de cada um de nos. Nao foi facil. Houve obstaculos, duvidas e momentos em que a continuidade parecia impossivel. Mas aqui estamos. Cada pequeno avanco que fizemos construiu algo que ninguem pode tirar: confianca na propria voz.",
       "palavras": 52,
-      "exercicio_2": {
-        "dica_velocidade": "Volume, presença e pausa antes da última frase.",
-        "wpm_alvo": { "min": 120, "max": 155 }
-      },
-      "exercicio_3": {
-        "som_alvo": "trava_lingua",
-        "trava_lingua_id": "tl_009",
-        "instrucao": "Alta frequência de 'p'. Respire antes de começar. Cada 'p' é um toque leve dos lábios — nunca uma explosão.",
-        "nivel_suavizacao": "avancado"
-      }
+      "ex2_wpm_min": 120, "ex2_wpm_max": 160,
+      "ex2_dica": "Volume, presenca e pausa antes da ultima frase.",
+      "ex3_som_alvo": "trava_lingua",
+      "ex3_trava_lingua_id": "tl_010",
+      "ex3_instrucao": "Inversao no final. Mantenha o ritmo mesmo relendo ao contrario. Cada p entra suave."
     }
   ],
 
   "trava_linguas": [
-    { "id": "tl_001", "dificuldade": "facil",   "titulo": "O rato e o rei",        "conteudo": "O rato roeu a roupa do rei de Roma.",                                                              "sons_alvo": ["r"],         "dica": "Vá devagar. O 'r' não precisa de força, precisa de ritmo.",                              "repeticoes_sugeridas": 3, "fase_minima": 7 },
-    { "id": "tl_002", "dificuldade": "facil",   "titulo": "O pato pateta",          "conteudo": "O pato pateta pula no prato. O prato do pato é pequeno e chato.",                               "sons_alvo": ["p"],         "dica": "Respire antes do 'p'. Não segure o ar.",                                                  "repeticoes_sugeridas": 3, "fase_minima": 7 },
-    { "id": "tl_003", "dificuldade": "facil",   "titulo": "A fada fina",            "conteudo": "A fada fina faz fitas fofas para fadas felizes.",                                                "sons_alvo": ["f"],         "dica": "O 'f' é suave. Deixe o ar sair sem forçar.",                                             "repeticoes_sugeridas": 3, "fase_minima": 7 },
-    { "id": "tl_004", "dificuldade": "facil",   "titulo": "A lua limpa",            "conteudo": "A lua lava a lona longa no lago lindo.",                                                        "sons_alvo": ["l"],         "dica": "O 'l' é suave, fluido e contínuo.",                                                      "repeticoes_sugeridas": 3, "fase_minima": 7 },
-    { "id": "tl_005", "dificuldade": "medio",   "titulo": "A cobra e o couro",      "conteudo": "A cobra criou o couro curto na caverna escura.",                                                "sons_alvo": ["c", "r"],    "dica": "Não trave no 'cr'. Separe mentalmente: 'co-bra'.",                                       "repeticoes_sugeridas": 4, "fase_minima": 8 },
-    { "id": "tl_006", "dificuldade": "medio",   "titulo": "A galinha e o grão",     "conteudo": "A galinha gorda gorgoleja e grita quando o grão some.",                                        "sons_alvo": ["g"],         "dica": "O humor ajuda a relaxar a garganta.",                                                    "repeticoes_sugeridas": 3, "fase_minima": 8 },
-    { "id": "tl_007", "dificuldade": "medio",   "titulo": "Três tigres",            "conteudo": "Três tigres tristes mastigam trigo. Trigo tragam três tigres tristes.",                        "sons_alvo": ["tr", "ti"],  "dica": "Comece com pausas: 'Três tigres... tristes...' Depois junte.",                           "repeticoes_sugeridas": 4, "fase_minima": 8 },
-    { "id": "tl_008", "dificuldade": "medio",   "titulo": "O bispo e o vinho",      "conteudo": "O bispo bebeu vinho no bosque. Bispos bebem, bispos dormem.",                                  "sons_alvo": ["b", "v"],    "dica": "Diferença entre 'b' e 'v': não confunda. Pause entre palavras.",                         "repeticoes_sugeridas": 4, "fase_minima": 8 },
-    { "id": "tl_009", "dificuldade": "dificil", "titulo": "O papa e a pipoca",      "conteudo": "O papa papou a pouca papa que o papa Pio Nono pregou.",                                        "sons_alvo": ["p"],         "dica": "Alta frequência de 'p'. Respire fundo antes de começar.",                                "repeticoes_sugeridas": 5, "fase_minima": 9 },
-    { "id": "tl_010", "dificuldade": "dificil", "titulo": "Pedro e a pedra",        "conteudo": "Pedro pregou um prego numa pedra. Numa pedra pregou um prego Pedro.",                          "sons_alvo": ["pr", "p"],   "dica": "Inversão no final. Mantenha o ritmo mesmo lendo ao contrário.",                          "repeticoes_sugeridas": 5, "fase_minima": 9 },
-    { "id": "tl_011", "dificuldade": "facil",   "titulo": "O sapo soluça",          "conteudo": "O sapo, soluçando, sai. O sapo saiu, soluçou e sumiu.",                                       "sons_alvo": ["s"],         "dica": "As vírgulas são obrigatórias. Pare nelas. Realmente pare.",                              "repeticoes_sugeridas": 3, "fase_minima": 7 },
-    { "id": "tl_012", "dificuldade": "facil",   "titulo": "A tia e o tio",          "conteudo": "A tia, com tédio, tomou chá. O tio, também, tomou depois.",                                   "sons_alvo": ["t"],         "dica": "Cadência de conta: 1 pausa, 2 pausa, 3 pausa.",                                          "repeticoes_sugeridas": 3, "fase_minima": 7 },
-    { "id": "tl_013", "dificuldade": "facil",   "titulo": "O carro caro",           "conteudo": "O carro caro do caro Carmo caiu. Caro Carmo, conserta o carro.",                              "sons_alvo": ["ca", "r"],   "dica": "Fale como se estivesse reclamando. Devagar e firme.",                                    "repeticoes_sugeridas": 3, "fase_minima": 7 },
-    { "id": "tl_014", "dificuldade": "facil",   "titulo": "O milho e a molha",      "conteudo": "Malha, molha e milho. Molha, milho e malha.",                                                  "sons_alvo": ["lh"],        "dica": "Faça cada palavra durar um segundo inteiro.",                                            "repeticoes_sugeridas": 4, "fase_minima": 7 },
-    { "id": "tl_015", "dificuldade": "medio",   "titulo": "A Cecília",              "conteudo": "Cecília, com seu céu cinzento, cessou de cantar. Cessou, suspirou e cansou.",                  "sons_alvo": ["s", "c"],    "dica": "Divida em duas partes. Respire no ponto.",                                               "repeticoes_sugeridas": 4, "fase_minima": 8 },
-    { "id": "tl_016", "dificuldade": "medio",   "titulo": "O navio de nabo",        "conteudo": "Um navio de nabo navegava no Nilo. No Nilo, o navio de nabo afundou.",                        "sons_alvo": ["n"],         "dica": "O 'n' nasalizado exige controle. Vá devagar nos finais de palavra.",                     "repeticoes_sugeridas": 3, "fase_minima": 8 },
-    { "id": "tl_017", "dificuldade": "medio",   "titulo": "O chá da xícara",        "conteudo": "Xícara de chá, xarope de xaxim. Xaxim, xarope, xícara e chá.",                               "sons_alvo": ["x", "ch"],   "dica": "Distinção entre 'x' e 'ch' importa aqui. Não atropele.",                                "repeticoes_sugeridas": 4, "fase_minima": 8 },
-    { "id": "tl_018", "dificuldade": "medio",   "titulo": "O Zé zeloso",            "conteudo": "O Zé zeloso zerou o zoneamento. Zonou, zerou, zumbiu e desapareceu.",                         "sons_alvo": ["z"],         "dica": "O 'z' precisa de tempo. Não corra.",                                                     "repeticoes_sugeridas": 3, "fase_minima": 8 },
-    { "id": "tl_019", "dificuldade": "dificil", "titulo": "Seis sábios sabiás",     "conteudo": "Seis sábios sabiás sentados sob seis sabugos de sabugueiro.",                                  "sons_alvo": ["s", "sb"],   "dica": "Fale em no mínimo 8 segundos. Não menos.",                                               "repeticoes_sugeridas": 5, "fase_minima": 9 },
-    { "id": "tl_020", "dificuldade": "dificil", "titulo": "O fígado do bígaro",     "conteudo": "O fígado faz falta ao bígaro no fundo do frasco de formol.",                                  "sons_alvo": ["f", "fr"],   "dica": "Muitas fricativas seguidas. Marque o ritmo batendo o pé.",                               "repeticoes_sugeridas": 5, "fase_minima": 9 },
-    { "id": "tl_021", "dificuldade": "facil",   "titulo": "O burro bravo",          "conteudo": "O burro bravo berra. Berrou, bradou e brincou no brejo.",                                     "sons_alvo": ["b", "br"],   "dica": "Ritmo estável. Nem rápido demais, nem com pausas longas.",                               "repeticoes_sugeridas": 3, "fase_minima": 7 },
-    { "id": "tl_022", "dificuldade": "facil",   "titulo": "A velha e o varal",      "conteudo": "A velha viúva varre o varal. O varal da velha viúva caiu.",                                   "sons_alvo": ["v"],         "dica": "Combine fluidez com clareza. Não engula o 'v'.",                                         "repeticoes_sugeridas": 3, "fase_minima": 7 },
-    { "id": "tl_023", "dificuldade": "facil",   "titulo": "A manga macia",          "conteudo": "Manga macia, manga mole, manga madeira e manga manga.",                                       "sons_alvo": ["m"],         "dica": "O 'm' exige que a boca feche bem. Mas sem travar.",                                      "repeticoes_sugeridas": 4, "fase_minima": 7 },
-    { "id": "tl_024", "dificuldade": "facil",   "titulo": "A dona da dor",          "conteudo": "Dona Dora dorme e desperta. Desperta e diz: a dor desapareceu.",                              "sons_alvo": ["d"],         "dica": "O 'd' não pode virar pausa. Mantenha o fluxo.",                                          "repeticoes_sugeridas": 3, "fase_minima": 7 },
-    { "id": "tl_025", "dificuldade": "medio",   "titulo": "O limão e o limo",       "conteudo": "O limão com lima, lima com limão. Limo, limão, lima e lacre.",                                "sons_alvo": ["l", "lh"],   "dica": "Equilíbrio: nem rápido, nem com bloqueio no 'l'.",                                       "repeticoes_sugeridas": 4, "fase_minima": 8 },
-    { "id": "tl_026", "dificuldade": "medio",   "titulo": "A floresta e o fresno",  "conteudo": "Na floresta fresca, o fresno floresce. Flores frescas perfumam a floresta.",                  "sons_alvo": ["fr", "fl"],  "dica": "Grupos consonantais exigem atenção. Não pule, não trave.",                               "repeticoes_sugeridas": 4, "fase_minima": 8 },
-    { "id": "tl_027", "dificuldade": "medio",   "titulo": "O grilo grato",          "conteudo": "O grilo grato grilou. Grilou, gritou e se foi com graça.",                                    "sons_alvo": ["gr"],        "dica": "Combine controle de ritmo com fluidez no 'gr'.",                                         "repeticoes_sugeridas": 3, "fase_minima": 8 },
-    { "id": "tl_028", "dificuldade": "medio",   "titulo": "A cigarra e a aranha",   "conteudo": "A cigarra canta enquanto a aranha tece. A aranha tece enquanto a cigarra canta.",             "sons_alvo": ["c", "r", "nh"], "dica": "Inversão no final. Mantenha o ritmo como se fosse música.",                           "repeticoes_sugeridas": 4, "fase_minima": 8 },
-    { "id": "tl_029", "dificuldade": "dificil", "titulo": "Os mafagafos",           "conteudo": "Num ninho de mafagafos, cinco mafagafinhos há. Quem os desmafagafizou, bom desmafagafizador será.", "sons_alvo": ["m", "f", "g"], "dica": "Decore antes de falar, depois fale no ritmo.",                                    "repeticoes_sugeridas": 5, "fase_minima": 9 },
-    { "id": "tl_030", "dificuldade": "dificil", "titulo": "O trem de ferro",        "conteudo": "O trem treme, trepida e trafega. Trafega, trepida e treme o trem de ferro.",                  "sons_alvo": ["tr", "t"],   "dica": "Inversão mais grupos consonantais. Desafio máximo.",                                     "repeticoes_sugeridas": 5, "fase_minima": 9 }
-  ],
-
-  "logica_progressao": {
-    "descricao": "Critérios para avançar de fase",
-    "criterio_ex1": "Completa os 5 ciclos de respiração — automático",
-    "criterio_ex2": "WPM dentro da faixa alvo por 2 tentativas consecutivas",
-    "criterio_ex3": "Usuário marca 'consegui' por 3 tentativas consecutivas",
-    "desbloqueio_trava_lingua": "Apenas a partir da fase 7"
-  }
+    { "id": "tl_001", "fase_minima": 8, "dificuldade": "facil",   "titulo": "O rato e o rei",      "conteudo": "O rato roeu a roupa do rei de Roma.",                                                                  "sons_alvo": ["r"],            "dica": "Va devagar. O r nao precisa de forca, precisa de ritmo.",               "repeticoes": 3 },
+    { "id": "tl_002", "fase_minima": 8, "dificuldade": "facil",   "titulo": "O pato pateta",        "conteudo": "O pato pateta pula no prato. O prato do pato e pequeno e chato.",                                     "sons_alvo": ["p"],            "dica": "Respire antes do p. Nao segure o ar.",                                  "repeticoes": 3 },
+    { "id": "tl_003", "fase_minima": 8, "dificuldade": "facil",   "titulo": "A fada fina",          "conteudo": "A fada fina faz fitas fofas para fadas felizes.",                                                      "sons_alvo": ["f"],            "dica": "O f e suave. Deixe o ar sair sem forcar.",                              "repeticoes": 3 },
+    { "id": "tl_004", "fase_minima": 8, "dificuldade": "facil",   "titulo": "A lua limpa",          "conteudo": "A lua lava a lona longa no lago lindo.",                                                              "sons_alvo": ["l"],            "dica": "O l e suave, fluido e continuo.",                                       "repeticoes": 3 },
+    { "id": "tl_005", "fase_minima": 8, "dificuldade": "facil",   "titulo": "O sapo soluca",        "conteudo": "O sapo, solucando, sai. O sapo saiu, solucou e sumiu.",                                               "sons_alvo": ["s"],            "dica": "As virgulas sao obrigatorias. Pare nelas. Realmente pare.",             "repeticoes": 3 },
+    { "id": "tl_006", "fase_minima": 8, "dificuldade": "facil",   "titulo": "A manga macia",        "conteudo": "Manga macia, manga mole, manga madeira e manga manga.",                                               "sons_alvo": ["m"],            "dica": "O m exige que a boca feche bem. Mas sem travar.",                       "repeticoes": 3 },
+    { "id": "tl_007", "fase_minima": 8, "dificuldade": "facil",   "titulo": "O burro bravo",        "conteudo": "O burro bravo berra. Berrou, bradou e brincou no brejo.",                                             "sons_alvo": ["b", "br"],      "dica": "Ritmo estavel. Nem rapido demais, nem com pausas longas.",              "repeticoes": 3 },
+    { "id": "tl_008", "fase_minima": 8, "dificuldade": "facil",   "titulo": "A dona da dor",        "conteudo": "Dona Dora dorme e desperta. Desperta e diz: a dor desapareceu.",                                      "sons_alvo": ["d"],            "dica": "O d nao pode virar pausa. Mantenha o fluxo.",                           "repeticoes": 3 },
+    { "id": "tl_009", "fase_minima": 9, "dificuldade": "medio",   "titulo": "O papa e a pipoca",    "conteudo": "O papa papou a pouca papa que o papa Pio Nono pregou.",                                               "sons_alvo": ["p"],            "dica": "Alta frequencia de p. Respire fundo antes de comecar.",                 "repeticoes": 4 },
+    { "id": "tl_010", "fase_minima": 9, "dificuldade": "medio",   "titulo": "Pedro e a pedra",      "conteudo": "Pedro pregou um prego numa pedra. Numa pedra pregou um prego Pedro.",                                 "sons_alvo": ["pr", "p"],      "dica": "Inversao no final. Mantenha o ritmo mesmo lendo ao contrario.",         "repeticoes": 4 },
+    { "id": "tl_011", "fase_minima": 9, "dificuldade": "medio",   "titulo": "Tres tigres",          "conteudo": "Tres tigres tristes mastigam trigo. Trigo tragam tres tigres tristes.",                               "sons_alvo": ["tr", "ti"],     "dica": "Comece com pausas: Tres tigres... tristes... Depois junte.",            "repeticoes": 4 },
+    { "id": "tl_012", "fase_minima": 9, "dificuldade": "medio",   "titulo": "O bispo e o vinho",    "conteudo": "O bispo bebeu vinho no bosque. Bispos bebem, bispos dormem.",                                         "sons_alvo": ["b", "v"],       "dica": "Diferenca entre b e v: nao confunda. Pause entre palavras.",            "repeticoes": 4 },
+    { "id": "tl_013", "fase_minima": 9, "dificuldade": "medio",   "titulo": "A cobra e o couro",    "conteudo": "A cobra criou o couro curto na caverna escura.",                                                      "sons_alvo": ["c", "r"],       "dica": "Nao trave no cr. Separe mentalmente: co-bra.",                          "repeticoes": 4 },
+    { "id": "tl_014", "fase_minima": 9, "dificuldade": "medio",   "titulo": "A cigarra e a aranha", "conteudo": "A cigarra canta enquanto a aranha tece. A aranha tece enquanto a cigarra canta.",                     "sons_alvo": ["c", "r", "nh"], "dica": "Inversao no final. Mantenha o ritmo como se fosse musica.",             "repeticoes": 4 },
+    { "id": "tl_015", "fase_minima": 10,"dificuldade": "dificil", "titulo": "Seis sabios sabias",   "conteudo": "Seis sabios sabias sentados sob seis sabugos de sabugueiro.",                                         "sons_alvo": ["s"],            "dica": "Fale em no minimo 8 segundos. Nao menos.",                              "repeticoes": 5 },
+    { "id": "tl_016", "fase_minima": 10,"dificuldade": "dificil", "titulo": "Os mafagafos",         "conteudo": "Num ninho de mafagafos, cinco mafagafinhos ha. Quem os desmafagafizou, bom desmafagafizador sera.",   "sons_alvo": ["m", "f", "g"], "dica": "Decore antes de falar, depois fale no ritmo.",                          "repeticoes": 5 },
+    { "id": "tl_017", "fase_minima": 10,"dificuldade": "dificil", "titulo": "O trem de ferro",      "conteudo": "O trem treme, trepida e trafega. Trafega, trepida e treme o trem de ferro.",                         "sons_alvo": ["tr", "t"],      "dica": "Inversao mais grupos consonantais. Desafio maximo.",                    "repeticoes": 5 },
+    { "id": "tl_018", "fase_minima": 10,"dificuldade": "dificil", "titulo": "O figado do bigaro",   "conteudo": "O figado faz falta ao bigaro no fundo do frasco de formol.",                                         "sons_alvo": ["f", "fr"],      "dica": "Muitas fricativas seguidas. Marque o ritmo batendo o pe.",              "repeticoes": 5 }
+  ]
 }
