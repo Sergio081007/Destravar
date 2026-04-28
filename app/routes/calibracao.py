@@ -1,20 +1,14 @@
-from fastapi import APIRouter, UploadFile, File, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 import tempfile
 import os
 from groq import Groq
 from app.db.connection import get_connection
+from app.db.service import fetch_texto_calibracao
 
 router = APIRouter()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 MARGEM_OSCILACAO = 0.20
-
-TEXTO_REFERENCIA = (
-    "O controle de velocidade é considerado uma técnica universal na área de fluência. "
-    "Reduzir ligeiramente a velocidade dá ao cérebro o tempo necessário para coordenar "
-    "respiração, voz e articulação. O objetivo não é falar devagar, é encontrar uma "
-    "velocidade confortável e estável."
-)
 
 
 def calcular_wpm(palavras_obj: list, duracao_total: float) -> float:
@@ -47,16 +41,37 @@ def transcrever_audio(caminho: str) -> tuple[float, float]:
     return round(wpm, 2), round(duracao, 2)
 
 
+@router.get("/texto-calibracao")
+async def obter_texto_calibracao():
+    """
+    Retorna o texto de calibração para o frontend exibir ao usuário.
+    """
+    texto = fetch_texto_calibracao()
+    if not texto:
+        raise HTTPException(status_code=404, detail="Texto de calibração não encontrado.")
+    return texto
+
+
 @router.post("/calibrar")
 async def calibrar(
+    usuario_id: str = Form(...),
     audio_rapido: UploadFile = File(...),
     audio_devagar: UploadFile = File(...),
     audio_confortavel: UploadFile = File(...),
+    texto_referencia: str = Form(default=""),
 ):
+    """
+    Recebe 3 áudios e o texto lido. Calcula WPM e salva o perfil de calibração.
+    """
+    # Se o frontend não mandar o texto, busca do banco como fallback
+    if not texto_referencia.strip():
+        texto_cal = fetch_texto_calibracao()
+        texto_referencia = texto_cal["conteudo"] if texto_cal else ""
+
     extensoes_permitidas = {'.flac', '.mp3', '.mp4', '.mpeg', '.mpga', '.m4a', '.ogg', '.opus', '.wav', '.webm'}
     uploads = {
-        "rapido": audio_rapido,
-        "devagar": audio_devagar,
+        "rapido":      audio_rapido,
+        "devagar":     audio_devagar,
         "confortavel": audio_confortavel,
     }
 
@@ -86,13 +101,14 @@ async def calibrar(
 
         supabase = get_connection()
         supabase.table("calibracao").insert({
+            "usuario_id":       usuario_id,
             "wpm_rapido":       wpm_rapido,
             "wpm_devagar":      wpm_devagar,
             "wpm_confortavel":  wpm_confortavel,
             "wpm_base":         wpm_base,
             "limite_inferior":  limite_inferior,
             "limite_superior":  limite_superior,
-            "texto_referencia": TEXTO_REFERENCIA,
+            "texto_referencia": texto_referencia,
         }).execute()
 
         return {
@@ -104,7 +120,7 @@ async def calibrar(
                 "limite_superior":   limite_superior,
                 "margem_percentual": MARGEM_OSCILACAO,
             },
-            "texto_referencia": TEXTO_REFERENCIA,
+            "texto_referencia": texto_referencia,
         }
 
     except Exception as e:
@@ -117,11 +133,15 @@ async def calibrar(
 
 
 @router.get("/calibracao")
-async def obter_calibracao():
+async def obter_calibracao(usuario_id: str):
+    """
+    Retorna a calibração mais recente do usuário.
+    """
     supabase = get_connection()
     response = (
         supabase.table("calibracao")
         .select("*")
+        .eq("usuario_id", usuario_id)
         .order("criado_em", desc=True)
         .limit(1)
         .execute()
@@ -130,16 +150,16 @@ async def obter_calibracao():
     if not response.data:
         raise HTTPException(
             status_code=404,
-            detail="Nenhuma calibração encontrada. Faça o onboarding primeiro."
+            detail="Nenhuma calibração encontrada para este usuário."
         )
 
     row = response.data[0]
     return {
-        "wpm_rapido":       row["wpm_rapido"],
-        "wpm_devagar":      row["wpm_devagar"],
-        "wpm_confortavel":  row["wpm_confortavel"],
-        "wpm_base":         row["wpm_base"],
-        "limite_inferior":  row["limite_inferior"],
-        "limite_superior":  row["limite_superior"],
-        "criado_em":        row["criado_em"],
+        "wpm_rapido":      row["wpm_rapido"],
+        "wpm_devagar":     row["wpm_devagar"],
+        "wpm_confortavel": row["wpm_confortavel"],
+        "wpm_base":        row["wpm_base"],
+        "limite_inferior": row["limite_inferior"],
+        "limite_superior": row["limite_superior"],
+        "criado_em":       row["criado_em"],
     }

@@ -1,45 +1,26 @@
-import json
 import random
-from connection import get_connection
+from app.db.connection import get_connection
 
 
-def _deserialize(row: dict) -> dict:
-    """Desserializa sons_alvo se vier como string JSON."""
-    if row and isinstance(row.get('sons_alvo'), str):
-        try:
-            row['sons_alvo'] = json.loads(row['sons_alvo'])
-        except (json.JSONDecodeError, TypeError):
-            pass
-    return row
-
-
-def fetch_text(perfil, dificuldade, fase=None, ultimo_id=None):
+def fetch_texto(fase: int, ultimo_id: str = None) -> dict | None:
     """
-    Busca um texto aleatório de treino.
+    Busca o texto de treino de uma fase específica.
 
     Parâmetros:
-        perfil      – 'gagueira' | 'fala_rapida' | 'misto'
-        dificuldade – 'facil' | 'medio' | 'dificil'
-        fase        – (opcional) filtra pela fase exata
-        ultimo_id   – (opcional) exclui o último texto usado (evita repetição)
+        fase       – número da fase (1 a 10)
+        ultimo_id  – (opcional) exclui o último texto usado (evita repetição)
     """
     supabase = get_connection()
 
     query = (
-        supabase.table("TrainingTexts")
+        supabase.table("textos")
         .select(
-            "id, externo_id, perfil, fase, titulo, conteudo, dificuldade, "
-            "ex2_dica_velocidade, ex2_wpm_min, ex2_wpm_max, "
-            "ex3_som_alvo, ex3_instrucao, ex3_exemplo_palavra, "
-            "ex3_nivel_suavizacao, ex3_trava_lingua_id"
+            "id, fase, dificuldade, titulo, conteudo, palavras, "
+            "ex2_wpm_min, ex2_wpm_max, ex2_dica, "
+            "ex3_som_alvo, ex3_instrucao, ex3_exemplo_palavra, ex3_trava_lingua_id"
         )
-        .eq("categoria", "texto")
-        .eq("perfil", perfil)
-        .eq("dificuldade", dificuldade)
+        .eq("fase", fase)
     )
-
-    if fase is not None:
-        query = query.eq("fase", fase)
 
     if ultimo_id:
         query = query.neq("id", ultimo_id)
@@ -50,48 +31,35 @@ def fetch_text(perfil, dificuldade, fase=None, ultimo_id=None):
     if not resultados:
         return None
 
-    return _deserialize(random.choice(resultados))
+    return random.choice(resultados)
 
 
-def fetch_trava_lingua(trava_lingua_id=None, dificuldade=None, fase_atual=None, ultimo_id=None):
+def fetch_trava_lingua(trava_lingua_id: str = None, fase_atual: int = None, ultimo_id: str = None) -> dict | None:
     """
     Busca um trava-língua.
 
     Parâmetros:
-        trava_lingua_id – busca por ID externo específico (ex: 'tl_002')
-        dificuldade     – filtra por dificuldade quando não há ID específico
-        fase_atual      – respeita o campo fase_minima do trava-língua
+        trava_lingua_id – busca por ID específico (ex: 'tl_002')
+        fase_atual      – respeita o campo fase_minima
         ultimo_id       – exclui o último usado
     """
     supabase = get_connection()
 
-    cols = (
-        "id, externo_id, titulo, conteudo, dificuldade, "
-        "sons_alvo, repeticoes_sugeridas, fase_minima, dica"
-    )
+    cols = "id, fase_minima, dificuldade, titulo, conteudo, sons_alvo, dica, repeticoes"
 
     if trava_lingua_id:
         response = (
-            supabase.table("TrainingTexts")
+            supabase.table("trava_linguas")
             .select(cols)
-            .eq("categoria", "trava_lingua")
-            .eq("externo_id", trava_lingua_id)
+            .eq("id", trava_lingua_id)
             .single()
             .execute()
         )
-        return _deserialize(response.data) if response.data else None
+        return response.data if response.data else None
 
-    query = (
-        supabase.table("TrainingTexts")
-        .select(cols)
-        .eq("categoria", "trava_lingua")
-    )
-
-    if dificuldade:
-        query = query.eq("dificuldade", dificuldade)
+    query = supabase.table("trava_linguas").select(cols)
 
     if fase_atual is not None:
-        # fase_minima IS NULL OR fase_minima <= fase_atual
         query = query.or_(f"fase_minima.is.null,fase_minima.lte.{fase_atual}")
 
     if ultimo_id:
@@ -103,4 +71,21 @@ def fetch_trava_lingua(trava_lingua_id=None, dificuldade=None, fase_atual=None, 
     if not resultados:
         return None
 
-    return _deserialize(random.choice(resultados))
+    return random.choice(resultados)
+
+
+def fetch_texto_calibracao() -> dict | None:
+    """
+    Busca o texto de calibração do banco.
+    """
+    supabase = get_connection()
+
+    response = (
+        supabase.table("textos_calibracao")
+        .select("*")
+        .eq("id", "texto_calibracao")
+        .single()
+        .execute()
+    )
+
+    return response.data if response.data else None

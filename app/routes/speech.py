@@ -10,7 +10,7 @@ from difflib import SequenceMatcher
 from pydantic import BaseModel
 from collections import Counter
 from dotenv import load_dotenv
-from app.db.connection import get_connection  # <-- novo
+from app.db.connection import get_connection
 
 load_dotenv()
 router = APIRouter()
@@ -18,7 +18,6 @@ client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 LAST_TRANSCRIPTION = ""
 
-# Janela deslizante (nº de palavras) para calcular WPM local
 JANELA_OSCILACAO = 10
 
 
@@ -90,17 +89,14 @@ def get_prob_from_segments(word_start: float, segmentos: list) -> float:
     return round(max(0.0, min(1.0, math.exp(avg_logprob))), 4)
 
 
-# ---------------------------------------------------------------------------
-# Helpers de oscilação (novos)
-# ---------------------------------------------------------------------------
-
-def carregar_calibracao() -> dict | None:
-    """Busca o perfil de calibração mais recente. Retorna None se não houver."""
+def carregar_calibracao(usuario_id: str) -> dict | None:
+    """Busca o perfil de calibração mais recente do usuário."""
     try:
         supabase = get_connection()
         response = (
             supabase.table("calibracao")
             .select("wpm_base, limite_inferior, limite_superior")
+            .eq("usuario_id", usuario_id)
             .order("criado_em", desc=True)
             .limit(1)
             .execute()
@@ -116,8 +112,8 @@ def carregar_calibracao() -> dict | None:
         pass
     return None
 
+
 def wpm_local(palavras: list, indice: int, janela: int) -> float:
-    """WPM numa janela deslizante centrada em `indice`."""
     inicio = max(0, indice - janela // 2)
     fim    = min(len(palavras), indice + janela // 2 + 1)
     trecho = palavras[inicio:fim]
@@ -133,10 +129,6 @@ def wpm_local(palavras: list, indice: int, janela: int) -> float:
 
 
 def classificar_oscilacao(wpm_loc: float, limite_inf: float, limite_sup: float) -> str:
-    """
-    Classifica o WPM local em relação à zona confortável do usuário.
-    'normal' | 'acelerado' | 'lento' | 'indefinido'
-    """
     if wpm_loc <= 0:
         return "indefinido"
     elif wpm_loc > limite_sup:
@@ -147,12 +139,12 @@ def classificar_oscilacao(wpm_loc: float, limite_inf: float, limite_sup: float) 
         return "normal"
 
 
-# ---------------------------------------------------------------------------
-# Endpoints
-# ---------------------------------------------------------------------------
-
 @router.post("/transcrever")
-async def transcrever(file: UploadFile = File(...), texto_referencia: str = Form(default="")):
+async def transcrever(
+    file: UploadFile = File(...),
+    texto_referencia: str = Form(default=""),
+    usuario_id: str = Form(default=""),
+):
     global LAST_TRANSCRIPTION
     texto_alvo = texto_referencia
 
@@ -204,16 +196,15 @@ async def transcrever(file: UploadFile = File(...), texto_referencia: str = Form
         )
         taxa_repeticao = repeticoes / total_palavras if total_palavras > 0 else 0
 
-        bloqueios_detectados = 0
-        muletas_detectadas   = 0
-        palavras_processadas = []
-        hesitacoes           = []
-        oscilacoes_detectadas = 0  # novo
+        bloqueios_detectados  = 0
+        muletas_detectadas    = 0
+        palavras_processadas  = []
+        hesitacoes            = []
+        oscilacoes_detectadas = 0
 
         muletas_comuns = ["é", "éé", "ah", "hã", "hum", "uhm", "tipo", "então", "assim"]
 
-        # Carrega calibração uma vez antes do loop
-        calibracao = carregar_calibracao()
+        calibracao = carregar_calibracao(usuario_id) if usuario_id else None
 
         if palavras_obj:
             for i, w in enumerate(palavras_obj):
@@ -231,8 +222,8 @@ async def transcrever(file: UploadFile = File(...), texto_referencia: str = Form
                             "duracao_pausa":    pausa_previa
                         })
 
-                prob         = get_prob_from_segments(w["start"], segmentos)
-                stutter_flag = False
+                prob             = get_prob_from_segments(w["start"], segmentos)
+                stutter_flag     = False
                 palavra_atual    = w["word"].strip().lower()
                 palavra_anterior = palavras_obj[i - 1]["word"].strip().lower() if i > 0 else ""
 
@@ -243,15 +234,14 @@ async def transcrever(file: UploadFile = File(...), texto_referencia: str = Form
                 if i > 0 and palavra_atual == palavra_anterior:
                     stutter_flag = True
 
-                duracao      = round(w["end"] - w["start"], 2)
-                limite_tempo = max(len(palavra_atual) * 0.25, 0.45)
+                duracao         = round(w["end"] - w["start"], 2)
+                limite_tempo    = max(len(palavra_atual) * 0.25, 0.45)
                 is_prolongation = duracao > limite_tempo
 
                 is_filler = palavra_atual in muletas_comuns
                 if is_filler:
                     muletas_detectadas += 1
 
-                # --- Oscilação de velocidade (novo) ---
                 wpm_loc   = 0.0
                 oscilacao = "sem_calibracao"
                 if calibracao:
@@ -265,18 +255,17 @@ async def transcrever(file: UploadFile = File(...), texto_referencia: str = Form
                         oscilacoes_detectadas += 1
 
                 palavras_processadas.append({
-                    "word":           w["word"],
-                    "start":          w["start"],
-                    "end":            w["end"],
-                    "probability":    prob,
-                    "duration":       duracao,
-                    "silence_before": pausa_previa,
-                    "is_stutter":     stutter_flag,
-                    "is_filler":      is_filler,
+                    "word":            w["word"],
+                    "start":           w["start"],
+                    "end":             w["end"],
+                    "probability":     prob,
+                    "duration":        duracao,
+                    "silence_before":  pausa_previa,
+                    "is_stutter":      stutter_flag,
+                    "is_filler":       is_filler,
                     "is_prolongation": is_prolongation,
-                    # novos campos
-                    "wpm_local":      wpm_loc,
-                    "oscilacao":      oscilacao,
+                    "wpm_local":       wpm_loc,
+                    "oscilacao":       oscilacao,
                 })
 
         precisao_alvo = 0.0
@@ -353,34 +342,32 @@ async def transcrever(file: UploadFile = File(...), texto_referencia: str = Form
                 "categoria":   categoria,
             })
 
-        # Proporção de palavras fora da zona confortável
         taxa_oscilacao = round(oscilacoes_detectadas / total_palavras, 4) if calibracao and total_palavras > 0 else None
 
         return {
-            "filename":             file.filename,
-            "transcricao":          texto,
-            "texto_alvo":           texto_alvo,
-            "precisao_alvo":        precisao_alvo,
-            "duracao_segundos":     round(duracao_total, 2),
-            "total_palavras":       total_palavras,
-            "wpm":                  round(wpm, 2),
-            "repeticoes":           repeticoes,
-            "taxa_repeticao":       round(taxa_repeticao, 4),
+            "filename":              file.filename,
+            "transcricao":           texto,
+            "texto_alvo":            texto_alvo,
+            "precisao_alvo":         precisao_alvo,
+            "duracao_segundos":      round(duracao_total, 2),
+            "total_palavras":        total_palavras,
+            "wpm":                   round(wpm, 2),
+            "repeticoes":            repeticoes,
+            "taxa_repeticao":        round(taxa_repeticao, 4),
             "bloqueios_silenciosos": bloqueios_detectados,
-            "muletas_detectadas":   muletas_detectadas,
-            "fluencia":             classificar_fluencia(wpm, taxa_repeticao),
-            "feedback_fono":        dica_fono,
-            "segmentos":            segmentos,
-            "palavras":             palavras_processadas if palavras_obj else [],
-            "analise_palavras":     analise_palavras,
-            "omitidas":             diff["omitidas"],
-            "score":                diff["score"],
-            "hesitacoes":           hesitacoes,
-            # novos campos de oscilação
-            "oscilacoes":           oscilacoes_detectadas if calibracao else None,
-            "taxa_oscilacao":       taxa_oscilacao,
-            "wpm_base":             calibracao["wpm_base"] if calibracao else None,
-            "calibrado":            calibracao is not None,
+            "muletas_detectadas":    muletas_detectadas,
+            "fluencia":              classificar_fluencia(wpm, taxa_repeticao),
+            "feedback_fono":         dica_fono,
+            "segmentos":             segmentos,
+            "palavras":              palavras_processadas if palavras_obj else [],
+            "analise_palavras":      analise_palavras,
+            "omitidas":              diff["omitidas"],
+            "score":                 diff["score"],
+            "hesitacoes":            hesitacoes,
+            "oscilacoes":            oscilacoes_detectadas if calibracao else None,
+            "taxa_oscilacao":        taxa_oscilacao,
+            "wpm_base":              calibracao["wpm_base"] if calibracao else None,
+            "calibrado":             calibracao is not None,
         }
 
     except Exception as e:

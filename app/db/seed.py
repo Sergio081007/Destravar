@@ -3,6 +3,7 @@ import os
 from dotenv import load_dotenv
 from connection import get_connection
 
+load_dotenv(os.path.join(os.path.dirname(__file__), '../../.env'))
 
 JSON_PATH = os.path.join(os.path.dirname(__file__), '../../data/textos/textos-treinamento.json')
 
@@ -15,65 +16,67 @@ def seed():
     inseridos = 0
     pulados = 0
 
-    # ── Textos ────────────────────────────────────────────────────────────────
-    for texto in data['textos']:
-        # Checa se já existe pelo externo_id
-        existing = (
-            supabase.table("TrainingTexts")
-            .select("id")
-            .eq("externo_id", texto['id'])
-            .execute()
-        )
+    # ── Texto de calibração ───────────────────────────────────────────────────
+    cal = data['calibracao']
+    existing = supabase.table("textos_calibracao").select("id").eq("id", cal['id']).execute()
+    if existing.data:
+        print(f"Calibração '{cal['id']}' já existe, pulando.")
+        pulados += 1
+    else:
+        supabase.table("textos_calibracao").insert({
+            "id":                    cal['id'],
+            "titulo":                cal.get('titulo'),
+            "conteudo":              cal['conteudo'],
+            "palavras":              cal.get('palavras'),
+            "instrucao_rapido":      cal['instrucoes']['rapido'],
+            "instrucao_devagar":     cal['instrucoes']['devagar'],
+            "instrucao_confortavel": cal['instrucoes']['confortavel'],
+        }).execute()
+        inseridos += 1
+        print(f"Calibração '{cal['id']}' inserida.")
+
+    # ── Trava-línguas (antes dos textos por causa da FK) ──────────────────────
+    for tl in data['trava_linguas']:
+        existing = supabase.table("trava_linguas").select("id").eq("id", tl['id']).execute()
         if existing.data:
             pulados += 1
             continue
 
-        ex2 = texto.get('exercicio_2', {})
-        ex3 = texto.get('exercicio_3', {})
-        wpm = ex2.get('wpm_alvo', {})
-
-        supabase.table("TrainingTexts").insert({
-            "externo_id":            texto['id'],
-            "perfil":                texto.get('perfil'),
-            "fase":                  texto.get('fase'),
-            "conteudo":              texto['conteudo'],
-            "categoria":             'texto',
-            "dificuldade":           texto.get('dificuldade'),
-            "titulo":                texto.get('titulo'),
-            "palavras":              texto.get('palavras'),
-            "ex2_dica_velocidade":   ex2.get('dica_velocidade'),
-            "ex2_wpm_min":           wpm.get('min'),
-            "ex2_wpm_max":           wpm.get('max'),
-            "ex3_som_alvo":          ex3.get('som_alvo'),
-            "ex3_instrucao":         ex3.get('instrucao'),
-            "ex3_exemplo_palavra":   ex3.get('exemplo_palavra'),
-            "ex3_nivel_suavizacao":  ex3.get('nivel_suavizacao'),
-            "ex3_trava_lingua_id":   ex3.get('trava_lingua_id'),
+        supabase.table("trava_linguas").insert({
+            "id":          tl['id'],
+            "fase_minima": tl.get('fase_minima'),
+            "dificuldade": tl.get('dificuldade'),
+            "titulo":      tl.get('titulo'),
+            "conteudo":    tl['conteudo'],
+            "sons_alvo":   tl.get('sons_alvo', []),
+            "dica":        tl.get('dica'),
+            "repeticoes":  tl.get('repeticoes'),
         }).execute()
         inseridos += 1
 
-    # ── Trava-línguas ─────────────────────────────────────────────────────────
-    for tl in data['trava_linguas']:
-        existing = (
-            supabase.table("TrainingTexts")
-            .select("id")
-            .eq("externo_id", tl['id'])
-            .execute()
-        )
+    print(f"Trava-línguas: {inseridos} inseridos até agora.")
+
+    # ── Textos ────────────────────────────────────────────────────────────────
+    for texto in data['textos']:
+        existing = supabase.table("textos").select("id").eq("id", texto['id']).execute()
         if existing.data:
             pulados += 1
             continue
 
-        supabase.table("TrainingTexts").insert({
-            "externo_id":            tl['id'],
-            "conteudo":              tl['conteudo'],
-            "categoria":             'trava_lingua',
-            "dificuldade":           tl.get('dificuldade'),
-            "titulo":                tl.get('titulo'),
-            "sons_alvo":             json.dumps(tl.get('sons_alvo'), ensure_ascii=False),
-            "repeticoes_sugeridas":  tl.get('repeticoes_sugeridas'),
-            "fase_minima":           tl.get('fase_minima'),
-            "dica":                  tl.get('dica'),
+        supabase.table("textos").insert({
+            "id":                  texto['id'],
+            "fase":                texto.get('fase'),
+            "dificuldade":         texto.get('dificuldade'),
+            "titulo":              texto.get('titulo'),
+            "conteudo":            texto['conteudo'],
+            "palavras":            texto.get('palavras'),
+            "ex2_wpm_min":         texto.get('ex2_wpm_min'),
+            "ex2_wpm_max":         texto.get('ex2_wpm_max'),
+            "ex2_dica":            texto.get('ex2_dica'),
+            "ex3_som_alvo":        texto.get('ex3_som_alvo'),
+            "ex3_instrucao":       texto.get('ex3_instrucao'),
+            "ex3_exemplo_palavra": texto.get('ex3_exemplo_palavra'),
+            "ex3_trava_lingua_id": texto.get('ex3_trava_lingua_id'),
         }).execute()
         inseridos += 1
 
