@@ -100,8 +100,7 @@
       "palavras": 48,
       "ex2_wpm_min": 115, "ex2_wpm_max": 155,
       "ex2_dica": "Visualize o parque enquanto fala. Isso ajuda o ritmo a ficar natural.",
-      "ex3_som_alvo": "trava_lingua",
-      "ex3_trava_lingua_id": "tl_002",
+      "ex3_som_alvo": "t",
       "ex3_instrucao": "Leia devagar. No P de pato e prato, sinta os lábios se tocando levemente. Não prenda o ar antes."
     },
     {
@@ -111,8 +110,7 @@
       "palavras": 43,
       "ex2_wpm_min": 120, "ex2_wpm_max": 160,
       "ex2_dica": "Texto com argumento. Equilibre precisão e fluidez.",
-      "ex3_som_alvo": "trava_lingua",
-      "ex3_trava_lingua_id": "tl_009",
+      "ex3_som_alvo": "d",
       "ex3_instrucao": "Alta frequência de P. Respire antes de começar. Cada P é um toque leve dos lábios, nunca uma explosão."
     },
     {
@@ -122,9 +120,8 @@
       "palavras": 52,
       "ex2_wpm_min": 120, "ex2_wpm_max": 160,
       "ex2_dica": "Volume, presença e pausa antes da última frase.",
-      "ex3_som_alvo": "trava_lingua",
-      "ex3_trava_lingua_id": "tl_010",
-      "ex3_instrucao": "Inversão no final. Mantenha o ritmo mesmo relendo ao contrário. Cada P entra suave."
+      "ex3_som_alvo": "c",
+      "ex3_instrucao": "Diga CONFIANÇA com o C saindo suave. Sinta o ar fluir desde o início da palavra."
     }
   ],
 
