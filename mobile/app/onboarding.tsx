@@ -9,7 +9,7 @@ import { Audio } from 'expo-av';
 import { useRouter } from 'expo-router';
 import { setOnboardingComplete, setUserName } from './utils/storage';
 
-const { height: SCREEN_H } = Dimensions.get('window');
+const { height: SCREEN_H, width: SCREEN_W } = Dimensions.get('window');
 const HERO_H = Math.round(SCREEN_H * 0.40);
 
 const CALIBRATION_TEXT =
@@ -54,6 +54,37 @@ function StepDots({ current }: { current: number }) {
   );
 }
 
+// ── Shared hero+sheet wrapper ─────────────────────────────────
+function Screen({ heroColors, heroIcon, dots, fadeAnim, slideAnim, children }: {
+  heroColors: [string, string];
+  heroIcon: React.ComponentProps<typeof Ionicons>['name'];
+  dots?: number;
+  fadeAnim: Animated.Value;
+  slideAnim: Animated.Value;
+  children: React.ReactNode;
+}) {
+  return (
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <Animated.View style={[styles.root, { opacity: fadeAnim, transform: [{ translateX: slideAnim }] }]}>
+        <Hero colors={heroColors} icon={heroIcon} />
+        <View style={styles.sheet}>
+          <ScrollView
+            contentContainerStyle={styles.sheetContent}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {dots !== undefined && <StepDots current={dots} />}
+            {children}
+          </ScrollView>
+        </View>
+      </Animated.View>
+    </KeyboardAvoidingView>
+  );
+}
+
 // step: 0=intro  1=name  2=calibIntro  3-5=recordings  6=done
 export default function Onboarding() {
   const [step, setStep]               = useState(0);
@@ -64,13 +95,20 @@ export default function Onboarding() {
   const [, requestPermission]         = Audio.usePermissions();
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const fadeAnim  = useRef(new Animated.Value(1)).current;
+  const slideAnim = useRef(new Animated.Value(0)).current;
   const router    = useRouter();
 
-  // Fade transition between steps
   function goToStep(n: number) {
-    Animated.timing(fadeAnim, { toValue: 0, duration: 140, useNativeDriver: true }).start(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim,  { toValue: 0,        duration: 160, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: -SCREEN_W, duration: 160, useNativeDriver: true }),
+    ]).start(() => {
       setStep(n);
-      Animated.timing(fadeAnim, { toValue: 1, duration: 200, useNativeDriver: true }).start();
+      slideAnim.setValue(SCREEN_W);
+      Animated.parallel([
+        Animated.timing(fadeAnim,  { toValue: 1, duration: 220, useNativeDriver: true }),
+        Animated.timing(slideAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
+      ]).start();
     });
   }
 
@@ -97,6 +135,10 @@ export default function Onboarding() {
 
   async function startRecording() {
     try {
+      if (recording) {
+        try { await recording.stopAndUnloadAsync(); } catch {}
+        setRecording(null);
+      }
       await requestPermission();
       await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
       const { recording: rec } = await Audio.Recording.createAsync(
@@ -132,39 +174,10 @@ export default function Onboarding() {
     goToStep(2);
   }
 
-  // ── Shared hero+sheet wrapper ─────────────────────────────────
-  function Screen({ heroColors, heroIcon, dots, children }: {
-    heroColors: [string, string];
-    heroIcon: React.ComponentProps<typeof Ionicons>['name'];
-    dots?: number;
-    children: React.ReactNode;
-  }) {
-    return (
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      >
-        <Animated.View style={[styles.root, { opacity: fadeAnim }]}>
-          <Hero colors={heroColors} icon={heroIcon} />
-          <View style={styles.sheet}>
-            <ScrollView
-              contentContainerStyle={styles.sheetContent}
-              showsVerticalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-            >
-              {dots !== undefined && <StepDots current={dots} />}
-              {children}
-            </ScrollView>
-          </View>
-        </Animated.View>
-      </KeyboardAvoidingView>
-    );
-  }
-
   // ── Step 0: Introdução ────────────────────────────────────────
   if (step === 0) {
     return (
-      <Screen heroColors={['#0061a2', '#5e41d0']} heroIcon="mic" dots={0}>
+      <Screen heroColors={['#0061a2', '#5e41d0']} heroIcon="mic" dots={0} fadeAnim={fadeAnim} slideAnim={slideAnim}>
         <Text style={styles.greeting}>Olá! Sou o</Text>
         <Text style={styles.brandName}>Destravar</Text>
         <Text style={styles.subtitle}>
@@ -180,7 +193,7 @@ export default function Onboarding() {
   // ── Step 1: Nome ──────────────────────────────────────────────
   if (step === 1) {
     return (
-      <Screen heroColors={['#5e41d0', '#0061a2']} heroIcon="person-outline" dots={1}>
+      <Screen heroColors={['#5e41d0', '#0061a2']} heroIcon="person-outline" dots={1} fadeAnim={fadeAnim} slideAnim={slideAnim}>
         <Text style={styles.cardTitle}>Qual é o seu nome?</Text>
         <Text style={styles.subtitle}>Vou te chamar por ele durante os nossos treinos!</Text>
         <TextInput
@@ -211,7 +224,7 @@ export default function Onboarding() {
   // ── Step 2: Intro calibração ──────────────────────────────────
   if (step === 2) {
     return (
-      <Screen heroColors={['#0061a2', '#5e41d0']} heroIcon="analytics-outline" dots={2}>
+      <Screen heroColors={['#0061a2', '#5e41d0']} heroIcon="analytics-outline" dots={2} fadeAnim={fadeAnim} slideAnim={slideAnim}>
         <Text style={styles.cardTitle}>Vamos calibrar{'\n'}sua fluência.</Text>
         <Text style={styles.subtitle}>
           Você vai ler o mesmo texto três vezes, cada uma num ritmo diferente.
@@ -246,7 +259,7 @@ export default function Onboarding() {
     const isLast  = taskIdx === 2;
 
     return (
-      <Animated.View style={[styles.root, { opacity: fadeAnim }]}>
+      <Animated.View style={[styles.root, { opacity: fadeAnim, transform: [{ translateX: slideAnim }] }]}>
         {/* Accent bar colorido no topo */}
         <LinearGradient
           colors={[task.color, task.color + 'BB']}
@@ -343,7 +356,7 @@ export default function Onboarding() {
 
   // ── Step 6: Conclusão ─────────────────────────────────────────
   return (
-    <Screen heroColors={['#16a34a', '#0d9488']} heroIcon="trophy-outline">
+    <Screen heroColors={['#16a34a', '#0d9488']} heroIcon="trophy-outline" fadeAnim={fadeAnim} slideAnim={slideAnim}>
       <Text style={[styles.brandName, { color: '#16a34a' }]}>
         {name ? `Obrigado,\n${name}!` : 'Tudo pronto!'}
       </Text>

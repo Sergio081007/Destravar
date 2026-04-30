@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
-import { View, Text, TouchableOpacity, StyleSheet, Platform } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
 
 const TAB_CONFIG = [
@@ -25,8 +26,9 @@ const TAB_CONFIG = [
 ];
 
 function CustomTabBar({ state, navigation }: BottomTabBarProps) {
+  const insets = useSafeAreaInsets();
   return (
-    <View style={styles.tabBar}>
+    <View style={[styles.tabBar, { paddingBottom: Math.max(insets.bottom, 14) }]}>
       {TAB_CONFIG.map((tab) => {
         const isFocused = state.routes[state.index]?.name === tab.name;
         return (
@@ -73,7 +75,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: 'rgba(192,199,211,0.3)',
     paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 28 : 14,
     paddingHorizontal: 16,
     elevation: 8,
   },
