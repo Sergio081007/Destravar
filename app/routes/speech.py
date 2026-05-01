@@ -66,14 +66,45 @@ def normalizar(texto: str):
     texto = re.sub(r"\s+", " ", texto).strip()
     palavras = texto.split()
 
-    # Remove repetições consecutivas (gagueira) antes do diff
-    # ex: ["eu", "eu", "fui"] → ["eu", "fui"]
+    # Remove repetições consecutivas antes do diff para não punir duas vezes
     sem_repeticoes = []
     for i, p in enumerate(palavras):
         if i == 0 or p != palavras[i - 1]:
             sem_repeticoes.append(p)
 
     return sem_repeticoes
+
+
+def detectar_blocos_gaguejo(palavras_processadas: list, min_pausa: float = 0.4, min_reps: int = 2) -> list:
+    """
+    Detecta o padrão clássico de gaguejo: pausa → repetição da mesma palavra N vezes.
+    Diferencia blocos com bloqueio silencioso (pausa antes) dos que são só repetição.
+    """
+    blocos = []
+    n = len(palavras_processadas)
+    i = 0
+    while i < n:
+        palavra = palavras_processadas[i]["word"].strip().lower()
+        j = i + 1
+        while j < n and palavras_processadas[j]["word"].strip().lower() == palavra:
+            j += 1
+
+        reps = j - i
+        if reps >= min_reps:
+            pausa_antes = palavras_processadas[i]["silence_before"]
+            blocos.append({
+                "palavra":      palavras_processadas[i]["word"].strip(),
+                "repeticoes":   reps,
+                "pausa_antes":  pausa_antes,
+                "inicio":       palavras_processadas[i]["start"],
+                "fim":          palavras_processadas[j - 1]["end"],
+                "com_bloqueio": pausa_antes >= min_pausa,
+            })
+            i = j
+        else:
+            i += 1
+
+    return blocos
 
 
 def comparar_textos(ref: str, trans: str):
@@ -211,7 +242,7 @@ async def transcrever(
                 response_format="verbose_json",
                 timestamp_granularities=["segment", "word"],
                 temperature=0,
-                prompt="Transcreva exatamente o que foi dito, sem corrigir nem suavizar. Inclua todas as repetições de sons, sílabas e palavras (ex: 'p-p-pode', 'eu eu eu fui'). Inclua prolongamentos (ex: 'mmmeu', 'sssei'). Inclua bloqueios com silêncio antes da palavra. Não junte repetições em uma só palavra. Não remova hesitações como 'ah', 'hã', 'hum'."
+                prompt="Transcreva literalmente tudo que foi dito, sem corrigir nem suavizar. REGRAS: (1) Mantenha TODAS as repetições de palavras exatamente como foram ditas — se a pessoa disse 'meu meu meu nome', escreva 'meu meu meu nome', não apenas 'meu nome'. (2) Mantenha repetições de sílabas (ex: 'p-p-pode', 'ca-ca-casa'). (3) Mantenha prolongamentos (ex: 'mmmeu', 'sssei'). (4) Mantenha hesitações ('ah', 'hã', 'hum', 'é'). (5) Nunca junte ou contraia repetições. (6) Se houver silêncio longo antes de uma palavra, ainda assim transcreva a palavra que veio depois."
             )
 
         texto = resultado.text.strip()
@@ -323,18 +354,16 @@ async def transcrever(
         try:
             prompt_fono = f"""
             Você é uma fonoaudióloga coach em um app gamificado, analise esses dados:
-            - Palavras por minuto: {wpm}
-            - Taxa de Repetição: {taxa_repeticao}
-            - Bloqueios Silenciosos: {bloqueios_detectados}
-            - Muletas de linguagem usadas: {muletas_detectadas}
-            - Transcrição do que ele disse: "{texto}"
-            - Texto esperado (se houver): "{texto_alvo}"
+            - Palavras por minuto: {round(wpm, 1)}
+            - Taxa de repetição (gaguejo): {round(taxa_repeticao * 100, 1)}%
+            - Blocos de gaguejo detectados: {len(blocos_gaguejo)} (com bloqueio silencioso: {blocos_com_bloqueio})
+            - Bloqueios silenciosos: {bloqueios_detectados}
+            - Muletas usadas: {muletas_detectadas}
+            - Transcrição: "{texto}"
+            - Texto esperado: "{texto_alvo}"
             Responda em português brasileiro com no máximo 18 palavras.
-            Formato:
-            Elogie primeiro + diga 1 ou 2 melhorias + incentive.
-            Exemplo:
-            "Quase lá! Fale mais devagar e respire melhor. Você consegue!"
-            "Mandou bem! Agora reduza a velocidade e pause mais."
+            Se houver muitas repetições, foque nisso. Senão, elogie e dê 1 dica.
+            Exemplo: "Quase lá! Respire antes de cada frase. Você consegue!"
             """
             chat_completion = client.chat.completions.create(
                 messages=[{"role": "user", "content": prompt_fono}],
@@ -345,6 +374,10 @@ async def transcrever(
             dica_fono = chat_completion.choices[0].message.content.strip()
         except Exception as e:
             print("Erro ao gerar feedback:", e)
+
+        # ── Item 4: detectar blocos de gaguejo (pausa → repetição) ──────────
+        blocos_gaguejo = detectar_blocos_gaguejo(palavras_processadas) if palavras_obj else []
+        blocos_com_bloqueio = sum(1 for b in blocos_gaguejo if b["com_bloqueio"])
 
         diff = comparar_textos(texto_referencia, texto)
 
@@ -366,22 +399,36 @@ async def transcrever(
             else:
                 lookup[palavra] = "omitida"
 
+        # ── Item 1: marcar repetições diretas como "disfluente" ──────────────
         analise_palavras = []
-        for p in palavras_processadas:
+        for idx, p in enumerate(palavras_processadas):
             palavra_norm = normalizar(p["word"])
             palavra_norm = palavra_norm[0] if len(palavra_norm) > 0 else p["word"].strip().lower()
             status_diff  = lookup.get(palavra_norm, "acerto")
 
-            if status_diff == "acerto":
+            palavra_atual_raw    = p["word"].strip().lower()
+            palavra_anterior_raw = palavras_processadas[idx - 1]["word"].strip().lower() if idx > 0 else ""
+            is_repeticao_direta  = (idx > 0 and palavra_atual_raw == palavra_anterior_raw)
+
+            if is_repeticao_direta:
+                categoria = "disfluente"
+            elif status_diff == "acerto":
                 categoria = "correta" if p["probability"] >= 0.5 else "pouco_clara"
             else:
                 categoria = "incorreta"
 
             analise_palavras.append({
                 **p,
-                "status_diff": status_diff,
-                "categoria":   categoria,
+                "status_diff":       status_diff,
+                "categoria":         categoria,
+                "repeticao_direta":  is_repeticao_direta,
             })
+
+        # ── Item 2: score penalizado por repetições e blocos de gaguejo ──────
+        penalidade_repeticao = min(taxa_repeticao * 1.5, 0.5)
+        penalidade_blocos    = min(blocos_com_bloqueio * 0.05, 0.2)
+        score_bruto          = diff["score"]
+        score_penalizado     = round(max(0.0, score_bruto * (1 - penalidade_repeticao - penalidade_blocos)), 4)
 
         taxa_oscilacao = round(oscilacoes_detectadas / total_palavras, 4) if calibracao and total_palavras > 0 else None
 
@@ -397,13 +444,15 @@ async def transcrever(
             "taxa_repeticao":        round(taxa_repeticao, 4),
             "bloqueios_silenciosos": bloqueios_detectados,
             "muletas_detectadas":    muletas_detectadas,
+            "blocos_gaguejo":        blocos_gaguejo,
             "fluencia":              classificar_fluencia(wpm, taxa_repeticao),
             "feedback_fono":         dica_fono,
             "segmentos":             segmentos,
             "palavras":              palavras_processadas if palavras_obj else [],
             "analise_palavras":      analise_palavras,
             "omitidas":              diff["omitidas"],
-            "score":                 diff["score"],
+            "score":                 score_penalizado,
+            "score_bruto":           score_bruto,
             "hesitacoes":            hesitacoes,
             "oscilacoes":            oscilacoes_detectadas if calibracao else None,
             "taxa_oscilacao":        taxa_oscilacao,

@@ -1,15 +1,20 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
-  KeyboardAvoidingView, Platform, Animated, Dimensions, ScrollView,
+  KeyboardAvoidingView, Platform, Dimensions, ScrollView,
 } from 'react-native';
+import Animated, {
+  useSharedValue, useAnimatedStyle,
+  withRepeat, withSequence, withTiming,
+  FadeInRight, FadeOut,
+} from 'react-native-reanimated';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import { useRouter } from 'expo-router';
 import { setOnboardingComplete, setUserName } from './utils/storage';
 
-const { height: SCREEN_H, width: SCREEN_W } = Dimensions.get('window');
+const { height: SCREEN_H } = Dimensions.get('window');
 const HERO_H = Math.round(SCREEN_H * 0.40);
 
 const CALIBRATION_TEXT =
@@ -55,12 +60,11 @@ function StepDots({ current }: { current: number }) {
 }
 
 // ── Shared hero+sheet wrapper ─────────────────────────────────
-function Screen({ heroColors, heroIcon, dots, fadeAnim, slideAnim, children }: {
+function Screen({ heroColors, heroIcon, dots, stepKey, children }: {
   heroColors: [string, string];
   heroIcon: React.ComponentProps<typeof Ionicons>['name'];
   dots?: number;
-  fadeAnim: Animated.Value;
-  slideAnim: Animated.Value;
+  stepKey: number;
   children: React.ReactNode;
 }) {
   return (
@@ -68,7 +72,12 @@ function Screen({ heroColors, heroIcon, dots, fadeAnim, slideAnim, children }: {
       style={{ flex: 1 }}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <Animated.View style={[styles.root, { opacity: fadeAnim, transform: [{ translateX: slideAnim }] }]}>
+      <Animated.View
+        key={stepKey}
+        entering={FadeInRight.duration(300).springify()}
+        exiting={FadeOut.duration(120)}
+        style={styles.root}
+      >
         <Hero colors={heroColors} icon={heroIcon} />
         <View style={styles.sheet}>
           <ScrollView
@@ -93,23 +102,11 @@ export default function Onboarding() {
   const [isRecording, setIsRecording] = useState(false);
   const [recorded, setRecorded]       = useState(false);
   const [, requestPermission]         = Audio.usePermissions();
-  const pulseAnim = useRef(new Animated.Value(1)).current;
-  const fadeAnim  = useRef(new Animated.Value(1)).current;
-  const slideAnim = useRef(new Animated.Value(0)).current;
+  const pulseAnim = useSharedValue(1);
   const router    = useRouter();
 
   function goToStep(n: number) {
-    Animated.parallel([
-      Animated.timing(fadeAnim,  { toValue: 0,        duration: 160, useNativeDriver: true }),
-      Animated.timing(slideAnim, { toValue: -SCREEN_W, duration: 160, useNativeDriver: true }),
-    ]).start(() => {
-      setStep(n);
-      slideAnim.setValue(SCREEN_W);
-      Animated.parallel([
-        Animated.timing(fadeAnim,  { toValue: 1, duration: 220, useNativeDriver: true }),
-        Animated.timing(slideAnim, { toValue: 0, duration: 220, useNativeDriver: true }),
-      ]).start();
-    });
+    setStep(n);
   }
 
   useEffect(() => {
@@ -122,16 +119,21 @@ export default function Onboarding() {
 
   useEffect(() => {
     if (isRecording) {
-      const pulse = Animated.loop(
-        Animated.sequence([
-          Animated.timing(pulseAnim, { toValue: 1.22, duration: 700, useNativeDriver: true }),
-          Animated.timing(pulseAnim, { toValue: 1,    duration: 700, useNativeDriver: true }),
-        ])
+      pulseAnim.value = withRepeat(
+        withSequence(
+          withTiming(1.22, { duration: 700 }),
+          withTiming(1,    { duration: 700 }),
+        ),
+        -1,
+        false,
       );
-      pulse.start();
-      return () => { pulse.stop(); pulseAnim.setValue(1); };
+      return () => { pulseAnim.value = 1; };
     }
   }, [isRecording]);
+
+  const pulseStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: pulseAnim.value }],
+  }));
 
   async function startRecording() {
     try {
@@ -177,7 +179,7 @@ export default function Onboarding() {
   // ── Step 0: Introdução ────────────────────────────────────────
   if (step === 0) {
     return (
-      <Screen heroColors={['#0061a2', '#5e41d0']} heroIcon="mic" dots={0} fadeAnim={fadeAnim} slideAnim={slideAnim}>
+      <Screen key={0} stepKey={0} heroColors={['#0061a2', '#5e41d0']} heroIcon="mic" dots={0}>
         <Text style={styles.greeting}>Olá! Sou o</Text>
         <Text style={styles.brandName}>Destravar</Text>
         <Text style={styles.subtitle}>
@@ -193,7 +195,7 @@ export default function Onboarding() {
   // ── Step 1: Nome ──────────────────────────────────────────────
   if (step === 1) {
     return (
-      <Screen heroColors={['#5e41d0', '#0061a2']} heroIcon="person-outline" dots={1} fadeAnim={fadeAnim} slideAnim={slideAnim}>
+      <Screen key={1} stepKey={1} heroColors={['#5e41d0', '#0061a2']} heroIcon="person-outline" dots={1}>
         <Text style={styles.cardTitle}>Qual é o seu nome?</Text>
         <Text style={styles.subtitle}>Vou te chamar por ele durante os nossos treinos!</Text>
         <TextInput
@@ -203,35 +205,35 @@ export default function Onboarding() {
           value={name}
           onChangeText={setName}
           autoFocus
-          maxLength={20}
           returnKeyType="done"
-          onSubmitEditing={name.trim() ? handleNameNext : undefined}
+          onSubmitEditing={handleNameNext}
         />
         <TouchableOpacity
           style={[styles.btn, !name.trim() && styles.btnDisabled]}
           onPress={handleNameNext}
+          disabled={!name.trim()}
           activeOpacity={0.85}
         >
           <Text style={styles.btnText}>Continuar →</Text>
         </TouchableOpacity>
-        <TouchableOpacity onPress={() => { setName(''); handleNameNext(); }} style={styles.skipLink}>
-          <Text style={styles.skipText}>Pular esta etapa</Text>
+        <TouchableOpacity style={styles.skipLink} onPress={() => goToStep(2)}>
+          <Text style={styles.skipText}>Pular por agora</Text>
         </TouchableOpacity>
       </Screen>
     );
   }
 
-  // ── Step 2: Intro calibração ──────────────────────────────────
+  // ── Step 2: Introdução da calibração ─────────────────────────
   if (step === 2) {
     return (
-      <Screen heroColors={['#0061a2', '#5e41d0']} heroIcon="analytics-outline" dots={2} fadeAnim={fadeAnim} slideAnim={slideAnim}>
-        <Text style={styles.cardTitle}>Vamos calibrar{'\n'}sua fluência.</Text>
+      <Screen key={2} stepKey={2} heroColors={['#0061a2', '#5e41d0']} heroIcon="analytics-outline" dots={2}>
+        <Text style={styles.cardTitle}>Vamos calibrar sua voz</Text>
         <Text style={styles.subtitle}>
-          Você vai ler o mesmo texto três vezes, cada uma num ritmo diferente.
+          Você vai ler um texto 3 vezes: rápido, devagar e no seu ritmo natural.
         </Text>
         <View style={styles.calibRows}>
           {CALIB.map((c, i) => (
-            <View key={c.label} style={styles.calibRow}>
+            <View key={i} style={styles.calibRow}>
               <View style={[styles.calibNum, { backgroundColor: c.color }]}>
                 <Text style={styles.calibNumText}>{i + 1}</Text>
               </View>
@@ -246,7 +248,7 @@ export default function Onboarding() {
           ))}
         </View>
         <TouchableOpacity style={styles.btn} onPress={() => goToStep(3)} activeOpacity={0.85}>
-          <Text style={styles.btnText}>Pronto, vamos lá! →</Text>
+          <Text style={styles.btnText}>Começar calibração →</Text>
         </TouchableOpacity>
       </Screen>
     );
@@ -259,15 +261,18 @@ export default function Onboarding() {
     const isLast  = taskIdx === 2;
 
     return (
-      <Animated.View style={[styles.root, { opacity: fadeAnim, transform: [{ translateX: slideAnim }] }]}>
-        {/* Accent bar colorido no topo */}
+      <Animated.View
+        key={step}
+        entering={FadeInRight.duration(300).springify()}
+        exiting={FadeOut.duration(120)}
+        style={styles.root}
+      >
         <LinearGradient
           colors={[task.color, task.color + 'BB']}
           start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
           style={styles.recAccent}
         />
 
-        {/* Cabeçalho com chip + barra de progresso */}
         <View style={styles.recHeader}>
           <View style={styles.recHeaderRow}>
             <View style={[styles.recChip, { backgroundColor: task.color + '18' }]}>
@@ -291,19 +296,16 @@ export default function Onboarding() {
           contentContainerStyle={styles.recContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Card de instrução com borda lateral colorida */}
           <View style={[styles.instrCard, { borderLeftColor: task.color }]}>
             <Ionicons name={task.icon} size={22} color={task.color} style={{ marginBottom: 6 }} />
             <Text style={[styles.instrText, { color: task.color }]}>{task.instruction}</Text>
           </View>
 
-          {/* Texto para ler */}
           <View style={styles.textCard}>
             <Text style={styles.textLabel}>TEXTO PARA LER</Text>
             <Text style={styles.readingText}>{CALIBRATION_TEXT}</Text>
           </View>
 
-          {/* Botão de gravação */}
           <View style={styles.recordArea}>
             {!recorded ? (
               <View style={{ alignItems: 'center', gap: 14 }}>
@@ -311,7 +313,8 @@ export default function Onboarding() {
                   {isRecording && (
                     <Animated.View style={[
                       styles.recordRing,
-                      { borderColor: task.color, transform: [{ scale: pulseAnim }] },
+                      { borderColor: task.color },
+                      pulseStyle,
                     ]} />
                   )}
                   <TouchableOpacity
@@ -356,7 +359,7 @@ export default function Onboarding() {
 
   // ── Step 6: Conclusão ─────────────────────────────────────────
   return (
-    <Screen heroColors={['#16a34a', '#0d9488']} heroIcon="trophy-outline" fadeAnim={fadeAnim} slideAnim={slideAnim}>
+    <Screen key={6} stepKey={6} heroColors={['#16a34a', '#0d9488']} heroIcon="trophy-outline">
       <Text style={[styles.brandName, { color: '#16a34a' }]}>
         {name ? `Obrigado,\n${name}!` : 'Tudo pronto!'}
       </Text>

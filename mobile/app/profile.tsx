@@ -38,15 +38,17 @@ export default function Profile() {
 
   return (
     <View style={styles.root}>
-      <LinearGradient colors={['#F07D52', '#D96A3F']} style={styles.header}>
-        <View style={styles.deco1} />
-        <View style={styles.deco2} />
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color="#fff" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Meu Perfil</Text>
-        <View style={{ width: 38 }} />
-      </LinearGradient>
+      <View style={styles.headerWrap}>
+        <LinearGradient colors={['#F07D52', '#D96A3F']} style={styles.header}>
+          <View style={styles.deco1} />
+          <View style={styles.deco2} />
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={22} color="#fff" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Meu Perfil</Text>
+          <View style={{ width: 38 }} />
+        </LinearGradient>
+      </View>
 
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.avatarWrap}>
@@ -95,10 +97,12 @@ export default function Profile() {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#FAF5F0' },
+  headerWrap: {
+    overflow: 'hidden',
+  },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingTop: 52, paddingBottom: 20, paddingHorizontal: 16,
-    overflow: 'hidden', position: 'relative',
   },
   deco1: {
     position: 'absolute', top: -30, right: -30,
