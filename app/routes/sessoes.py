@@ -17,6 +17,13 @@ class SessaoCompletar(BaseModel):
     score: float | None = None
 
 
+class ProgressoExercicio(BaseModel):
+    usuario_id: str
+    dificuldade: str
+    score: float
+    wpm: float
+
+
 @router.post("/sessao/iniciar")
 async def iniciar_sessao(payload: SessaoIniciar):
     supabase = get_connection()
@@ -62,3 +69,24 @@ async def completar_sessao(payload: SessaoCompletar):
     return {
         "status": "concluida"
     }
+
+
+@router.post("/progresso/exercicio")
+async def registrar_progresso(payload: ProgressoExercicio):
+    supabase = get_connection()
+
+    response = (
+        supabase.table("progresso")
+        .insert({
+            "usuario_id":  payload.usuario_id,
+            "dificuldade": payload.dificuldade,
+            "score":       payload.score,
+            "wpm":         payload.wpm,
+        })
+        .execute()
+    )
+
+    if not response.data:
+        raise HTTPException(status_code=500, detail="Erro ao registrar progresso.")
+
+    return {"status": "registrado", "id": response.data[0]["id"]}

@@ -7,6 +7,7 @@ export const STORAGE_KEYS = {
   PROGRESS: '@destravar_progress',
   ONBOARDING: '@destravar_onboarding_done',
   USER_NAME: '@destravar_user_name',
+  USER_ID: '@destravar_user_id',
 };
 
 export async function addXP(amount: number) {
@@ -99,6 +100,18 @@ export async function getUserName(): Promise<string> {
 
 export async function setUserName(name: string) {
   await AsyncStorage.setItem(STORAGE_KEYS.USER_NAME, name);
+}
+
+export async function getUserId(): Promise<string | null> {
+  try {
+    return await AsyncStorage.getItem(STORAGE_KEYS.USER_ID);
+  } catch {
+    return null;
+  }
+}
+
+export async function setUserId(id: string) {
+  await AsyncStorage.setItem(STORAGE_KEYS.USER_ID, id);
 }
 
 export async function clearAllData() {

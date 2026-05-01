@@ -236,7 +236,7 @@ export default function DesafiosTab() {
                 <TouchableOpacity
                   disabled={!canTap}
                   activeOpacity={0.8}
-                  onPress={() => router.push({ pathname: '/treinar', params: { dificuldade: node.dif } })}
+                  onPress={() => router.push({ pathname: '/exercicio1', params: { dificuldade: node.dif } })}
                   style={{ transform: [{ translateX: node.offset }], alignItems: 'center' }}
                 >
                   {isSpecial ? (
