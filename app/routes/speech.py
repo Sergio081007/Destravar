@@ -64,7 +64,16 @@ def normalizar(texto: str):
     texto = "".join(c for c in texto if unicodedata.category(c) != "Mn")
     texto = re.sub(r"[^\w\s]", "", texto)
     texto = re.sub(r"\s+", " ", texto).strip()
-    return texto.split()
+    palavras = texto.split()
+
+    # Remove repetições consecutivas (gagueira) antes do diff
+    # ex: ["eu", "eu", "fui"] → ["eu", "fui"]
+    sem_repeticoes = []
+    for i, p in enumerate(palavras):
+        if i == 0 or p != palavras[i - 1]:
+            sem_repeticoes.append(p)
+
+    return sem_repeticoes
 
 
 def comparar_textos(ref: str, trans: str):
@@ -202,7 +211,7 @@ async def transcrever(
                 response_format="verbose_json",
                 timestamp_granularities=["segment", "word"],
                 temperature=0,
-                prompt="Transcreva exatamente o que foi dito, incluindo repetições, gaguejos, hesitações e disfluências. Não corrija nem suavize a fala. Exemplo: 'eu eu eu fui ao ao mercado'."
+                prompt="Transcreva exatamente o que foi dito, sem corrigir nem suavizar. Inclua todas as repetições de sons, sílabas e palavras (ex: 'p-p-pode', 'eu eu eu fui'). Inclua prolongamentos (ex: 'mmmeu', 'sssei'). Inclua bloqueios com silêncio antes da palavra. Não junte repetições em uma só palavra. Não remova hesitações como 'ah', 'hã', 'hum'."
             )
 
         texto = resultado.text.strip()
@@ -244,7 +253,7 @@ async def transcrever(
                 if i > 0:
                     pausa_previa = round(w["start"] - palavras_obj[i - 1]["end"], 2)
 
-                    if pausa_previa > 1.5:
+                    if pausa_previa > 2.0:
                         bloqueios_detectados += 1
                         hesitacoes.append({
                             "palavra_anterior": palavras_obj[i - 1]["word"].strip(),
@@ -259,7 +268,7 @@ async def transcrever(
                 palavra_atual    = w["word"].strip().lower()
                 palavra_anterior = palavras_obj[i - 1]["word"].strip().lower() if i > 0 else ""
 
-                if pausa_previa >= 1.5:
+                if pausa_previa >= 2.0:
                     stutter_flag = True
                 if 0.0 < prob < 0.5:
                     stutter_flag = True
