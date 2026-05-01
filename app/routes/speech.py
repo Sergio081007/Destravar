@@ -1,5 +1,4 @@
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Query
-from app.db.service import fetch_text
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException
 import tempfile
 import os
 import math
@@ -11,49 +10,28 @@ from difflib import SequenceMatcher
 from pydantic import BaseModel
 from collections import Counter
 from dotenv import load_dotenv
+from app.db.connection import get_connection
 
 load_dotenv()
 router = APIRouter()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
-# guarda a última transcrição feita pra usar no /comparar-texto
 LAST_TRANSCRIPTION = ""
+
+JANELA_OSCILACAO = 10
+
 
 class ComparacaoRequest(BaseModel):
     texto_referencia: str
-    texto_transcrito: str = ""  
+    texto_transcrito: str = ""
 
-@router.get("/textos/aleatorio")
-async def obter_texto_aleatorio(
-    dificuldade: str = 'facil',
-    perfil: str = 'misto',
-    categoria: str = None,
-    foco: str = None,
-    ultimo_id: int = None
-):
-    texto = fetch_text(perfil, dificuldade, ultimo_id, categoria, foco)
-    if not texto:
-        texto = fetch_text('misto', dificuldade, ultimo_id, categoria, foco)
-    if not texto:
-        raise HTTPException(status_code=404, detail="Nenhum texto encontrado.")
-    return texto
 
 def normalizar(texto: str):
-    # tudo minúsculo primeiro
     texto = texto.lower()
-
-    # remove acentos: café -> cafe, João -> joao, ação -> acao
-    # sem isso "café" e "cafe" viravam palavras diferentes no diff
     texto = unicodedata.normalize("NFD", texto)
     texto = "".join(c for c in texto if unicodedata.category(c) != "Mn")
-
-    # remove pontuação: vírgula, ponto, interrogação, etc.
-    # o whisper às vezes transcreve "olá," e o texto tem "olá" — sem isso vira erro
     texto = re.sub(r"[^\w\s]", "", texto)
-
-    # limpa espaços duplicados que podem sobrar
     texto = re.sub(r"\s+", " ", texto).strip()
-
     return texto.split()
 
 
@@ -106,16 +84,67 @@ def classificar_fluencia(wpm: float, taxa_repeticao: float) -> str:
 
 
 def get_prob_from_segments(word_start: float, segmentos: list) -> float:
-    # o groq não retorna probabilidade real por palavra
-    # então usamos o avg_logprob do segmento como proxy
-    # exp(-0.14) ≈ 0.87, que é o valor que aparece na maioria dos casos
     closest = min(segmentos, key=lambda s: abs(s["start"] - word_start))
     avg_logprob = closest.get("avg_logprob", -1.0)
     return round(max(0.0, min(1.0, math.exp(avg_logprob))), 4)
 
 
+def carregar_calibracao(usuario_id: str) -> dict | None:
+    """Busca o perfil de calibração mais recente do usuário."""
+    try:
+        supabase = get_connection()
+        response = (
+            supabase.table("calibracao")
+            .select("wpm_base, limite_inferior, limite_superior")
+            .eq("usuario_id", usuario_id)
+            .order("criado_em", desc=True)
+            .limit(1)
+            .execute()
+        )
+        if response.data:
+            row = response.data[0]
+            return {
+                "wpm_base":        row["wpm_base"],
+                "limite_inferior": row["limite_inferior"],
+                "limite_superior": row["limite_superior"],
+            }
+    except Exception:
+        pass
+    return None
+
+
+def wpm_local(palavras: list, indice: int, janela: int) -> float:
+    inicio = max(0, indice - janela // 2)
+    fim    = min(len(palavras), indice + janela // 2 + 1)
+    trecho = palavras[inicio:fim]
+
+    if len(trecho) < 2:
+        return 0.0
+
+    duracao = trecho[-1]["end"] - trecho[0]["start"]
+    if duracao <= 0:
+        return 0.0
+
+    return round(len(trecho) / (duracao / 60), 2)
+
+
+def classificar_oscilacao(wpm_loc: float, limite_inf: float, limite_sup: float) -> str:
+    if wpm_loc <= 0:
+        return "indefinido"
+    elif wpm_loc > limite_sup:
+        return "acelerado"
+    elif wpm_loc < limite_inf:
+        return "lento"
+    else:
+        return "normal"
+
+
 @router.post("/transcrever")
-async def transcrever(file: UploadFile = File(...), texto_referencia: str = Form(default="")):
+async def transcrever(
+    file: UploadFile = File(...),
+    texto_referencia: str = Form(default=""),
+    usuario_id: str = Form(default=""),
+):
     global LAST_TRANSCRIPTION
     texto_alvo = texto_referencia
 
@@ -141,39 +170,41 @@ async def transcrever(file: UploadFile = File(...), texto_referencia: str = Form
                 response_format="verbose_json",
                 timestamp_granularities=["segment", "word"],
                 temperature=0,
+                prompt="Transcreva exatamente o que foi dito, incluindo repetições, gaguejos, hesitações e disfluências. Não corrija nem suavize a fala. Exemplo: 'eu eu eu fui ao ao mercado'."
             )
 
         texto = resultado.text.strip()
         LAST_TRANSCRIPTION = texto
 
-        segmentos = [dict(s) for s in (resultado.segments or [])]
+        segmentos    = [dict(s) for s in (resultado.segments or [])]
         palavras_obj = resultado.words or []
         duracao_total = segmentos[-1]["end"] if segmentos else 0
 
         if palavras_obj:
             palavras_lista = [w["word"].strip().lower() for w in palavras_obj if w["word"].strip()]
             total_palavras = len(palavras_lista)
-            duracao_total = palavras_obj[-1]["end"]
+            duracao_total  = palavras_obj[-1]["end"]
         else:
             palavras_lista = [p.strip().lower() for p in texto.split() if p.strip()]
             total_palavras = len(palavras_lista)
 
         wpm = (total_palavras / (duracao_total / 60)) if duracao_total > 0 else 0
 
-        # conta repetições de palavras adjacentes: "eu eu fui" conta 1
         repeticoes = sum(
             1 for i in range(len(palavras_lista) - 1)
             if palavras_lista[i] == palavras_lista[i + 1]
         )
         taxa_repeticao = repeticoes / total_palavras if total_palavras > 0 else 0
 
-        bloqueios_detectados = 0
-        muletas_detectadas = 0
-        palavras_processadas = []
-        hesitacoes = []
+        bloqueios_detectados  = 0
+        muletas_detectadas    = 0
+        palavras_processadas  = []
+        hesitacoes            = []
+        oscilacoes_detectadas = 0
 
-        # palavras que indicam travamento ou enrolação
         muletas_comuns = ["é", "éé", "ah", "hã", "hum", "uhm", "tipo", "então", "assim"]
+
+        calibracao = carregar_calibracao(usuario_id) if usuario_id else None
 
         if palavras_obj:
             for i, w in enumerate(palavras_obj):
@@ -181,26 +212,21 @@ async def transcrever(file: UploadFile = File(...), texto_referencia: str = Form
                 if i > 0:
                     pausa_previa = round(w["start"] - palavras_obj[i - 1]["end"], 2)
 
-                    # pausa > 1.5s entre palavras = bloqueio silencioso
                     if pausa_previa > 1.5:
                         bloqueios_detectados += 1
                         hesitacoes.append({
                             "palavra_anterior": palavras_obj[i - 1]["word"].strip(),
                             "palavra_seguinte": w["word"].strip(),
-                            "inicio": round(palavras_obj[i - 1]["end"], 2),
-                            "fim": round(w["start"], 2),
-                            "duracao_pausa": pausa_previa
+                            "inicio":           round(palavras_obj[i - 1]["end"], 2),
+                            "fim":              round(w["start"], 2),
+                            "duracao_pausa":    pausa_previa
                         })
 
-                prob = get_prob_from_segments(w["start"], segmentos)
-
-                # stutter_flag: marcador de possível gaguejo nessa palavra
-                stutter_flag = False
-                palavra_atual = w["word"].strip().lower()
+                prob             = get_prob_from_segments(w["start"], segmentos)
+                stutter_flag     = False
+                palavra_atual    = w["word"].strip().lower()
                 palavra_anterior = palavras_obj[i - 1]["word"].strip().lower() if i > 0 else ""
 
-                # 1.5s é o mesmo threshold do bloqueio silencioso
-                # abaixo disso é pausa natural entre frases, não gaguejo
                 if pausa_previa >= 1.5:
                     stutter_flag = True
                 if 0.0 < prob < 0.5:
@@ -208,29 +234,40 @@ async def transcrever(file: UploadFile = File(...), texto_referencia: str = Form
                 if i > 0 and palavra_atual == palavra_anterior:
                     stutter_flag = True
 
-                duracao = round(w["end"] - w["start"], 2)
-
-                # prolongamento: palavra demorou mais do que esperado pelo tamanho dela
-                limite_tempo = max(len(palavra_atual) * 0.25, 0.45)
+                duracao         = round(w["end"] - w["start"], 2)
+                limite_tempo    = max(len(palavra_atual) * 0.25, 0.45)
                 is_prolongation = duracao > limite_tempo
 
                 is_filler = palavra_atual in muletas_comuns
                 if is_filler:
                     muletas_detectadas += 1
 
+                wpm_loc   = 0.0
+                oscilacao = "sem_calibracao"
+                if calibracao:
+                    wpm_loc   = wpm_local(palavras_obj, i, JANELA_OSCILACAO)
+                    oscilacao = classificar_oscilacao(
+                        wpm_loc,
+                        calibracao["limite_inferior"],
+                        calibracao["limite_superior"],
+                    )
+                    if oscilacao in ("acelerado", "lento"):
+                        oscilacoes_detectadas += 1
+
                 palavras_processadas.append({
-                    "word": w["word"],
-                    "start": w["start"],
-                    "end": w["end"],
-                    "probability": prob,
-                    "duration": duracao,
-                    "silence_before": pausa_previa,
-                    "is_stutter": stutter_flag,
-                    "is_filler": is_filler,
-                    "is_prolongation": is_prolongation
+                    "word":            w["word"],
+                    "start":           w["start"],
+                    "end":             w["end"],
+                    "probability":     prob,
+                    "duration":        duracao,
+                    "silence_before":  pausa_previa,
+                    "is_stutter":      stutter_flag,
+                    "is_filler":       is_filler,
+                    "is_prolongation": is_prolongation,
+                    "wpm_local":       wpm_loc,
+                    "oscilacao":       oscilacao,
                 })
 
-        # precisão em relação ao texto que o usuário deveria ter lido
         precisao_alvo = 0.0
         if texto_alvo and len(texto) > 0:
             precisao_alvo = round(
@@ -241,18 +278,22 @@ async def transcrever(file: UploadFile = File(...), texto_referencia: str = Form
                 ).ratio() * 100, 2
             )
 
-        # feedback do "fonoaudiólogo" via llama
         dica_fono = "Não foi possível gerar dica no momento."
         try:
             prompt_fono = f"""
-            Aja como um fonoaudiólogo empático analisando o seguinte paciente que luta contra a gagueira:
+            Você é uma fonoaudióloga coach em um app gamificado, analise esses dados:
             - Palavras por minuto: {wpm}
             - Taxa de Repetição: {taxa_repeticao}
             - Bloqueios Silenciosos: {bloqueios_detectados}
             - Muletas de linguagem usadas: {muletas_detectadas}
             - Transcrição do que ele disse: "{texto}"
             - Texto esperado (se houver): "{texto_alvo}"
-            Forneça um feedback EXTREMAMENTE CURTO (No máximo 2 ou 3 frases curtas, tamanho de um tweet). Inspire e dê uma dica pontual baseada na taxa de repetição.
+            Responda em português brasileiro com no máximo 18 palavras.
+            Formato:
+            Elogie primeiro + diga 1 ou 2 melhorias + incentive.
+            Exemplo:
+            "Quase lá! Fale mais devagar e respire melhor. Você consegue!"
+            "Mandou bem! Agora reduza a velocidade e pause mais."
             """
             chat_completion = client.chat.completions.create(
                 messages=[{"role": "user", "content": prompt_fono}],
@@ -264,17 +305,12 @@ async def transcrever(file: UploadFile = File(...), texto_referencia: str = Form
         except Exception as e:
             print("Erro ao gerar feedback:", e)
 
-        # diff palavra a palavra entre o texto esperado e o transcrito
         diff = comparar_textos(texto_referencia, texto)
 
-        # monta lookup de status usando posição real das palavras no diff
-        # antes usava Counter (contagem total), o que causava falsos positivos:
-        # palavras certas ditas em contexto diferente viravam "extra"
-        ref_words_lookup = normalizar(texto_referencia)
+        ref_words_lookup   = normalizar(texto_referencia)
         trans_words_lookup = normalizar(texto)
-        matcher_lookup = SequenceMatcher(None, ref_words_lookup, trans_words_lookup)
+        matcher_lookup     = SequenceMatcher(None, ref_words_lookup, trans_words_lookup)
 
-        # palavras que bateram exatamente na posição certa = acerto real
         palavras_acerto = set()
         for tag, i1, i2, j1, j2 in matcher_lookup.get_opcodes():
             if tag == "equal":
@@ -285,17 +321,15 @@ async def transcrever(file: UploadFile = File(...), texto_referencia: str = Form
             if palavra in palavras_acerto:
                 lookup[palavra] = "acerto"
             elif palavra not in ref_words_lookup:
-                # palavra foi dita mas não estava no texto esperado
                 lookup[palavra] = "extra"
             else:
-                # palavra estava no texto esperado mas não foi dita
                 lookup[palavra] = "omitida"
 
         analise_palavras = []
         for p in palavras_processadas:
             palavra_norm = normalizar(p["word"])
             palavra_norm = palavra_norm[0] if len(palavra_norm) > 0 else p["word"].strip().lower()
-            status_diff = lookup.get(palavra_norm, "acerto")
+            status_diff  = lookup.get(palavra_norm, "acerto")
 
             if status_diff == "acerto":
                 categoria = "correta" if p["probability"] >= 0.5 else "pouco_clara"
@@ -305,29 +339,35 @@ async def transcrever(file: UploadFile = File(...), texto_referencia: str = Form
             analise_palavras.append({
                 **p,
                 "status_diff": status_diff,
-                "categoria": categoria
+                "categoria":   categoria,
             })
 
+        taxa_oscilacao = round(oscilacoes_detectadas / total_palavras, 4) if calibracao and total_palavras > 0 else None
+
         return {
-            "filename": file.filename,
-            "transcricao": texto,
-            "texto_alvo": texto_alvo,
-            "precisao_alvo": precisao_alvo,
-            "duracao_segundos": round(duracao_total, 2),
-            "total_palavras": total_palavras,
-            "wpm": round(wpm, 2),
-            "repeticoes": repeticoes,
-            "taxa_repeticao": round(taxa_repeticao, 4),
+            "filename":              file.filename,
+            "transcricao":           texto,
+            "texto_alvo":            texto_alvo,
+            "precisao_alvo":         precisao_alvo,
+            "duracao_segundos":      round(duracao_total, 2),
+            "total_palavras":        total_palavras,
+            "wpm":                   round(wpm, 2),
+            "repeticoes":            repeticoes,
+            "taxa_repeticao":        round(taxa_repeticao, 4),
             "bloqueios_silenciosos": bloqueios_detectados,
-            "muletas_detectadas": muletas_detectadas,
-            "fluencia": classificar_fluencia(wpm, taxa_repeticao),
-            "feedback_fono": dica_fono,
-            "segmentos": segmentos,
-            "palavras": palavras_processadas if palavras_obj else [],
-            "analise_palavras": analise_palavras,
-            "omitidas": diff["omitidas"],
-            "score": diff["score"],
-            "hesitacoes": hesitacoes,
+            "muletas_detectadas":    muletas_detectadas,
+            "fluencia":              classificar_fluencia(wpm, taxa_repeticao),
+            "feedback_fono":         dica_fono,
+            "segmentos":             segmentos,
+            "palavras":              palavras_processadas if palavras_obj else [],
+            "analise_palavras":      analise_palavras,
+            "omitidas":              diff["omitidas"],
+            "score":                 diff["score"],
+            "hesitacoes":            hesitacoes,
+            "oscilacoes":            oscilacoes_detectadas if calibracao else None,
+            "taxa_oscilacao":        taxa_oscilacao,
+            "wpm_base":              calibracao["wpm_base"] if calibracao else None,
+            "calibrado":             calibracao is not None,
         }
 
     except Exception as e:

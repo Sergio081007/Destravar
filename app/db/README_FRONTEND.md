@@ -1,10 +1,10 @@
-# 📖 Guia de Integração — Service de Textos de Treinamento
+# Guia de Integração — Service de Textos de Treinamento
 
-> Este documento é destinado ao **Front-End**. Explica como requisitar textos de treinamento do banco de dados para exibir ao usuário durante as sessões de fala.
+> Este documento é destinado ao **Front-End**. Explica como requisitar textos de treinamento para exibir ao usuário durante as sessões de fala.
 
 ---
 
-## 🚀 Antes de começar
+## Antes de começar
 
 Antes de qualquer chamada ao service, garanta que:
 
@@ -19,50 +19,55 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-**3. Popular o banco pela primeira vez**
-```bash
-cd app/db
-python seed.py
+**3. O arquivo `.env` existe na raiz do projeto** com as variáveis:
 ```
----
-> O banco é um arquivo local `app/db/destravar.db` — não precisa de servidor, Workbench ou senha.
+SUPABASE_URL=https://xxxxxxxx.supabase.co
+SUPABASE_KEY=sua_service_role_key
+GROQ_API_KEY=sua_groq_key
+```
 
-## 🔌 Como requisitar um texto
+> O banco é na nuvem (Supabase) — não precisa rodar seed, criar arquivo local nem configurar nada além do `.env`. Os dados já estão lá.
+
+---
+
+## Como requisitar um texto de treinamento
 
 ### Importação
 ```python
-from app.db.service import fetch_text
+from app.db.service import fetch_texto
 ```
 
 ### Assinatura da função
 ```python
-fetch_text(perfil, dificuldade, ultimo_id=None)
+fetch_texto(fase, ultimo_id=None)
 ```
 
 ### Parâmetros
 
-| Parâmetro | Tipo | Valores aceitos | Obrigatório |
-|-----------|------|-----------------|-------------|
-| `perfil` | string | `gagueira`, `fala_rapida`, `misto` | ✅ |
-| `dificuldade` | string | `facil`, `medio`, `dificil` | ✅ |
-| `ultimo_id` | int | ID do último texto exibido | ❌ |
+| Parâmetro | Tipo | Descrição | Obrigatório |
+|-----------|------|-----------|-------------|
+| `fase` | int | Fase atual do usuário (1 a 10) | ✅ |
+| `ultimo_id` | str | ID do último texto exibido (evita repetição) | ❌ |
 
 ---
 
-## 📦 Exemplo de retorno
+## Exemplo de retorno
 
 ```json
 {
-  "id": 2,
-  "externo_id": "txt_001",
-  "titulo": "Apresentação simples",
-  "conteudo": "Meu nome é Ana. Eu moro em São Paulo.",
-  "tipo": "frase_curta",
-  "categoria": "texto",
-  "dica": "Fale com calma.",
-  "foco_terapeutico": "introdução de fala contínua",
-  "sons_alvo": null,
-  "repeticoes_sugeridas": null
+  "id": "txt_002",
+  "fase": 2,
+  "dificuldade": "facil",
+  "titulo": "O dia a dia",
+  "conteudo": "Hoje eu acordei cedo. Tomei café com pão. O dia estava bonito.",
+  "palavras": 13,
+  "ex2_wpm_min": 100,
+  "ex2_wpm_max": 140,
+  "ex2_dica": "Respire antes de cada frase.",
+  "ex3_som_alvo": "o",
+  "ex3_instrucao": "Fale o som O bem aberto e solto. Não aperte a garganta.",
+  "ex3_exemplo_palavra": "Hoje",
+  "ex3_trava_lingua_id": null
 }
 ```
 
@@ -70,57 +75,100 @@ fetch_text(perfil, dificuldade, ultimo_id=None)
 
 | Campo | Descrição | Quando usar |
 |-------|-----------|-------------|
-| `id` | ID interno do banco | Passar como `ultimo_id` na próxima chamada |
-| `externo_id` | ID do arquivo JSON original | Referência com o Dev B |
+| `id` | ID do texto (ex: `"txt_002"`) | Passar como `ultimo_id` na próxima chamada |
+| `fase` | Fase do texto | Controle de progressão |
+| `dificuldade` | Nível do texto (`facil`, `medio`, `dificil`) | Controle de progressão |
 | `titulo` | Nome do exercício | Exibir como título da tela |
 | `conteudo` | Texto que o usuário vai ler | Exibir como conteúdo principal |
-| `tipo` | Tamanho do texto | Controle de progressão |
-| `categoria` | `texto` ou `trava_lingua` | Definir layout da tela |
-| `dica` | Orientação antes da leitura | Exibir antes do usuário começar |
-| `foco_terapeutico` | Intenção clínica | Uso interno / analytics |
-| `sons_alvo` | Sons trabalhados (só trava-línguas) | Destacar letras no texto |
-| `repeticoes_sugeridas` | Quantas vezes repetir (só trava-línguas) | Exibir contador de repetições |
+| `palavras` | Contagem de palavras do texto | Cálculo de WPM |
+| `ex2_wpm_min` | WPM mínimo esperado no exercício 2 | Referência para feedback de velocidade |
+| `ex2_wpm_max` | WPM máximo esperado no exercício 2 | Referência para feedback de velocidade |
+| `ex2_dica` | Dica de leitura do exercício 2 | Exibir antes do usuário começar |
+| `ex3_som_alvo` | Som trabalhado no exercício 3 | Destacar letra/som no texto |
+| `ex3_instrucao` | Instrução do exercício 3 | Exibir como orientação ao usuário |
+| `ex3_exemplo_palavra` | Palavra de exemplo do exercício 3 | Exibir como referência |
+| `ex3_trava_lingua_id` | ID do trava-língua vinculado (ou `null`) | Buscar trava-língua com `fetch_trava_lingua` |
 
 ---
 
-## 🔄 Fluxo completo de uma sessão
+## Como requisitar um trava-língua
+
+### Importação
+```python
+from app.db.service import fetch_trava_lingua
+```
+
+### Assinatura da função
+```python
+fetch_trava_lingua(trava_lingua_id=None, fase_atual=None, ultimo_id=None)
+```
+
+### Parâmetros
+
+| Parâmetro | Tipo | Descrição | Obrigatório |
+|-----------|------|-----------|-------------|
+| `trava_lingua_id` | str | ID específico (ex: `"tl_008"`) — ignora os outros filtros | ❌ |
+| `fase_atual` | int | Fase atual do usuário — respeita `fase_minima` de cada trava-língua | ❌ |
+| `ultimo_id` | str | ID do último trava-língua exibido (evita repetição) | ❌ |
+
+### Exemplo de retorno
+
+```json
+{
+  "id": "tl_008",
+  "fase_minima": 8,
+  "dificuldade": "facil",
+  "titulo": "A dona da dor",
+  "conteudo": "Dona Dora dorme e desperta. Desperta e diz: a dor desapareceu.",
+  "sons_alvo": ["d"],
+  "dica": "O D não pode virar pausa. Mantenha o fluxo.",
+  "repeticoes": 3
+}
+```
+
+---
+
+## Fluxo completo de uma sessão
 
 ```
-1. Usuário abre o app → perfil já definido (ex: "gagueira")
-2. Front chama fetch_text("gagueira", "facil")
+1. Usuário abre o app (fase já conhecida, ex: fase 9)
+2. Front chama fetch_texto(fase=9)
 3. Exibe o texto pro usuário
 4. Usuário termina a leitura e avança
-5. Front chama fetch_text("gagueira", "facil", ultimo_id=texto['id'])
-6. Service garante que o próximo texto é diferente do anterior
-7. Quando usuário sobe de nível → fetch_text("gagueira", "medio")
+5. Front chama fetch_texto(fase=9, ultimo_id=texto['id'])
+   → Service garante que o próximo texto é diferente do anterior
+6. Quando o texto tem ex3_trava_lingua_id preenchido:
+   → chama fetch_trava_lingua(trava_lingua_id=texto['ex3_trava_lingua_id'])
+7. Quando o texto não tem ex3_trava_lingua_id (valor null):
+   → exerce só com o texto, sem trava-língua vinculado
 ```
+
 ---
 
-## 🛡️ Como tratar erros
+## Como tratar erros
 
-A função retorna `None` quando não encontra nenhum texto pro filtro pedido. **Sempre verifique antes de exibir:**
+A função retorna `None` quando não encontra nenhum resultado. **Sempre verifique antes de exibir:**
 
 ```python
-texto = fetch_text("gagueira", "facil")
+texto = fetch_texto(fase=3)
 
 if texto is None:
     # exibe mensagem de fallback na tela
     print("Nenhum conteúdo disponível. Tente novamente.")
 else:
-    # exibe o texto normalmente
     print(texto['conteudo'])
 ```
 
 ### Tabela de fallbacks
 
-| Situação | Retorno da função | O que exibir na tela |
-|----------|-------------------|----------------------|
-| Perfil ou dificuldade inválidos | `None` | "Nenhum texto disponível para este perfil." |
+| Situação | Retorno | O que exibir na tela |
+|----------|---------|----------------------|
+| Fase sem textos cadastrados | `None` | "Nenhum texto disponível para esta fase." |
 | Banco sem registros pro filtro | `None` | "Conteúdo indisponível. Tente novamente." |
 | Falha na conexão com o banco | Exception | "Erro interno. Contate o suporte." |
 
 ---
 
-## ❓ Dúvidas
+## Dúvidas
 
-Fala com o **Luciana** para qualquer dúvida sobre o service ou o banco de dados.
+Fala com a **Luciana** para qualquer dúvida sobre o service ou o banco de dados.

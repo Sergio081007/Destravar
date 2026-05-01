@@ -1,9 +1,11 @@
-import sqlite3
 import os
+from supabase import create_client, Client
+from dotenv import load_dotenv
 
-DB_PATH = os.path.join(os.path.dirname(__file__), 'destravar.db')
+load_dotenv(os.path.join(os.path.dirname(__file__), '../../.env'))
 
-def get_connection():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    return conn
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")  # use a service_role key no backend
+
+def get_connection() -> Client:
+    return create_client(SUPABASE_URL, SUPABASE_KEY)

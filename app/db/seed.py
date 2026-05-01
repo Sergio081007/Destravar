@@ -1,88 +1,87 @@
 import json
 import os
+from dotenv import load_dotenv
 from connection import get_connection
+
+load_dotenv(os.path.join(os.path.dirname(__file__), '../../.env'))
 
 JSON_PATH = os.path.join(os.path.dirname(__file__), '../../data/textos/textos-treinamento.json')
 
-def criar_tabela():
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS TrainingTexts (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            externo_id TEXT,
-            perfil TEXT,
-            conteudo TEXT,
-            categoria TEXT,
-            dificuldade TEXT,
-            tipo TEXT,
-            titulo TEXT,
-            palavras INTEGER,
-            dica TEXT,
-            foco_terapeutico TEXT,
-            sons_alvo TEXT,
-            repeticoes_sugeridas INTEGER,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-    """)
-    conn.commit()
-    cursor.close()
-    conn.close()
 
 def seed():
-    criar_tabela()
-
     with open(JSON_PATH, 'r', encoding='utf-8') as f:
         data = json.load(f)
 
-    conn = get_connection()
-    cursor = conn.cursor()
-
+    supabase = get_connection()
     inseridos = 0
     pulados = 0
 
-    for texto in data['textos']:
-        cursor.execute("SELECT id FROM TrainingTexts WHERE externo_id = ?", (texto['id'],))
-        if cursor.fetchone():
-            pulados += 1
-            continue
-
-        cursor.execute("""
-            INSERT INTO TrainingTexts 
-            (externo_id, perfil, conteudo, categoria, dificuldade, tipo, titulo, palavras, dica, foco_terapeutico, sons_alvo, repeticoes_sugeridas)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            texto['id'], texto['perfil'], texto['conteudo'], 'texto',
-            texto['dificuldade'], texto.get('tipo'), texto.get('titulo'),
-            texto.get('palavras'), texto.get('dica'), texto.get('foco_terapeutico'),
-            None, None
-        ))
+    # ── Texto de calibração ───────────────────────────────────────────────────
+    cal = data['calibracao']
+    existing = supabase.table("textos_calibracao").select("id").eq("id", cal['id']).execute()
+    if existing.data:
+        print(f"Calibração '{cal['id']}' já existe, pulando.")
+        pulados += 1
+    else:
+        supabase.table("textos_calibracao").insert({
+            "id":                    cal['id'],
+            "titulo":                cal.get('titulo'),
+            "conteudo":              cal['conteudo'],
+            "palavras":              cal.get('palavras'),
+            "instrucao_rapido":      cal['instrucoes']['rapido'],
+            "instrucao_devagar":     cal['instrucoes']['devagar'],
+            "instrucao_confortavel": cal['instrucoes']['confortavel'],
+        }).execute()
         inseridos += 1
+        print(f"Calibração '{cal['id']}' inserida.")
 
+    # ── Trava-línguas (antes dos textos por causa da FK) ──────────────────────
     for tl in data['trava_linguas']:
-        cursor.execute("SELECT id FROM TrainingTexts WHERE externo_id = ?", (tl['id'],))
-        if cursor.fetchone():
+        existing = supabase.table("trava_linguas").select("id").eq("id", tl['id']).execute()
+        if existing.data:
             pulados += 1
             continue
 
-        cursor.execute("""
-            INSERT INTO TrainingTexts 
-            (externo_id, perfil, conteudo, categoria, dificuldade, tipo, titulo, palavras, dica, foco_terapeutico, sons_alvo, repeticoes_sugeridas)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            tl['id'], tl['perfil'], tl['conteudo'], 'trava_lingua',
-            tl['dificuldade'], None, tl.get('titulo'),
-            tl.get('palavras'), tl.get('dica'), None,
-            json.dumps(tl.get('sons_alvo')), tl.get('repeticoes_sugeridas')
-        ))
+        supabase.table("trava_linguas").insert({
+            "id":          tl['id'],
+            "fase_minima": tl.get('fase_minima'),
+            "dificuldade": tl.get('dificuldade'),
+            "titulo":      tl.get('titulo'),
+            "conteudo":    tl['conteudo'],
+            "sons_alvo":   tl.get('sons_alvo', []),
+            "dica":        tl.get('dica'),
+            "repeticoes":  tl.get('repeticoes'),
+        }).execute()
         inseridos += 1
 
-    conn.commit()
-    cursor.close()
-    conn.close()
+    print(f"Trava-línguas: {inseridos} inseridos até agora.")
+
+    # ── Textos ────────────────────────────────────────────────────────────────
+    for texto in data['textos']:
+        existing = supabase.table("textos").select("id").eq("id", texto['id']).execute()
+        if existing.data:
+            pulados += 1
+            continue
+
+        supabase.table("textos").insert({
+            "id":                  texto['id'],
+            "fase":                texto.get('fase'),
+            "dificuldade":         texto.get('dificuldade'),
+            "titulo":              texto.get('titulo'),
+            "conteudo":            texto['conteudo'],
+            "palavras":            texto.get('palavras'),
+            "ex2_wpm_min":         texto.get('ex2_wpm_min'),
+            "ex2_wpm_max":         texto.get('ex2_wpm_max'),
+            "ex2_dica":            texto.get('ex2_dica'),
+            "ex3_som_alvo":        texto.get('ex3_som_alvo'),
+            "ex3_instrucao":       texto.get('ex3_instrucao'),
+            "ex3_exemplo_palavra": texto.get('ex3_exemplo_palavra'),
+            "ex3_trava_lingua_id": texto.get('ex3_trava_lingua_id'),
+        }).execute()
+        inseridos += 1
 
     print(f"Seed concluído: {inseridos} inseridos, {pulados} pulados.")
+
 
 if __name__ == "__main__":
     seed()
