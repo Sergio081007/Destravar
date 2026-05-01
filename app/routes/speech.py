@@ -107,6 +107,76 @@ def detectar_blocos_gaguejo(palavras_processadas: list, min_pausa: float = 0.4, 
     return blocos
 
 
+def detectar_blocos_silabicos(palavras_processadas: list, min_reps: int = 2) -> list:
+    """
+    Detecta repetição de sílaba/fragmento antes da palavra completa.
+    Ex: 'la la la lago' — fragmento 'la' repetido 3× antes de 'lago'.
+    Cobre o caso em que Whisper preserva os fragmentos como palavras separadas.
+    """
+    blocos = []
+    n = len(palavras_processadas)
+    i = 0
+    while i < n:
+        fragm = palavras_processadas[i]["word"].strip().lower()
+        # Só considera fragmentos curtos (até 4 caracteres = sílabas)
+        if len(fragm) > 4:
+            i += 1
+            continue
+
+        j = i + 1
+        while j < n and palavras_processadas[j]["word"].strip().lower() == fragm:
+            j += 1
+
+        reps = j - i
+        if reps < min_reps:
+            i += 1
+            continue
+
+        palavra_alvo = None
+        if j < n:
+            prox = palavras_processadas[j]["word"].strip().lower()
+            # Confirma que a próxima palavra começa com o fragmento e é mais longa
+            if len(prox) > len(fragm) and prox.startswith(fragm):
+                palavra_alvo = prox
+
+        blocos.append({
+            "fragmento":    palavras_processadas[i]["word"].strip(),
+            "repeticoes":   reps,
+            "palavra_alvo": palavra_alvo,
+            "inicio":       palavras_processadas[i]["start"],
+            "fim":          palavras_processadas[j - 1]["end"],
+            "tipo":         "silabico" if palavra_alvo else "fragmento",
+        })
+        # Avança além da palavra-alvo também
+        i = j + (1 if palavra_alvo else 0)
+
+    return blocos
+
+
+def detectar_prolongamentos(palavras_processadas: list) -> list:
+    """
+    Retorna apenas as palavras marcadas como prolongamento com contexto extra.
+    Inclui casos em que Whisper colapsa 'la la la lago' e reporta só 'lago'
+    com duração anormalmente longa.
+    """
+    resultado = []
+    for p in palavras_processadas:
+        if not p.get("is_prolongation"):
+            continue
+        palavra = p["word"].strip().lower()
+        duracao = p["duration"]
+        esperado = max(len(palavra) * 0.12, 0.15)
+        fator = round(duracao / esperado, 1) if esperado > 0 else 0
+        resultado.append({
+            "palavra":        p["word"].strip(),
+            "inicio":         p["start"],
+            "fim":            p["end"],
+            "duracao":        duracao,
+            "fator_excesso":  fator,
+        })
+    return resultado
+
+
 def comparar_textos(ref: str, trans: str):
     ref_words = normalizar(ref)
     trans_words = normalizar(trans)
@@ -153,6 +223,56 @@ def classificar_fluencia(wpm: float, taxa_repeticao: float) -> str:
         return "normal"
     else:
         return "rapido"
+
+
+def calcular_penalidade_temporal(
+    palavras_obj: list,
+    total_palavras_ref: int,
+    duracao_total: float,
+    segmentos: list,
+) -> dict:
+    """
+    Detecta disfluências via análise de tempo — independente do que o Whisper transcreveu.
+
+    Retorna um dict com:
+      - penalidade_duracao: 0.0–0.4 baseada em quanto a fala foi mais lenta que o esperado
+      - penalidade_confianca: 0.0–0.3 baseada em segmentos com baixa confiança
+      - palavras_longas: count de palavras com duração > 2.5x o esperado
+    """
+    # ── Ratio de duração ─────────────────────────────────────────────────────
+    # Fala fluente normal: ~400ms por palavra. Se demorou muito mais, havia travamentos.
+    duracao_esperada = total_palavras_ref * 0.40
+    ratio_duracao    = duracao_total / duracao_esperada if duracao_esperada > 0 else 1.0
+    # ratio 1.0 = perfeito; 2.0 = demorou o dobro; penaliza a partir de 1.3
+    penalidade_duracao = round(min(max((ratio_duracao - 1.3) * 0.25, 0.0), 0.4), 4)
+
+    # ── Confiança dos segmentos ───────────────────────────────────────────────
+    # avg_logprob próximo de 0 = alta confiança; muito negativo = baixa confiança
+    # Segmentos com avg_logprob < -0.5 indicam fala pouco clara ou colapsada
+    if segmentos:
+        logprobs         = [s.get("avg_logprob", 0.0) for s in segmentos]
+        media_logprob    = sum(logprobs) / len(logprobs)
+        # converte para penalidade: -0.5 → 0.0, -1.5 → 0.3
+        penalidade_conf  = round(min(max((-media_logprob - 0.5) * 0.3, 0.0), 0.3), 4)
+    else:
+        penalidade_conf = 0.0
+
+    # ── Palavras com duração anormal ─────────────────────────────────────────
+    palavras_longas = 0
+    if palavras_obj:
+        for w in palavras_obj:
+            palavra    = w["word"].strip().lower()
+            duracao_w  = w["end"] - w["start"]
+            esperado_w = max(len(palavra) * 0.08, 0.25)  # ~80ms por letra, mínimo 250ms
+            if duracao_w > esperado_w * 2.5:
+                palavras_longas += 1
+
+    return {
+        "penalidade_duracao":  penalidade_duracao,
+        "penalidade_confianca": penalidade_conf,
+        "palavras_longas":     palavras_longas,
+        "ratio_duracao":       round(ratio_duracao, 2),
+    }
 
 
 def get_prob_from_segments(word_start: float, segmentos: list) -> float:
@@ -242,7 +362,7 @@ async def transcrever(
                 response_format="verbose_json",
                 timestamp_granularities=["segment", "word"],
                 temperature=0,
-                prompt="Transcreva literalmente tudo que foi dito, sem corrigir nem suavizar. REGRAS: (1) Mantenha TODAS as repetições de palavras exatamente como foram ditas — se a pessoa disse 'meu meu meu nome', escreva 'meu meu meu nome', não apenas 'meu nome'. (2) Mantenha repetições de sílabas (ex: 'p-p-pode', 'ca-ca-casa'). (3) Mantenha prolongamentos (ex: 'mmmeu', 'sssei'). (4) Mantenha hesitações ('ah', 'hã', 'hum', 'é'). (5) Nunca junte ou contraia repetições. (6) Se houver silêncio longo antes de uma palavra, ainda assim transcreva a palavra que veio depois."
+                prompt="eu eu eu fui ao ao mercado comprar pão. Meu meu meu nome é é é Ana. Ah hum então eu eu precisava de de leite."
             )
 
         texto = resultado.text.strip()
@@ -306,8 +426,12 @@ async def transcrever(
                 if i > 0 and palavra_atual == palavra_anterior:
                     stutter_flag = True
 
-                duracao         = round(w["end"] - w["start"], 2)
-                limite_tempo    = max(len(palavra_atual) * 0.25, 0.45)
+                duracao = round(w["end"] - w["start"], 2)
+                # Palavras curtas (sílabas, artigos): limiar menor — bloqueios em "a", "la" aparecem cedo
+                if len(palavra_atual) <= 2:
+                    limite_tempo = 0.45
+                else:
+                    limite_tempo = max(len(palavra_atual) * 0.18, 0.50)
                 is_prolongation = duracao > limite_tempo
 
                 is_filler = palavra_atual in muletas_comuns
@@ -340,6 +464,19 @@ async def transcrever(
                     "oscilacao":       oscilacao,
                 })
 
+        # ── Detectar blocos de gaguejo, silábicos e prolongamentos ───────────
+        blocos_gaguejo          = detectar_blocos_gaguejo(palavras_processadas) if palavras_obj else []
+        blocos_com_bloqueio     = sum(1 for b in blocos_gaguejo if b["com_bloqueio"])
+        blocos_silabicos        = detectar_blocos_silabicos(palavras_processadas) if palavras_obj else []
+        prolongamentos_lista    = detectar_prolongamentos(palavras_processadas) if palavras_obj else []
+        total_prolongamentos    = len(prolongamentos_lista)
+
+        # ── Penalidade temporal (independente do Whisper) ─────────────────────
+        total_palavras_ref = len(normalizar(texto_referencia)) if texto_referencia else total_palavras
+        temporal = calcular_penalidade_temporal(
+            palavras_processadas, total_palavras_ref, duracao_total, segmentos
+        )
+
         precisao_alvo = 0.0
         if texto_alvo and len(texto) > 0:
             precisao_alvo = round(
@@ -356,13 +493,15 @@ async def transcrever(
             Você é uma fonoaudióloga coach em um app gamificado, analise esses dados:
             - Palavras por minuto: {round(wpm, 1)}
             - Taxa de repetição (gaguejo): {round(taxa_repeticao * 100, 1)}%
-            - Blocos de gaguejo detectados: {len(blocos_gaguejo)} (com bloqueio silencioso: {blocos_com_bloqueio})
+            - Blocos de gaguejo: {len(blocos_gaguejo)} (com bloqueio: {blocos_com_bloqueio})
+            - Blocos silábicos (ex: 'la la la lago'): {len(blocos_silabicos)}
+            - Prolongamentos (ex: 'Aaaa casa'): {total_prolongamentos}
             - Bloqueios silenciosos: {bloqueios_detectados}
             - Muletas usadas: {muletas_detectadas}
             - Transcrição: "{texto}"
             - Texto esperado: "{texto_alvo}"
             Responda em português brasileiro com no máximo 18 palavras.
-            Se houver muitas repetições, foque nisso. Senão, elogie e dê 1 dica.
+            Prioridade: blocos silábicos > prolongamentos > repetições > elogio.
             Exemplo: "Quase lá! Respire antes de cada frase. Você consegue!"
             """
             chat_completion = client.chat.completions.create(
@@ -374,10 +513,6 @@ async def transcrever(
             dica_fono = chat_completion.choices[0].message.content.strip()
         except Exception as e:
             print("Erro ao gerar feedback:", e)
-
-        # ── Item 4: detectar blocos de gaguejo (pausa → repetição) ──────────
-        blocos_gaguejo = detectar_blocos_gaguejo(palavras_processadas) if palavras_obj else []
-        blocos_com_bloqueio = sum(1 for b in blocos_gaguejo if b["com_bloqueio"])
 
         diff = comparar_textos(texto_referencia, texto)
 
@@ -410,8 +545,16 @@ async def transcrever(
             palavra_anterior_raw = palavras_processadas[idx - 1]["word"].strip().lower() if idx > 0 else ""
             is_repeticao_direta  = (idx > 0 and palavra_atual_raw == palavra_anterior_raw)
 
-            if is_repeticao_direta:
+            # Verifica se este fragmento faz parte de um bloco silábico
+            is_bloco_silabico = any(
+                b["inicio"] <= p["start"] <= b["fim"]
+                for b in blocos_silabicos
+            )
+
+            if is_repeticao_direta or is_bloco_silabico:
                 categoria = "disfluente"
+            elif p["is_prolongation"]:
+                categoria = "prolongamento"
             elif status_diff == "acerto":
                 categoria = "correta" if p["probability"] >= 0.5 else "pouco_clara"
             else:
@@ -419,16 +562,26 @@ async def transcrever(
 
             analise_palavras.append({
                 **p,
-                "status_diff":       status_diff,
-                "categoria":         categoria,
-                "repeticao_direta":  is_repeticao_direta,
+                "status_diff":        status_diff,
+                "categoria":          categoria,
+                "repeticao_direta":   is_repeticao_direta,
+                "bloco_silabico":     is_bloco_silabico,
             })
 
-        # ── Item 2: score penalizado por repetições e blocos de gaguejo ──────
-        penalidade_repeticao = min(taxa_repeticao * 1.5, 0.5)
-        penalidade_blocos    = min(blocos_com_bloqueio * 0.05, 0.2)
-        score_bruto          = diff["score"]
-        score_penalizado     = round(max(0.0, score_bruto * (1 - penalidade_repeticao - penalidade_blocos)), 4)
+        # ── Score penalizado: repetições + blocos + silábicos + prolongamentos + tempo + confiança
+        penalidade_repeticao      = min(taxa_repeticao * 1.5, 0.5)
+        penalidade_blocos         = min(blocos_com_bloqueio * 0.05, 0.2)
+        penalidade_silabica       = min(len(blocos_silabicos) * 0.08, 0.2)
+        penalidade_prolongamentos = min(total_prolongamentos * 0.07, 0.25)
+        penalidade_duracao        = temporal["penalidade_duracao"]
+        penalidade_confianca      = temporal["penalidade_confianca"]
+        penalidade_total          = min(
+            penalidade_repeticao + penalidade_blocos + penalidade_silabica
+            + penalidade_prolongamentos + penalidade_duracao + penalidade_confianca,
+            0.9
+        )
+        score_bruto      = diff["score"]
+        score_penalizado = round(max(0.0, score_bruto * (1 - penalidade_total)), 4)
 
         taxa_oscilacao = round(oscilacoes_detectadas / total_palavras, 4) if calibracao and total_palavras > 0 else None
 
@@ -445,6 +598,8 @@ async def transcrever(
             "bloqueios_silenciosos": bloqueios_detectados,
             "muletas_detectadas":    muletas_detectadas,
             "blocos_gaguejo":        blocos_gaguejo,
+            "blocos_silabicos":      blocos_silabicos,
+            "prolongamentos":        prolongamentos_lista,
             "fluencia":              classificar_fluencia(wpm, taxa_repeticao),
             "feedback_fono":         dica_fono,
             "segmentos":             segmentos,
@@ -453,6 +608,14 @@ async def transcrever(
             "omitidas":              diff["omitidas"],
             "score":                 score_penalizado,
             "score_bruto":           score_bruto,
+            "penalidade_repeticao":       round(penalidade_repeticao, 4),
+            "penalidade_blocos":          round(penalidade_blocos, 4),
+            "penalidade_silabica":        round(penalidade_silabica, 4),
+            "penalidade_prolongamentos":  round(penalidade_prolongamentos, 4),
+            "penalidade_duracao":         penalidade_duracao,
+            "penalidade_confianca":       penalidade_confianca,
+            "ratio_duracao":         temporal["ratio_duracao"],
+            "palavras_longas":       temporal["palavras_longas"],
             "hesitacoes":            hesitacoes,
             "oscilacoes":            oscilacoes_detectadas if calibracao else None,
             "taxa_oscilacao":        taxa_oscilacao,
