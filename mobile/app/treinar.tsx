@@ -6,6 +6,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { calcularXP } from './utils/calcularXP';
 import { addXP, updateStreak, getLevelProgress, incrementLevelProgress } from './utils/storage';
+import { API_BASE_URL } from './config';
 
 const LEVEL_COLORS: Record<string, readonly [string, string]> = {
   facil: ['#3b82f6', '#2563eb'],
@@ -83,10 +84,10 @@ export default function Treinar() {
     else if (diff === 'dificil') completed = prog.nivel3_completos || 0;
 
     const step = completed % 3;
-    let url = `https://proud-owls-make.loca.lt/textos/aleatorio?dificuldade=${diff}`;
+    let url = `${API_BASE_URL}/textos/aleatorio?dificuldade=${diff}`;
     if (step === 0) url += '&categoria=trava_lingua';
     else if (step === 1) url += '&categoria=texto';
-    else url += '&categoria=texto&foco=pausa';
+    else url += '&categoria=texto';
 
     try {
       const res = await fetch(url, { headers: { 'Bypass-Tunnel-Reminder': 'true' } });
@@ -95,6 +96,8 @@ export default function Treinar() {
         setTextoTreino(data.conteudo);
         setTextoTitulo(data.titulo);
         setCurrentPhraseData(data);
+      } else {
+        throw new Error(`HTTP ${res.status}`);
       }
     } catch {
       setTextoTreino('O rato roeu a roupa do rei de Roma.');
@@ -139,7 +142,7 @@ export default function Treinar() {
       form.append('file', { uri: audioUri, type: 'audio/m4a', name: 'rec.m4a' } as any);
       form.append('texto_referencia', textoTreino);
 
-      const res = await fetch('https://proud-owls-make.loca.lt/transcrever', {
+      const res = await fetch(`${API_BASE_URL}/transcrever`, {
         method: 'POST',
         headers: { 'Bypass-Tunnel-Reminder': 'true' },
         body: form,

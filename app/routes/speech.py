@@ -1,20 +1,52 @@
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
+from fastapi import APIRouter, UploadFile, File, Form, HTTPException, Query
 import tempfile
 import os
 import math
 import re
 import difflib
 import unicodedata
+import random
 from groq import Groq
 from difflib import SequenceMatcher
 from pydantic import BaseModel
 from collections import Counter
 from dotenv import load_dotenv
 from app.db.connection import get_connection
+from app.db.service import fetch_texto, fetch_trava_lingua
 
 load_dotenv()
 router = APIRouter()
 client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+
+FASES_POR_DIFICULDADE = {
+    "facil":   list(range(1, 4)),
+    "medio":   list(range(4, 8)),
+    "dificil": list(range(8, 11)),
+}
+
+
+@router.get("/textos/aleatorio")
+async def obter_texto_aleatorio(
+    dificuldade: str = Query(default="facil"),
+    categoria: str = Query(default="texto"),
+    ultimo_id: str = Query(default=None),
+):
+    fases = FASES_POR_DIFICULDADE.get(dificuldade, FASES_POR_DIFICULDADE["facil"])
+    fase = random.choice(fases)
+
+    if categoria == "trava_lingua":
+        texto = fetch_trava_lingua(fase_atual=fase, ultimo_id=ultimo_id)
+        if not texto:
+            texto = fetch_trava_lingua(ultimo_id=ultimo_id)
+    else:
+        texto = fetch_texto(fase=fase, ultimo_id=ultimo_id)
+        if not texto:
+            texto = fetch_texto(fase=random.choice(fases))
+
+    if not texto:
+        raise HTTPException(status_code=404, detail="Nenhum texto encontrado.")
+
+    return texto
 
 LAST_TRANSCRIPTION = ""
 
