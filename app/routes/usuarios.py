@@ -5,6 +5,7 @@ from app.db.connection import get_connection
 router = APIRouter()
 
 class UsuarioCreate(BaseModel):
+    usuario_id: str  # vem do Supabase Auth
     nome: str
 
 @router.post("/usuarios")
@@ -15,7 +16,10 @@ async def criar_usuario(payload: UsuarioCreate):
     supabase = get_connection()
     response = (
         supabase.table("usuarios")
-        .insert({"nome": payload.nome.strip()})
+        .insert({
+            "id":   payload.usuario_id,
+            "nome": payload.nome.strip()
+        })
         .execute()
     )
 
