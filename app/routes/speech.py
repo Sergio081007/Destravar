@@ -170,6 +170,20 @@ def classificar_oscilacao(wpm_loc: float, limite_inf: float, limite_sup: float) 
     else:
         return "normal"
 
+@router.get("/texto/{fase}")
+async def obter_texto_por_fase(fase: int):
+    texto = fetch_texto(fase=fase)
+
+    if not texto:
+        raise HTTPException(status_code=404, detail="Texto não encontrado para essa fase.")
+
+    return {
+        "id": texto["id"],
+        "conteudo": texto["conteudo"],
+        "dica": texto.get("ex2_dica"),
+        "wpm_min": texto.get("ex2_wpm_min"),
+        "wpm_max": texto.get("ex2_wpm_max"),
+    }
 
 @router.post("/transcrever")
 async def transcrever(
