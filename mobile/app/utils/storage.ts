@@ -9,7 +9,30 @@ export const STORAGE_KEYS = {
   USER_NAME: '@destravar_user_name',
   USER_ID: '@destravar_user_id',
   USER_CHAR: '@destravar_user_char',
+  CALIBRATION: '@destravar_calibration',
 };
+
+type CalibrationData = {
+  wpm_base: number;
+  limite_inferior: number;
+  limite_superior: number;
+  wpm_rapido?: number;
+  wpm_devagar?: number;
+  wpm_confortavel?: number;
+};
+
+export async function setCalibration(data: CalibrationData) {
+  await AsyncStorage.setItem(STORAGE_KEYS.CALIBRATION, JSON.stringify(data));
+}
+
+export async function getCalibration(): Promise<CalibrationData | null> {
+  try {
+    const val = await AsyncStorage.getItem(STORAGE_KEYS.CALIBRATION);
+    return val ? JSON.parse(val) : null;
+  } catch {
+    return null;
+  }
+}
 
 export async function addXP(amount: number) {
   try {
@@ -133,7 +156,10 @@ export async function setUserChar(char: number) {
 }
 
 export async function clearAllData() {
-  await AsyncStorage.multiRemove(Object.values(STORAGE_KEYS));
+  const keysToRemove = Object.values(STORAGE_KEYS).filter(
+    k => k !== STORAGE_KEYS.ONBOARDING
+  );
+  await AsyncStorage.multiRemove(keysToRemove);
 }
 
 const LEVEL_COMPLETE_THRESHOLD = 3;

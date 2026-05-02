@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity,
+  View, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
   KeyboardAvoidingView, Platform, Dimensions, ScrollView,
 } from 'react-native';
 import Animated, {
@@ -12,7 +12,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import { useRouter } from 'expo-router';
-import { setOnboardingComplete, getUserName } from './utils/storage';
+import { setOnboardingComplete, getUserName, getUserId, setCalibration } from './utils/storage';
+import { API_BASE_URL } from './config';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 const HERO_H = Math.round(SCREEN_H * 0.40);
@@ -98,6 +99,8 @@ export default function Onboarding() {
   const [recording, setRecording]     = useState<Audio.Recording | null>(null);
   const [isRecording, setIsRecording] = useState(false);
   const [recorded, setRecorded]       = useState(false);
+  const [recordingURIs, setRecordingURIs] = useState<string[]>([]);
+  const [calibrating, setCalibrating] = useState(false);
   const [, requestPermission]         = Audio.usePermissions();
   const pulseAnim = useSharedValue(1);
   const router    = useRouter();
@@ -157,8 +160,10 @@ export default function Onboarding() {
   async function stopRecording() {
     if (!recording) return;
     try {
+      const uri = recording.getURI();
       await recording.stopAndUnloadAsync();
       await Audio.setAudioModeAsync({ allowsRecordingIOS: false });
+      if (uri) setRecordingURIs(prev => [...prev, uri]);
     } catch (e) {
       console.error('Erro ao parar gravação:', e);
     }
@@ -167,8 +172,42 @@ export default function Onboarding() {
   }
 
   async function handleFinish() {
-    await setOnboardingComplete();
-    router.replace('/(tabs)');
+    setCalibrating(true);
+    try {
+      const userId = await getUserId();
+      if (userId && recordingURIs.length === 3) {
+        const formData = new FormData();
+        formData.append('usuario_id', userId);
+        formData.append('texto_referencia', CALIBRATION_TEXT);
+        const labels = ['audio_rapido', 'audio_devagar', 'audio_confortavel'] as const;
+        labels.forEach((label, i) => {
+          formData.append(label, {
+            uri: recordingURIs[i], type: 'audio/m4a', name: `${label}.m4a`,
+          } as any);
+        });
+        const res = await fetch(`${API_BASE_URL}/calibrar`, {
+          method: 'POST',
+          headers: { 'Bypass-Tunnel-Reminder': 'true' },
+          body: formData,
+        });
+        if (res.ok) {
+          const data = await res.json();
+          await setCalibration({
+            wpm_base:        data.perfil.wpm_base,
+            limite_inferior: data.perfil.limite_inferior,
+            limite_superior: data.perfil.limite_superior,
+            wpm_rapido:      data.leituras.rapido.wpm,
+            wpm_devagar:     data.leituras.devagar.wpm,
+            wpm_confortavel: data.leituras.confortavel.wpm,
+          });
+        }
+      }
+    } catch (e) {
+      console.warn('Calibração não enviada:', e);
+    } finally {
+      await setOnboardingComplete();
+      router.replace('/(tabs)');
+    }
   }
 
   // ── Step 0: Introdução ────────────────────────────────────────
@@ -328,14 +367,21 @@ export default function Onboarding() {
         {name ? `Obrigado,\n${name}!` : 'Tudo pronto!'}
       </Text>
       <Text style={styles.subtitle}>
-        Agora já sei o seu ritmo ideal. Vamos começar a sua jornada de fluência!
+        {calibrating
+          ? 'Analisando sua voz… isso pode levar alguns segundos.'
+          : 'Agora já sei o seu ritmo ideal. Vamos começar a sua jornada de fluência!'
+        }
       </Text>
       <TouchableOpacity
-        style={[styles.btn, { backgroundColor: '#16a34a', shadowColor: '#16a34a' }]}
+        style={[styles.btn, { backgroundColor: '#16a34a', shadowColor: '#16a34a', opacity: calibrating ? 0.7 : 1 }]}
         onPress={handleFinish}
+        disabled={calibrating}
         activeOpacity={0.85}
       >
-        <Text style={styles.btnText}>Entrar no Destravar 🚀</Text>
+        {calibrating
+          ? <ActivityIndicator color="#fff" />
+          : <Text style={styles.btnText}>Entrar no Destravar 🚀</Text>
+        }
       </TouchableOpacity>
     </Screen>
   );

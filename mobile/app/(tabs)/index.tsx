@@ -7,10 +7,16 @@ import Svg, { Path, Defs, LinearGradient as SvgLinearGradient, Stop } from 'reac
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { getProfileData, getLevelProgress, getUserName } from '../utils/storage';
+import { getProfileData, getLevelProgress, getUserName, getUserChar } from '../utils/storage';
 import AppHeader from '../components/AppHeader';
 
-const CHAR1 = require('../../assets/characters/char1.png');
+const CHARS = {
+  1: require('../../assets/characters/char1.png'),
+  2: require('../../assets/characters/char2.png'),
+  3: require('../../assets/characters/char3.png'),
+  4: require('../../assets/characters/char4.png'),
+  5: require('../../assets/characters/char5.png'),
+} as const;
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -60,6 +66,7 @@ export default function DesafiosTab() {
   const [xp, setXp]         = useState(0);
   const [streak, setStreak] = useState(0);
   const [myInitials, setMyInitials] = useState('AP');
+  const [charIdx, setCharIdx]       = useState<1|2|3|4|5>(1);
   const [progress, setProgress] = useState({
     nivel1_completos: 0, nivel2_completos: 0, nivel3_completos: 0,
   });
@@ -100,7 +107,8 @@ export default function DesafiosTab() {
   useFocusEffect(
     useCallback(() => {
       (async () => {
-        const [profile, prog, name] = await Promise.all([getProfileData(), getLevelProgress(), getUserName()]);
+        const [profile, prog, name, char] = await Promise.all([getProfileData(), getLevelProgress(), getUserName(), getUserChar()]);
+        setCharIdx((char >= 1 && char <= 5 ? char : 1) as 1|2|3|4|5);
         setXp(profile.xp);
         setStreak(profile.streak);
         setMyInitials(name.trim().slice(0, 2).toUpperCase() || 'AP');
@@ -134,7 +142,7 @@ export default function DesafiosTab() {
     >
       <AppHeader
         initials={myInitials}
-        avatarSource={CHAR1}
+        avatarSource={CHARS[charIdx]}
         rightSlot={
           <View style={styles.flameBadge}>
             <Ionicons name="flame" size={18} color="#ea580c" />

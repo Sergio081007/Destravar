@@ -16,7 +16,7 @@ const MOCK_PLAYERS = [
 import Svg, { Polygon, Rect } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
-import { getProfileData, getUserName, getUserId } from '../utils/storage';
+import { getProfileData, getUserName, getUserId, getUserChar } from '../utils/storage';
 import { API_BASE_URL } from '../config';
 import Avatar from '../components/Avatar';
 import AppHeader from '../components/AppHeader';
@@ -98,9 +98,15 @@ function PodiumBlock({ player, cfg }: {
   );
 }
 
+function charFromId(id: string): 1|2|3|4|5 {
+  const n = parseInt(id.replace(/-/g, '').slice(0, 2), 16);
+  return ((n % 5) + 1) as 1|2|3|4|5;
+}
+
 export default function RankingTab() {
   const [allPlayers, setAllPlayers] = useState<(Player & { rank: number })[]>([]);
   const [myInitials, setMyInitials] = useState('EU');
+  const [myChar, setMyChar]         = useState<1|2|3|4|5>(1);
   const [loading, setLoading]       = useState(true);
 
   useFocusEffect(
@@ -108,9 +114,10 @@ export default function RankingTab() {
       (async () => {
         setLoading(true);
         try {
-          const [profile, name, userId] = await Promise.all([
-            getProfileData(), getUserName(), getUserId(),
+          const [profile, name, userId, char] = await Promise.all([
+            getProfileData(), getUserName(), getUserId(), getUserChar(),
           ]);
+          setMyChar((char >= 1 && char <= 5 ? char : 1) as 1|2|3|4|5);
 
           const myXp   = profile?.xp ?? 0;
           const myName = name || 'Você';
@@ -132,7 +139,7 @@ export default function RankingTab() {
                 initials: u.nome.trim().slice(0, 2).toUpperCase() || '??',
                 xp:       u.xp,
                 color:    PLAYER_COLORS[i % PLAYER_COLORS.length],
-                char:     ((i % 5) + 1) as 1 | 2 | 3 | 4 | 5,
+                char:     !!userId && u.usuario_id === userId ? myChar : charFromId(u.usuario_id),
                 isMe:     !!userId && u.usuario_id === userId,
               }));
               // Adiciona reais; remove mock com mesmo nome se conflitar
@@ -151,7 +158,7 @@ export default function RankingTab() {
           if (!alreadyIn) {
             combined.push({
               name: myName, initials: myInits,
-              xp: myXp, color: '#0061a2', char: 1, isMe: true,
+              xp: myXp, color: '#0061a2', char: myChar, isMe: true,
             });
           }
 
@@ -182,7 +189,7 @@ export default function RankingTab() {
     <View style={styles.root}>
       <AppHeader
         initials={myInitials}
-        avatarSource={CHARS[1]}
+        avatarSource={CHARS[myChar]}
         rightSlot={
           <View style={styles.trophyBadge}>
             <Ionicons name="trophy" size={18} color="#ca8a04" />

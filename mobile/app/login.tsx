@@ -11,10 +11,12 @@ import { supabase } from './utils/supabase';
 import { setUserName, setUserId, setUserChar, getOnboardingComplete } from './utils/storage';
 
 const { height: SCREEN_H } = Dimensions.get('window');
-const HERO_H = Math.round(SCREEN_H * 0.30);
+const HERO_H         = Math.round(SCREEN_H * 0.30);
+const HERO_H_WELCOME = Math.round(SCREEN_H * 0.52);
 
 export default function Login() {
-  const [mode, setMode]               = useState<'login' | 'cadastro'>('login');
+  const [showForm, setShowForm]       = useState(false);
+  const [mode, setMode]               = useState<'login' | 'cadastro'>('cadastro');
   const [nome, setNome]               = useState('');
   const [email, setEmail]             = useState('');
   const [senha, setSenha]             = useState('');
@@ -60,9 +62,11 @@ export default function Login() {
           return;
         }
 
+        const charNum = Math.floor(Math.random() * 5) + 1;
+        await supabase.auth.updateUser({ data: { nome: trimmedNome, char: charNum } });
         await setUserName(trimmedNome);
         await setUserId(data.user!.id);
-        await setUserChar(Math.floor(Math.random() * 5) + 1);
+        await setUserChar(charNum);
         router.replace('/onboarding');
       } else {
         const { data, error: signInError } = await supabase.auth.signInWithPassword({
@@ -73,8 +77,10 @@ export default function Login() {
         if (signInError) { setError('E-mail ou senha incorretos.'); return; }
 
         const savedNome = (data.user.user_metadata?.nome as string) || 'Aprendiz';
+        const savedChar = (data.user.user_metadata?.char as number) || 1;
         await setUserName(savedNome);
         await setUserId(data.user.id);
+        await setUserChar(savedChar >= 1 && savedChar <= 5 ? savedChar : 1);
 
         const onboarded = await getOnboardingComplete();
         router.replace(onboarded ? '/(tabs)' : '/onboarding');
@@ -84,6 +90,50 @@ export default function Login() {
     } finally {
       setLoading(false);
     }
+  }
+
+  if (!showForm) {
+    return (
+      <View style={styles.root}>
+        <LinearGradient colors={['#0061a2', '#5e41d0']} style={[styles.hero, { height: HERO_H_WELCOME }]}>
+          <View style={styles.heroBlobTL} />
+          <View style={styles.heroBlobBR} />
+          <View style={[styles.heroBlobTL, { top: -20, left: '40%', width: 160, height: 160, opacity: 0.07 }]} />
+          <View style={styles.heroContent}>
+            <View style={[styles.heroCircle, { width: 96, height: 96, borderRadius: 48 }]}>
+              <Ionicons name="lock-open-outline" size={48} color="rgba(255,255,255,0.95)" />
+            </View>
+            <Text style={[styles.heroTitle, { fontSize: 38, marginTop: 4 }]}>Destravar</Text>
+            <Text style={styles.heroSub}>Encontre a sua voz</Text>
+          </View>
+        </LinearGradient>
+
+        <View style={styles.sheet}>
+          <View style={styles.sheetContent}>
+            <Text style={styles.welcomeTitle}>Pronto para começar?</Text>
+            <Text style={styles.welcomeDesc}>
+              Treinos personalizados para te ajudar no controle da fluência da fala, no seu próprio ritmo.
+            </Text>
+
+            <TouchableOpacity
+              style={styles.btn}
+              onPress={() => { setMode('cadastro'); setShowForm(true); }}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.btnText}>Criar conta →</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.btnOutline}
+              onPress={() => { setMode('login'); setShowForm(true); }}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.btnOutlineText}>Já tenho conta</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
   }
 
   if (emailPendente) {
@@ -340,4 +390,19 @@ const styles = StyleSheet.create({
   },
   btnDisabled: { opacity: 0.55 },
   btnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+
+  btnOutline: {
+    paddingVertical: 17, borderRadius: 999, alignItems: 'center',
+    borderWidth: 2, borderColor: '#0061a2', marginTop: 4,
+  },
+  btnOutlineText: { color: '#0061a2', fontWeight: '700', fontSize: 16 },
+
+  welcomeTitle: {
+    fontSize: 26, fontWeight: '800', color: '#181c1e',
+    textAlign: 'center', marginBottom: 10, letterSpacing: -0.4,
+  },
+  welcomeDesc: {
+    fontSize: 15, color: '#707883', textAlign: 'center',
+    lineHeight: 23, marginBottom: 32,
+  },
 });

@@ -75,64 +75,42 @@ async def completar_sessao(payload: SessaoCompletar):
 async def registrar_progresso(payload: ProgressoExercicio):
     supabase = get_connection()
 
-    response = (
-        supabase.table("progresso")
-        .insert({
-            "usuario_id":  payload.usuario_id,
-            "dificuldade": payload.dificuldade,
-            "score":       payload.score,
-            "wpm":         payload.wpm,
-        })
+    xp_ganho = round(payload.score * 100)
+
+    user_resp = (
+        supabase.table("usuarios")
+        .select("xp")
+        .eq("id", payload.usuario_id)
         .execute()
     )
 
-    if not response.data:
-        raise HTTPException(status_code=500, detail="Erro ao registrar progresso.")
+    if not user_resp.data:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
 
-    return {"status": "registrado", "id": response.data[0]["id"]}
+    xp_atual = user_resp.data[0].get("xp") or 0
+
+    supabase.table("usuarios").update({"xp": xp_atual + xp_ganho}).eq("id", payload.usuario_id).execute()
+
+    return {"status": "registrado", "xp_ganho": xp_ganho}
 
 
 @router.get("/ranking")
 async def get_ranking():
     supabase = get_connection()
 
-    prog_resp = supabase.table("progresso").select("usuario_id, score").execute()
-    if not prog_resp.data:
-        return []
-
-    # Agrega XP por usuário: soma de score * 100 * nº de exercícios
-    user_stats: dict[str, dict] = {}
-    for r in prog_resp.data:
-        uid = r.get("usuario_id")
-        if not uid:
-            continue
-        score = float(r.get("score") or 0)
-        if uid not in user_stats:
-            user_stats[uid] = {"count": 0, "total": 0.0}
-        user_stats[uid]["count"] += 1
-        user_stats[uid]["total"] += score
-
-    if not user_stats:
-        return []
-
-    user_ids = list(user_stats.keys())
-    users_resp = (
+    response = (
         supabase.table("usuarios")
-        .select("id, nome")
-        .in_("id", user_ids)
+        .select("id, nome, xp")
+        .gt("xp", 0)
+        .order("xp", desc=True)
+        .limit(50)
         .execute()
     )
-    name_map = {u["id"]: u["nome"] for u in (users_resp.data or [])}
 
-    ranking = []
-    for uid, stats in user_stats.items():
-        xp = round(stats["total"] * 100 * stats["count"])
-        ranking.append({
-            "usuario_id": uid,
-            "nome": name_map.get(uid, "Anônimo"),
-            "xp": xp,
-            "exercicios": stats["count"],
-        })
+    if not response.data:
+        return []
 
-    ranking.sort(key=lambda x: x["xp"], reverse=True)
-    return ranking[:50]
+    return [
+        {"usuario_id": u["id"], "nome": u["nome"], "xp": u.get("xp") or 0}
+        for u in response.data
+    ]

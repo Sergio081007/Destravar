@@ -4,6 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { getProfileData, getUserName, getLevelProgress, clearAllData, getUserChar } from '../utils/storage';
+import { supabase } from '../utils/supabase';
 import { calcularNivel } from '../utils/calcularXP';
 import AppHeader from '../components/AppHeader';
 
@@ -72,8 +73,9 @@ export default function PerfilTab() {
 
   async function confirmSignOut() {
     setShowSignOutModal(false);
+    await supabase.auth.signOut();
     await clearAllData();
-    router.replace('/onboarding');
+    router.replace('/login');
   }
 
   return (

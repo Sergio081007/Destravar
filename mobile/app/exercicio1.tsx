@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import Animated, {
   useSharedValue, useAnimatedStyle,
@@ -7,12 +7,12 @@ import Animated, {
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
-// Cada fase: dur em ms, toScale do círculo, expanding para os anéis
+// isHold = fase sem movimento (círculo mantém escala atual, usa setTimeout)
 const PHASES = [
-  { label: 'Inspire', hint: 'Encha os pulmões devagar',        dur: 4000, toScale: 1.15, expanding: true  },
-  { label: 'Segure',  hint: 'Mantenha o ar por um instante',   dur: 2000, toScale: 1.15, expanding: true  },
-  { label: 'Expire',  hint: 'Solte o ar bem devagar',           dur: 4000, toScale: 0.5,  expanding: false },
-  { label: 'Relaxe',  hint: 'Prepare-se para o próximo ciclo', dur: 2000, toScale: 0.5,  expanding: false },
+  { label: 'Inspire', hint: 'Encha os pulmões devagar',        dur: 4000, toScale: 1.3,  expanding: true,  isHold: false },
+  { label: 'Segure',  hint: 'Mantenha o ar por um instante',   dur: 2000, toScale: 1.3,  expanding: true,  isHold: true  },
+  { label: 'Expire',  hint: 'Solte o ar bem devagar',          dur: 4000, toScale: 0.65, expanding: false, isHold: false },
+  { label: 'Relaxe',  hint: 'Prepare-se para o próximo ciclo', dur: 2000, toScale: 0.65, expanding: false, isHold: true  },
 ];
 
 const TOTAL_CYCLES = 3;
