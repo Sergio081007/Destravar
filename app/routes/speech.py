@@ -631,8 +631,8 @@ async def transcrever(
             "ratio_duracao":         temporal["ratio_duracao"],
             "palavras_longas":       temporal["palavras_longas"],
             "hesitacoes":            hesitacoes,
-            "oscilacoes":            oscilacoes_detectadas if calibracao else None,
-            "taxa_oscilacao":        taxa_oscilacao,
+            "oscilacoes":    oscilacoes_detectadas if calibracao else 0,
+            "taxa_oscilacao": taxa_oscilacao if calibracao else 0.0,
             "wpm_base":              calibracao["wpm_base"] if calibracao else None,
             "calibrado":             calibracao is not None,
         }
@@ -644,6 +644,37 @@ async def transcrever(
         if caminho_audio and os.path.exists(caminho_audio):
             os.remove(caminho_audio)
 
+@router.get("/trava-lingua/{id}")
+async def obter_trava_lingua(id: str):
+    """
+    Retorna uma trava-língua pelo ID.
+    Usado pelo exercício 3 quando ex3_som_alvo == 'trava_lingua'.
+    O frontend busca o ex3_trava_lingua_id do texto e chama este endpoint.
+    """
+    supabase = get_connection()
+    response = (
+        supabase.table("trava_linguas")
+        .select("*")
+        .eq("id", id)
+        .limit(1)
+        .execute()
+    )
+ 
+    if not response.data:
+        raise HTTPException(status_code=404, detail="Trava-língua não encontrada.")
+ 
+    tl = response.data[0]
+    return {
+        "id":          tl["id"],
+        "titulo":      tl.get("titulo"),
+        "conteudo":    tl.get("conteudo"),
+        "sons_alvo":   tl.get("sons_alvo", []),
+        "dica":        tl.get("dica"),
+        "repeticoes":  tl.get("repeticoes", 3),
+        "fase_minima": tl.get("fase_minima"),
+        "dificuldade": tl.get("dificuldade"),
+    }
+ 
 
 @router.post("/comparar-texto")
 async def comparar(payload: ComparacaoRequest):
