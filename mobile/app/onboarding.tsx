@@ -12,7 +12,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import { useRouter } from 'expo-router';
-import { setOnboardingComplete, setUserName, setUserId } from './utils/storage';
+import { setOnboardingComplete, setUserName, setUserId, setUserChar } from './utils/storage';
 import { API_BASE_URL } from './config';
 
 const { height: SCREEN_H } = Dimensions.get('window');
@@ -191,6 +191,7 @@ export default function Onboarding() {
     const trimmed = name.trim() || 'Aprendiz';
     await setUserName(trimmed);
     await criarUsuario(trimmed);
+    await setUserChar(Math.floor(Math.random() * 5) + 1);
     goToStep(2);
   }
 
@@ -234,7 +235,7 @@ export default function Onboarding() {
         >
           <Text style={styles.btnText}>Continuar →</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.skipLink} onPress={async () => { await criarUsuario('Aprendiz'); goToStep(2); }}>
+        <TouchableOpacity style={styles.skipLink} onPress={async () => { await criarUsuario('Aprendiz'); await setUserChar(Math.floor(Math.random() * 5) + 1); goToStep(2); }}>
           <Text style={styles.skipText}>Pular por agora</Text>
         </TouchableOpacity>
       </Screen>

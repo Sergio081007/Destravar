@@ -8,6 +8,7 @@ export const STORAGE_KEYS = {
   ONBOARDING: '@destravar_onboarding_done',
   USER_NAME: '@destravar_user_name',
   USER_ID: '@destravar_user_id',
+  USER_CHAR: '@destravar_user_char',
 };
 
 export async function addXP(amount: number) {
@@ -112,6 +113,23 @@ export async function getUserId(): Promise<string | null> {
 
 export async function setUserId(id: string) {
   await AsyncStorage.setItem(STORAGE_KEYS.USER_ID, id);
+}
+
+export async function getUserChar(): Promise<number> {
+  try {
+    const val = await AsyncStorage.getItem(STORAGE_KEYS.USER_CHAR);
+    if (val) {
+      const n = parseInt(val, 10);
+      if (n >= 1 && n <= 5) return n;
+    }
+    return 1;
+  } catch {
+    return 1;
+  }
+}
+
+export async function setUserChar(char: number) {
+  await AsyncStorage.setItem(STORAGE_KEYS.USER_CHAR, char.toString());
 }
 
 export async function clearAllData() {

@@ -3,11 +3,17 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Modal } fr
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { getProfileData, getUserName, getLevelProgress, clearAllData } from '../utils/storage';
+import { getProfileData, getUserName, getLevelProgress, clearAllData, getUserChar } from '../utils/storage';
 import { calcularNivel } from '../utils/calcularXP';
 import AppHeader from '../components/AppHeader';
 
-const MY_CHAR = require('../../assets/characters/char1.png');
+const CHARS = {
+  1: require('../../assets/characters/char1.png'),
+  2: require('../../assets/characters/char2.png'),
+  3: require('../../assets/characters/char3.png'),
+  4: require('../../assets/characters/char4.png'),
+  5: require('../../assets/characters/char5.png'),
+} as const;
 
 const XP_THRESHOLDS = [500, 1200, 2500, 5000];
 
@@ -33,6 +39,7 @@ export default function PerfilTab() {
   const [streak, setStreak]           = useState(0);
   const [nivel, setNivel]             = useState(1);
   const [name, setName]               = useState('Aprendiz');
+  const [charIdx, setCharIdx]  = useState<1|2|3|4|5>(1);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
   const [progress, setProgress] = useState({
     nivel1_completos: 0, nivel2_completos: 0, nivel3_completos: 0,
@@ -41,14 +48,15 @@ export default function PerfilTab() {
   useFocusEffect(
     useCallback(() => {
       (async () => {
-        const [data, userName, prog] = await Promise.all([
-          getProfileData(), getUserName(), getLevelProgress(),
+        const [data, userName, prog, char] = await Promise.all([
+          getProfileData(), getUserName(), getLevelProgress(), getUserChar(),
         ]);
         setXp(data.xp);
         setStreak(data.streak);
         setNivel(calcularNivel(data.xp));
         setName(userName);
         setProgress(prog);
+        setCharIdx((char >= 1 && char <= 5 ? char : 1) as 1|2|3|4|5);
       })();
     }, [])
   );
@@ -95,7 +103,7 @@ export default function PerfilTab() {
 
       <AppHeader
         initials={initials}
-        avatarSource={MY_CHAR}
+        avatarSource={CHARS[charIdx]}
       />
 
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
@@ -109,7 +117,7 @@ export default function PerfilTab() {
               style={styles.avatarRing}
             >
               <View style={styles.avatarWhiteBorder}>
-                <Image source={MY_CHAR} style={styles.avatarImage} />
+                <Image source={CHARS[charIdx]} style={styles.avatarImage} />
               </View>
             </LinearGradient>
             <View style={styles.levelBadge}>

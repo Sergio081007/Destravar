@@ -1,19 +1,30 @@
 import { useCallback, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView,
+  View, Text, StyleSheet, ScrollView, ActivityIndicator,
   ImageSourcePropType, Dimensions,
 } from 'react-native';
+
+// Jogadores base — ficam no ranking até usuários reais os superarem em XP
+const MOCK_PLAYERS = [
+  { name: 'Lucas Ferreira', initials: 'LF', xp: 2890, color: '#E8650A', char: 1 },
+  { name: 'Gabriel Costa',  initials: 'GC', xp: 2450, color: '#E07BB5', char: 2 },
+  { name: 'Juliana Rocha',  initials: 'JR', xp: 2100, color: '#D4A720', char: 3 },
+  { name: 'Ricardo Alves',  initials: 'RA', xp: 1950, color: '#5DADA0', char: 4 },
+  { name: 'Tiago Souza',    initials: 'TS', xp: 1740, color: '#2B3FA0', char: 5 },
+  { name: 'Beatriz Mendes', initials: 'BM', xp: 1600, color: '#E07BB5', char: 2 },
+];
 import Svg, { Polygon, Rect } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
-import { getProfileData, getUserName } from '../utils/storage';
+import { getProfileData, getUserName, getUserId } from '../utils/storage';
+import { API_BASE_URL } from '../config';
 import Avatar from '../components/Avatar';
 import AppHeader from '../components/AppHeader';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const CONTENT_W = SCREEN_W - 40;
-const COL1_W  = Math.floor(CONTENT_W * 1.2 / 3.2); // 1st place (wider)
-const COL23_W = Math.floor(CONTENT_W / 3.2);        // 2nd & 3rd place
+const COL1_W  = Math.floor(CONTENT_W * 1.2 / 3.2);
+const COL23_W = Math.floor(CONTENT_W / 3.2);
 
 const CHARS: Record<number, ImageSourcePropType> = {
   1: require('../../assets/characters/char1.png'),
@@ -23,13 +34,9 @@ const CHARS: Record<number, ImageSourcePropType> = {
   5: require('../../assets/characters/char5.png'),
 };
 
-const MOCK_PLAYERS = [
-  { name: 'Lucas Ferreira', initials: 'LF', xp: 2890, color: '#E8650A', char: 1 },
-  { name: 'Gabriel Costa',  initials: 'GC', xp: 2450, color: '#E07BB5', char: 2 },
-  { name: 'Juliana Rocha',  initials: 'JR', xp: 2100, color: '#D4A720', char: 3 },
-  { name: 'Ricardo Alves',  initials: 'RA', xp: 1950, color: '#5DADA0', char: 4 },
-  { name: 'Tiago Souza',    initials: 'TS', xp: 1740, color: '#2B3FA0', char: 5 },
-  { name: 'Beatriz Mendes', initials: 'BM', xp: 1600, color: '#E07BB5', char: 2 },
+const PLAYER_COLORS = [
+  '#E8650A', '#E07BB5', '#D4A720', '#5DADA0',
+  '#2B3FA0', '#8B5CF6', '#10B981', '#F59E0B',
 ];
 
 type Player = {
@@ -37,7 +44,6 @@ type Player = {
   color: string; char?: number; isMe?: boolean; rank?: number;
 };
 
-// tl/tr: top-left and top-right Y as fraction of block height (matches clip-path percentages)
 const PODIUM_CFG = {
   1: { color: '#FFD700', shade: '#B8860B', blockH: 220, colW: COL1_W,  tl: 0.15, tr: 0,    numLabel: 'I',   numSize: 60 },
   2: { color: '#E0E3E6', shade: '#A0A5AA', blockH: 148, colW: COL23_W, tl: 0.10, tr: 0,    numLabel: 'II',  numSize: 36 },
@@ -58,7 +64,6 @@ function PodiumBlock({ player, cfg }: {
 
   return (
     <View style={[styles.podiumCol, { width: W, zIndex: isFirst ? 20 : 10 }]}>
-      {/* Avatar + info above block */}
       <View style={[styles.podiumAvatarWrap, { marginBottom: isFirst ? 10 : 6 }]}>
         <Avatar
           initials={player.initials}
@@ -78,7 +83,6 @@ function PodiumBlock({ player, cfg }: {
         </Text>
       </View>
 
-      {/* SVG tilted block */}
       <View style={{ width: W, height: H }}>
         <Svg width={W} height={H} style={StyleSheet.absoluteFill}>
           <Polygon points={polyPts} fill={cfg.color} />
@@ -95,31 +99,84 @@ function PodiumBlock({ player, cfg }: {
 }
 
 export default function RankingTab() {
-  const [myXp, setMyXp]             = useState(0);
-  const [myName, setMyName]         = useState('Você');
+  const [allPlayers, setAllPlayers] = useState<(Player & { rank: number })[]>([]);
   const [myInitials, setMyInitials] = useState('EU');
+  const [loading, setLoading]       = useState(true);
 
   useFocusEffect(
     useCallback(() => {
       (async () => {
-        const [profile, name] = await Promise.all([getProfileData(), getUserName()]);
-        setMyXp(profile.xp);
-        setMyName(name);
-        setMyInitials(name.trim().slice(0, 2).toUpperCase() || 'EU');
+        setLoading(true);
+        try {
+          const [profile, name, userId] = await Promise.all([
+            getProfileData(), getUserName(), getUserId(),
+          ]);
+
+          const myXp   = profile?.xp ?? 0;
+          const myName = name || 'Você';
+          const myInits = myName.trim().slice(0, 2).toUpperCase() || 'EU';
+          setMyInitials(myInits);
+
+          // Começa com os mocks como base
+          let combined: Player[] = [...MOCK_PLAYERS];
+
+          // Tenta buscar jogadores reais da API
+          try {
+            const res = await fetch(`${API_BASE_URL}/ranking`, {
+              headers: { 'Bypass-Tunnel-Reminder': 'true' },
+            });
+            if (res.ok) {
+              const data: Array<{ usuario_id: string; nome: string; xp: number }> = await res.json();
+              const real: Player[] = data.map((u, i) => ({
+                name:     u.nome,
+                initials: u.nome.trim().slice(0, 2).toUpperCase() || '??',
+                xp:       u.xp,
+                color:    PLAYER_COLORS[i % PLAYER_COLORS.length],
+                char:     ((i % 5) + 1) as 1 | 2 | 3 | 4 | 5,
+                isMe:     !!userId && u.usuario_id === userId,
+              }));
+              // Adiciona reais; remove mock com mesmo nome se conflitar
+              const realNames = new Set(real.map(p => p.name.toLowerCase()));
+              combined = [
+                ...combined.filter(m => !realNames.has(m.name.toLowerCase())),
+                ...real,
+              ];
+            }
+          } catch {
+            // Servidor indisponível — mantém só os mocks
+          }
+
+          // Garante que o usuário local aparece (com flag isMe)
+          const alreadyIn = userId && combined.some(p => p.isMe);
+          if (!alreadyIn) {
+            combined.push({
+              name: myName, initials: myInits,
+              xp: myXp, color: '#0061a2', char: 1, isMe: true,
+            });
+          }
+
+          const sorted = combined
+            .sort((a, b) => b.xp - a.xp)
+            .map((p, i) => ({ ...p, rank: i + 1 })) as (Player & { rank: number })[];
+
+          setAllPlayers(sorted);
+        } catch (e) {
+          console.warn('Ranking error:', e);
+          // Fallback total: só mocks + usuário local
+          setAllPlayers(
+            MOCK_PLAYERS
+              .map((p, i) => ({ ...p, rank: i + 1 })) as (Player & { rank: number })[]
+          );
+        } finally {
+          setLoading(false);
+        }
       })();
     }, [])
   );
 
-  const allPlayers = [
-    ...MOCK_PLAYERS,
-    { name: myName, initials: myInitials, xp: myXp, color: '#0061a2', char: 1, isMe: true },
-  ]
-    .sort((a, b) => b.xp - a.xp)
-    .map((p, i) => ({ ...p, rank: i + 1 })) as (Player & { rank: number })[];
-
-  const top3 = allPlayers.slice(0, 3) as (Player & { rank: 1 | 2 | 3 })[];
-  // Podium order: 2nd (left) → 1st (center) → 3rd (right)
+  const top3        = allPlayers.slice(0, 3) as (Player & { rank: 1 | 2 | 3 })[];
   const podiumOrder = [top3[1], top3[0], top3[2]].filter(Boolean);
+  const rest        = allPlayers.filter(p => p.rank > 3);
 
   return (
     <View style={styles.root}>
@@ -133,26 +190,30 @@ export default function RankingTab() {
         }
       />
 
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
-        <Text style={styles.pageTitle}>Mural dos Heróis</Text>
-        <Text style={styles.pageSub}>Cada palavra é uma nova conquista!</Text>
-
-        {/* Podium */}
-        <View style={styles.podiumWrap}>
-          {podiumOrder.map((p) => (
-            <PodiumBlock
-              key={p.name}
-              player={p as Player & { rank: 1 | 2 | 3 }}
-              cfg={PODIUM_CFG[p.rank as 1 | 2 | 3]}
-            />
-          ))}
+      {loading ? (
+        <View style={styles.loadingWrap}>
+          <ActivityIndicator size="large" color="#0061a2" />
+          <Text style={styles.loadingText}>Carregando ranking…</Text>
         </View>
+      ) : (
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scroll}>
+          <Text style={styles.pageTitle}>Mural dos Heróis</Text>
+          <Text style={styles.pageSub}>Cada palavra é uma nova conquista!</Text>
 
-        {/* Ranking list — positions 4+ */}
-        <View style={styles.listSection}>
-          {allPlayers
-            .filter((p) => p.rank > 3)
-            .map((p) =>
+          {top3.length >= 3 && (
+            <View style={styles.podiumWrap}>
+              {podiumOrder.map((p) => (
+                <PodiumBlock
+                  key={`${p.name}-${p.rank}`}
+                  player={p as Player & { rank: 1 | 2 | 3 }}
+                  cfg={PODIUM_CFG[p.rank as 1 | 2 | 3]}
+                />
+              ))}
+            </View>
+          )}
+
+          <View style={styles.listSection}>
+            {rest.map((p) =>
               p.isMe ? (
                 <View key={`${p.name}-${p.rank}`} style={styles.rowMe}>
                   <Text style={[styles.rankNum, styles.rankNumMe]}>{p.rank}</Text>
@@ -192,10 +253,11 @@ export default function RankingTab() {
                 </View>
               )
             )}
-        </View>
+          </View>
 
-        <View style={{ height: 24 }} />
-      </ScrollView>
+          <View style={{ height: 24 }} />
+        </ScrollView>
+      )}
     </View>
   );
 }
@@ -210,6 +272,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center', alignItems: 'center',
   },
 
+  loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12 },
+  loadingText: { fontSize: 14, color: '#707883', fontWeight: '500' },
+
   scroll: { paddingHorizontal: 20, paddingBottom: 16 },
 
   pageTitle: {
@@ -222,10 +287,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'flex-end',
     justifyContent: 'center', marginBottom: 28, marginTop: 8,
   },
-  podiumCol: { alignItems: 'center' },
-  podiumAvatarWrap: { alignItems: 'center', gap: 4 },
-  podiumName: { fontWeight: '700', color: '#181c1e', textAlign: 'center', maxWidth: 80 },
-  podiumXp:   { fontWeight: '600', textAlign: 'center' },
+  podiumCol:       { alignItems: 'center' },
+  podiumAvatarWrap:{ alignItems: 'center', gap: 4 },
+  podiumName:      { fontWeight: '700', color: '#181c1e', textAlign: 'center', maxWidth: 80 },
+  podiumXp:        { fontWeight: '600', textAlign: 'center' },
 
   listSection: { gap: 8 },
 
@@ -243,13 +308,13 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
 
-  rankNum:   { fontSize: 14, fontWeight: '800', color: '#9CA3AF', width: 22, textAlign: 'center' },
-  rankNumMe: { color: '#0061a2' },
-  playerInfo:    { flex: 1 },
-  playerName:    { fontSize: 14, fontWeight: '700', color: '#181c1e' },
-  playerNameMe:  { color: '#0061a2' },
-  youLabel: { fontSize: 10, fontWeight: '700', color: '#0061a2', letterSpacing: 0.5, marginTop: 1 },
-  xpText:   { fontSize: 14, fontWeight: '700', color: '#707883' },
-  xpTextMe: { color: '#0061a2', fontWeight: '800' },
-  xpUnit:   { fontSize: 11, fontWeight: '600' },
+  rankNum:      { fontSize: 14, fontWeight: '800', color: '#9CA3AF', width: 22, textAlign: 'center' },
+  rankNumMe:    { color: '#0061a2' },
+  playerInfo:   { flex: 1 },
+  playerName:   { fontSize: 14, fontWeight: '700', color: '#181c1e' },
+  playerNameMe: { color: '#0061a2' },
+  youLabel:     { fontSize: 10, fontWeight: '700', color: '#0061a2', letterSpacing: 0.5, marginTop: 1 },
+  xpText:       { fontSize: 14, fontWeight: '700', color: '#707883' },
+  xpTextMe:     { color: '#0061a2', fontWeight: '800' },
+  xpUnit:       { fontSize: 11, fontWeight: '600' },
 });
