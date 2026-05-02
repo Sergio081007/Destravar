@@ -13,6 +13,8 @@ from collections import Counter
 from dotenv import load_dotenv
 from app.db.connection import get_connection
 from app.db.service import fetch_texto, fetch_trava_lingua
+from functools import lru_cache
+
 
 load_dotenv()
 router = APIRouter()
@@ -23,6 +25,135 @@ FASES_POR_DIFICULDADE = {
     "medio":   list(range(4, 8)),
     "dificil": list(range(8, 11)),
 }
+
+
+@lru_cache(maxsize=1)
+def _carregar_mensagens() -> dict:
+    """
+    Busca todas as mensagens ativas do Supabase uma única vez
+    e indexa por (status, subtipo) para sorteio rápido.
+
+    lru_cache garante que a query só roda na primeira chamada
+    do processo — sem overhead nas requisições seguintes.
+    """
+    supabase = get_connection()
+    response = (
+        supabase.table("mensagens_feedback")
+        .select("status, subtipo, titulo, mensagem")
+        .eq("ativo", True)
+        .execute()
+    )
+
+    index: dict = {}
+    for row in response.data or []:
+        chave = (row["status"], row["subtipo"])  # ex: ("aprovado", None)
+        index.setdefault(chave, []).append(
+            (row["titulo"], row["mensagem"])
+        )
+    return index
+
+
+def _sortear(status: str, subtipo: str | None) -> dict:
+    """Sorteia uma mensagem do índice em memória."""
+    index = _carregar_mensagens()
+    opcoes = index.get((status, subtipo), [])
+
+    if not opcoes:
+        # Fallback seguro caso a tabela esteja vazia ou a chave não exista
+        return {
+            "titulo":   "Continue assim!",
+            "mensagem": "Você está evoluindo. Tente mais uma vez!",
+        }
+
+    titulo, mensagem = random.choice(opcoes)
+    return {"titulo": titulo, "mensagem": mensagem}
+
+
+def calcular_aprovacao(
+    wpm: float,
+    score_penalizado: float,
+    wpm_min: float | None,
+    wpm_max: float | None,
+    limite_inferior: float | None,
+    limite_superior: float | None,
+) -> dict:
+    """
+    Retorna aprovado (bool) e status_feedback (dict estilo Duolingo).
+
+    Critérios:
+      - Aprovado: WPM dentro da faixa efetiva E score_penalizado >= 0.70
+      - Aviso suave: até 15% fora da faixa de WPM (score ok)
+      - Diretivo: > 15% fora da faixa OU score < 0.70
+
+    A faixa efetiva é a interseção de [wpm_min, wpm_max] (texto)
+    com [limite_inferior, limite_superior] (calibração do usuário).
+    """
+
+    # ── Faixa efetiva ─────────────────────────────────────────────
+    faixa_min = wpm_min or 0.0
+    faixa_max = wpm_max or float("inf")
+
+    if limite_inferior is not None:
+        faixa_min = max(faixa_min, limite_inferior)
+    if limite_superior is not None:
+        faixa_max = min(faixa_max, limite_superior)
+
+    precisao_ok = score_penalizado >= 0.70
+
+    # ── Desvio da faixa ───────────────────────────────────────────
+    sem_faixa = faixa_max == float("inf") or faixa_min == 0.0
+
+    if sem_faixa:
+        dentro_faixa = True
+        desvio_pct   = 0.0
+        direcao      = None
+    elif wpm < faixa_min:
+        dentro_faixa = False
+        desvio_pct   = (faixa_min - wpm) / faixa_min
+        direcao      = "lento"
+    elif wpm > faixa_max:
+        dentro_faixa = False
+        desvio_pct   = (wpm - faixa_max) / faixa_max
+        direcao      = "rapido"
+    else:
+        dentro_faixa = True
+        desvio_pct   = 0.0
+        direcao      = None
+
+    aprovado = dentro_faixa and precisao_ok
+
+    # ── Escolher status e subtipo ─────────────────────────────────
+    if aprovado:
+        status, subtipo = "aprovado", None
+
+    elif not precisao_ok and not dentro_faixa:
+        status, subtipo = "diretivo", "combinado"
+
+    elif not precisao_ok:
+        status, subtipo = "diretivo", "precisao"
+
+    elif desvio_pct <= 0.15:
+        status, subtipo = "aviso_suave", direcao
+
+    else:
+        status, subtipo = "diretivo", direcao
+
+    feedback = _sortear(status, subtipo)
+
+    return {
+        "aprovado": aprovado,
+        "status_feedback": {
+            "status":     status,
+            "subtipo":    subtipo,
+            "titulo":     feedback["titulo"],
+            "mensagem":   feedback["mensagem"],
+            "wpm_obtido": round(wpm, 1),
+            "faixa_min":  faixa_min if faixa_min > 0 else None,
+            "faixa_max":  faixa_max if faixa_max < float("inf") else None,
+            "precisao":   round(score_penalizado * 100, 1),
+            "desvio_pct": round(desvio_pct * 100, 1),
+        },
+    }
 
 
 @router.get("/textos/aleatorio")
@@ -47,6 +178,7 @@ async def obter_texto_aleatorio(
         raise HTTPException(status_code=404, detail="Nenhum texto encontrado.")
 
     return texto
+
 
 LAST_TRANSCRIPTION = ""
 
@@ -240,19 +372,14 @@ def calcular_penalidade_temporal(
       - palavras_longas: count de palavras com duração > 2.5x o esperado
     """
     # ── Ratio de duração ─────────────────────────────────────────────────────
-    # Fala fluente normal: ~400ms por palavra. Se demorou muito mais, havia travamentos.
     duracao_esperada = total_palavras_ref * 0.40
     ratio_duracao    = duracao_total / duracao_esperada if duracao_esperada > 0 else 1.0
-    # ratio 1.0 = perfeito; 2.0 = demorou o dobro; penaliza a partir de 1.3
     penalidade_duracao = round(min(max((ratio_duracao - 1.3) * 0.25, 0.0), 0.4), 4)
 
     # ── Confiança dos segmentos ───────────────────────────────────────────────
-    # avg_logprob próximo de 0 = alta confiança; muito negativo = baixa confiança
-    # Segmentos com avg_logprob < -0.5 indicam fala pouco clara ou colapsada
     if segmentos:
         logprobs         = [s.get("avg_logprob", 0.0) for s in segmentos]
         media_logprob    = sum(logprobs) / len(logprobs)
-        # converte para penalidade: -0.5 → 0.0, -1.5 → 0.3
         penalidade_conf  = round(min(max((-media_logprob - 0.5) * 0.3, 0.0), 0.3), 4)
     else:
         penalidade_conf = 0.0
@@ -263,15 +390,15 @@ def calcular_penalidade_temporal(
         for w in palavras_obj:
             palavra    = w["word"].strip().lower()
             duracao_w  = w["end"] - w["start"]
-            esperado_w = max(len(palavra) * 0.08, 0.25)  # ~80ms por letra, mínimo 250ms
+            esperado_w = max(len(palavra) * 0.08, 0.25)
             if duracao_w > esperado_w * 2.5:
                 palavras_longas += 1
 
     return {
-        "penalidade_duracao":  penalidade_duracao,
+        "penalidade_duracao":   penalidade_duracao,
         "penalidade_confianca": penalidade_conf,
-        "palavras_longas":     palavras_longas,
-        "ratio_duracao":       round(ratio_duracao, 2),
+        "palavras_longas":      palavras_longas,
+        "ratio_duracao":        round(ratio_duracao, 2),
     }
 
 
@@ -330,6 +457,7 @@ def classificar_oscilacao(wpm_loc: float, limite_inf: float, limite_sup: float) 
     else:
         return "normal"
 
+
 @router.get("/texto/{fase}")
 async def obter_texto_por_fase(fase: int):
     texto = fetch_texto(fase=fase)
@@ -338,18 +466,21 @@ async def obter_texto_por_fase(fase: int):
         raise HTTPException(status_code=404, detail="Texto não encontrado para essa fase.")
 
     return {
-        "id": texto["id"],
+        "id":      texto["id"],
         "conteudo": texto["conteudo"],
-        "dica": texto.get("ex2_dica"),
+        "dica":    texto.get("ex2_dica"),
         "wpm_min": texto.get("ex2_wpm_min"),
         "wpm_max": texto.get("ex2_wpm_max"),
     }
+
 
 @router.post("/transcrever")
 async def transcrever(
     file: UploadFile = File(...),
     texto_referencia: str = Form(default=""),
     usuario_id: str = Form(default=""),
+    wpm_min: float | None = Form(default=None),
+    wpm_max: float | None = Form(default=None),
 ):
     global LAST_TRANSCRIPTION
     texto_alvo = texto_referencia
@@ -382,8 +513,8 @@ async def transcrever(
         texto = resultado.text.strip()
         LAST_TRANSCRIPTION = texto
 
-        segmentos    = [dict(s) for s in (resultado.segments or [])]
-        palavras_obj = resultado.words or []
+        segmentos     = [dict(s) for s in (resultado.segments or [])]
+        palavras_obj  = resultado.words or []
         duracao_total = segmentos[-1]["end"] if segmentos else 0
 
         if palavras_obj:
@@ -425,23 +556,21 @@ async def transcrever(
                             "palavra_seguinte": w["word"].strip(),
                             "inicio":           round(palavras_obj[i - 1]["end"], 2),
                             "fim":              round(w["start"], 2),
-                            "duracao_pausa":    pausa_previa
+                            "duracao_pausa":    pausa_previa,
                         })
 
-                prob             = get_prob_from_segments(w["start"], segmentos)
-                stutter_flag     = False
-                palavra_atual    = w["word"].strip().lower()
-                palavra_anterior = palavras_obj[i - 1]["word"].strip().lower() if i > 0 else ""
+                prob          = get_prob_from_segments(w["start"], segmentos)
+                stutter_flag  = False
+                palavra_atual = w["word"].strip().lower()
 
                 if pausa_previa >= 2.0:
                     stutter_flag = True
                 if 0.0 < prob < 0.5:
                     stutter_flag = True
-                if i > 0 and palavra_atual == palavra_anterior:
+                if i > 0 and palavra_atual == palavras_obj[i - 1]["word"].strip().lower():
                     stutter_flag = True
 
                 duracao = round(w["end"] - w["start"], 2)
-                # Palavras curtas (sílabas, artigos): limiar menor — bloqueios em "a", "la" aparecem cedo
                 if len(palavra_atual) <= 2:
                     limite_tempo = 0.45
                 else:
@@ -479,13 +608,13 @@ async def transcrever(
                 })
 
         # ── Detectar blocos de gaguejo, silábicos e prolongamentos ───────────
-        blocos_gaguejo          = detectar_blocos_gaguejo(palavras_processadas) if palavras_obj else []
-        blocos_com_bloqueio     = sum(1 for b in blocos_gaguejo if b["com_bloqueio"])
-        blocos_silabicos        = detectar_blocos_silabicos(palavras_processadas) if palavras_obj else []
-        prolongamentos_lista    = detectar_prolongamentos(palavras_processadas) if palavras_obj else []
-        total_prolongamentos    = len(prolongamentos_lista)
+        blocos_gaguejo       = detectar_blocos_gaguejo(palavras_processadas) if palavras_obj else []
+        blocos_com_bloqueio  = sum(1 for b in blocos_gaguejo if b["com_bloqueio"])
+        blocos_silabicos     = detectar_blocos_silabicos(palavras_processadas) if palavras_obj else []
+        prolongamentos_lista = detectar_prolongamentos(palavras_processadas) if palavras_obj else []
+        total_prolongamentos = len(prolongamentos_lista)
 
-        # ── Penalidade temporal (independente do Whisper) ─────────────────────
+        # ── Penalidade temporal ───────────────────────────────────────────────
         total_palavras_ref = len(normalizar(texto_referencia)) if texto_referencia else total_palavras
         temporal = calcular_penalidade_temporal(
             palavras_processadas, total_palavras_ref, duracao_total, segmentos
@@ -548,7 +677,7 @@ async def transcrever(
             else:
                 lookup[palavra] = "omitida"
 
-        # ── Item 1: marcar repetições diretas como "disfluente" ──────────────
+        # ── Análise palavra a palavra ─────────────────────────────────────────
         analise_palavras = []
         for idx, p in enumerate(palavras_processadas):
             palavra_norm = normalizar(p["word"])
@@ -559,7 +688,6 @@ async def transcrever(
             palavra_anterior_raw = palavras_processadas[idx - 1]["word"].strip().lower() if idx > 0 else ""
             is_repeticao_direta  = (idx > 0 and palavra_atual_raw == palavra_anterior_raw)
 
-            # Verifica se este fragmento faz parte de um bloco silábico
             is_bloco_silabico = any(
                 b["inicio"] <= p["start"] <= b["fim"]
                 for b in blocos_silabicos
@@ -576,13 +704,13 @@ async def transcrever(
 
             analise_palavras.append({
                 **p,
-                "status_diff":        status_diff,
-                "categoria":          categoria,
-                "repeticao_direta":   is_repeticao_direta,
-                "bloco_silabico":     is_bloco_silabico,
+                "status_diff":      status_diff,
+                "categoria":        categoria,
+                "repeticao_direta": is_repeticao_direta,
+                "bloco_silabico":   is_bloco_silabico,
             })
 
-        # ── Score penalizado: repetições + blocos + silábicos + prolongamentos + tempo + confiança
+        # ── Score penalizado ──────────────────────────────────────────────────
         penalidade_repeticao      = min(taxa_repeticao * 1.5, 0.5)
         penalidade_blocos         = min(blocos_com_bloqueio * 0.05, 0.2)
         penalidade_silabica       = min(len(blocos_silabicos) * 0.08, 0.2)
@@ -597,7 +725,7 @@ async def transcrever(
         score_bruto      = diff["score"]
         score_penalizado = round(max(0.0, score_bruto * (1 - penalidade_total)), 4)
 
-        taxa_oscilacao = round(oscilacoes_detectadas / total_palavras, 4) if calibracao and total_palavras > 0 else None
+        taxa_oscilacao = round(oscilacoes_detectadas / total_palavras, 4) if calibracao and total_palavras > 0 else 0.0
 
         return {
             "filename":              file.filename,
@@ -631,10 +759,18 @@ async def transcrever(
             "ratio_duracao":         temporal["ratio_duracao"],
             "palavras_longas":       temporal["palavras_longas"],
             "hesitacoes":            hesitacoes,
-            "oscilacoes":    oscilacoes_detectadas if calibracao else 0,
-            "taxa_oscilacao": taxa_oscilacao if calibracao else 0.0,
+            "oscilacoes":            oscilacoes_detectadas if calibracao else 0,
+            "taxa_oscilacao":        taxa_oscilacao,
             "wpm_base":              calibracao["wpm_base"] if calibracao else None,
             "calibrado":             calibracao is not None,
+            **calcular_aprovacao(
+                wpm=wpm,
+                score_penalizado=score_penalizado,
+                wpm_min=wpm_min,
+                wpm_max=wpm_max,
+                limite_inferior=calibracao["limite_inferior"] if calibracao else None,
+                limite_superior=calibracao["limite_superior"] if calibracao else None,
+            ),
         }
 
     except Exception as e:
@@ -643,6 +779,7 @@ async def transcrever(
     finally:
         if caminho_audio and os.path.exists(caminho_audio):
             os.remove(caminho_audio)
+
 
 @router.get("/trava-lingua/{id}")
 async def obter_trava_lingua(id: str):
@@ -659,10 +796,10 @@ async def obter_trava_lingua(id: str):
         .limit(1)
         .execute()
     )
- 
+
     if not response.data:
         raise HTTPException(status_code=404, detail="Trava-língua não encontrada.")
- 
+
     tl = response.data[0]
     return {
         "id":          tl["id"],
@@ -674,7 +811,7 @@ async def obter_trava_lingua(id: str):
         "fase_minima": tl.get("fase_minima"),
         "dificuldade": tl.get("dificuldade"),
     }
- 
+
 
 @router.post("/comparar-texto")
 async def comparar(payload: ComparacaoRequest):
