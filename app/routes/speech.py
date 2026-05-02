@@ -37,6 +37,38 @@ FASES_POR_DIFICULDADE = {
 
 LAST_TRANSCRIPTION = ""
 
+FALLBACK_PROMPT_GAGUEIRA = (
+    "Mas mas mas fui ao ao mercado. Meu meu nome é é Ana. "
+    "Co-co-corona. Antáaaaaart- Antártica. Ta-ta-ta-trazendo. "
+    "Eh hum então eu eu precisava de de leite."
+)
+
+
+def _truncar_alucinacao(words):
+    """Remove repetições excessivas causadas por alucinação do Whisper.
+
+    Sequências da mesma palavra com mais de 6 ocorrências são truncadas
+    ao número plausível pela duração (mínimo 0.35 s por repetição).
+    """
+    if not words:
+        return words
+    result = []
+    i = 0
+    while i < len(words):
+        j = i + 1
+        token = words[i]["word"].strip().lower()
+        while j < len(words) and words[j]["word"].strip().lower() == token:
+            j += 1
+        run_len = j - i
+        if run_len > 6:
+            duracao_seq = words[j - 1]["end"] - words[i]["start"]
+            count_plausivel = max(1, int(duracao_seq / 0.35))
+            result.extend(words[i : i + count_plausivel])
+        else:
+            result.extend(words[i:j])
+        i = j
+    return result
+
 
 class ComparacaoRequest(BaseModel):
     texto_referencia: str
@@ -108,22 +140,28 @@ async def transcrever(
             tmp.write(audio_content)
             caminho_audio = tmp.name
 
+        prompt_whisper = (
+            texto_referencia.strip()
+            if texto_referencia.strip()
+            else FALLBACK_PROMPT_GAGUEIRA
+        )
+
         with open(caminho_audio, "rb") as audio_file:
             resultado = client.audio.transcriptions.create(
                 file=(os.path.basename(caminho_audio), audio_file),
-                model="whisper-large-v3-turbo",
+                model="whisper-large-v3",
                 language="pt",
                 response_format="verbose_json",
                 timestamp_granularities=["segment", "word"],
                 temperature=0,
-                prompt="eu eu eu fui ao ao mercado comprar pão. Meu meu meu nome é é é Ana. Ah hum então eu eu precisava de de leite."
+                prompt=prompt_whisper,
             )
 
         texto         = resultado.text.strip()
         LAST_TRANSCRIPTION = texto
 
-        segmentos     = [dict(s) for s in (resultado.segments or [])]
-        palavras_obj  = resultado.words or []
+        segmentos    = [dict(s) for s in (resultado.segments or [])]
+        palavras_obj = _truncar_alucinacao(list(resultado.words or []))
         duracao_total = segmentos[-1]["end"] if segmentos else 0
 
         if palavras_obj:
