@@ -21,6 +21,8 @@ const LEVEL_LABELS: Record<string, string> = {
   facil: 'Fácil', medio: 'Médio', dificil: 'Difícil',
 };
 
+type Modo = 'pergunta' | 'praticar';
+
 export default function Treinar() {
   const router = useRouter();
   const { dificuldade: rawDiff } = useLocalSearchParams<{ dificuldade: string }>();
@@ -34,9 +36,9 @@ export default function Treinar() {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [transcriptionResult, setTranscriptionResult] = useState<any>(null);
 
-  const [textoTreino, setTextoTreino] = useState('Carregando frase...');
-  const [textoTitulo, setTextoTitulo] = useState('Frase do Treino');
-  const [currentPhraseData, setCurrentPhraseData] = useState<any>(null);
+  const [textoTreino, setTextoTreino] = useState('Carregando...');
+  const [modo, setModo] = useState<Modo>('pergunta');
+  const [fraseParaPraticar, setFraseParaPraticar] = useState<string | null>(null);
   const [levelProgress, setLevelProgress] = useState<any>({ nivel1_completos: 0, nivel2_completos: 0, nivel3_completos: 0 });
   const [completionMessage, setCompletionMessage] = useState<string | null>(null);
   const [needsToRecord, setNeedsToRecord] = useState(false);
@@ -80,7 +82,7 @@ export default function Treinar() {
   useEffect(() => {
     getLevelProgress().then(setLevelProgress);
     getUserId().then(setUserId);
-    fetchRandomText(dificuldade);
+    fetchPergunta();
     requestPermission();
   }, []);
 
@@ -100,49 +102,42 @@ export default function Treinar() {
     return () => { if (interval) clearInterval(interval); };
   }, [isRecording]);
 
-  const getLevelNumber = (d: string) => d === 'facil' ? 1 : d === 'medio' ? 2 : 3;
-  const getNextLevel = (d: string) => d === 'facil' ? 'medio' : d === 'medio' ? 'dificil' : null;
-  const isLevelComplete = (prog: any, d: string) => {
-    if (d === 'facil') return prog.nivel1_completos >= 3;
-    if (d === 'medio') return prog.nivel2_completos >= 3;
-    return prog.nivel3_completos >= 3;
-  };
+  // Auto-stop at 60 seconds in pergunta mode
+  useEffect(() => {
+    if (isRecording && modo === 'pergunta' && seconds >= 60) {
+      handleStopPress();
+    }
+  }, [seconds]);
 
-  const fetchRandomText = async (diff: string, latestProgress?: any) => {
-    const prog = latestProgress || levelProgress;
-    setTextoTreino('Carregando frase...');
-    setTextoTitulo('Carregando...');
-    setCurrentPhraseData(null);
+  const fetchPergunta = async () => {
+    setTextoTreino('Carregando pergunta...');
     setTranscriptionResult(null);
     setSeconds(0);
     setNeedsToRecord(false);
-
-    let completed = 0;
-    if (diff === 'facil') completed = prog.nivel1_completos || 0;
-    else if (diff === 'medio') completed = prog.nivel2_completos || 0;
-    else if (diff === 'dificil') completed = prog.nivel3_completos || 0;
-
-    const step = completed % 3;
-    let url = `${API_BASE_URL}/textos/aleatorio?dificuldade=${diff}`;
-    if (step === 0) url += '&categoria=trava_lingua';
-    else if (step === 1) url += '&categoria=texto';
-    else url += '&categoria=texto';
-
+    setModo('pergunta');
+    setFraseParaPraticar(null);
     try {
-      const res = await fetch(url, { headers: { 'Bypass-Tunnel-Reminder': 'true' } });
+      const res = await fetch(`${API_BASE_URL}/pergunta/aleatoria`, {
+        headers: { 'Bypass-Tunnel-Reminder': 'true' },
+      });
       if (res.ok) {
         const data = await res.json();
-        setTextoTreino(data.conteudo);
-        setTextoTitulo(data.titulo);
-        setCurrentPhraseData(data);
+        setTextoTreino(data.pergunta || data.conteudo || 'Como foi o seu dia?');
       } else {
         throw new Error(`HTTP ${res.status}`);
       }
     } catch {
-      setTextoTreino('O rato roeu a roupa do rei de Roma.');
-      setTextoTitulo('Trava-língua Clássico');
-      setCurrentPhraseData({ dificuldade: diff });
+      setTextoTreino('Como foi o seu dia hoje?');
     }
+  };
+
+  const handlePraticarFrase = (frase: string) => {
+    setFraseParaPraticar(frase);
+    setTextoTreino(frase);
+    setModo('praticar');
+    setTranscriptionResult(null);
+    setSeconds(0);
+    setNeedsToRecord(true);
   };
 
   const handleRecordPress = async () => {
@@ -179,7 +174,12 @@ export default function Treinar() {
     try {
       const form = new FormData();
       form.append('file', { uri: audioUri, type: 'audio/m4a', name: 'rec.m4a' } as any);
-      form.append('texto_referencia', textoTreino);
+
+      if (modo === 'pergunta') {
+        form.append('pergunta', textoTreino);
+      } else {
+        form.append('texto_referencia', fraseParaPraticar || textoTreino);
+      }
       if (userId) form.append('usuario_id', userId);
 
       const res = await fetch(`${API_BASE_URL}/transcrever`, {
@@ -195,9 +195,18 @@ export default function Treinar() {
         else if (data.fluencia === 'normal') numFluencia = 85;
         else if (data.fluencia === 'lento') numFluencia = 65;
 
+        const palavras = data?.analise_palavras || [];
+        const taxaFluenciaNum = palavras.length > 0
+          ? (palavras.filter((p: any) => p.categoria === 'correta').length / palavras.length) * 100
+          : 0;
+
+        const taxaAcerto = modo === 'pergunta'
+          ? taxaFluenciaNum
+          : (data.score !== undefined ? data.score * 100 : (data.precisao_alvo || 0));
+
         const finalXP = calcularXP({
           fluencia: numFluencia,
-          taxaAcerto: data.score !== undefined ? data.score * 100 : (data.precisao_alvo || 0),
+          taxaAcerto,
           wpm: data.wpm,
           meta: { wpmMin: 130, wpmMax: 160 },
         });
@@ -224,6 +233,11 @@ export default function Treinar() {
   };
 
   const handleNext = async () => {
+    if (modo === 'praticar') {
+      fetchPergunta();
+      return;
+    }
+
     if (userId && transcriptionResult) {
       try {
         await fetch(`${API_BASE_URL}/progresso/exercicio`, {
@@ -255,8 +269,15 @@ export default function Treinar() {
       setCompletionMessage(`Parabéns! Você concluiu todos os níveis! 🏆`);
       router.replace('/(tabs)');
     } else {
-      fetchRandomText(dificuldade, newProgress);
+      fetchPergunta();
     }
+  };
+
+  const getTaxaFluencia = () => {
+    const palavras = transcriptionResult?.analise_palavras || [];
+    if (palavras.length === 0) return 0;
+    const corretas = palavras.filter((p: any) => p.categoria === 'correta').length;
+    return (corretas / palavras.length) * 100;
   };
 
   const formatTime = (total: number) => {
@@ -265,37 +286,45 @@ export default function Treinar() {
     return `${m}:${s}`;
   };
 
+  const getLevelNumber = (d: string) => d === 'facil' ? 1 : d === 'medio' ? 2 : 3;
+  const getNextLevel = (d: string) => d === 'facil' ? 'medio' : d === 'medio' ? 'dificil' : null;
+  const isLevelComplete = (prog: any, d: string) => {
+    if (d === 'facil') return prog.nivel1_completos >= 3;
+    if (d === 'medio') return prog.nivel2_completos >= 3;
+    return prog.nivel3_completos >= 3;
+  };
+
   const getPassed = () => {
     if (!transcriptionResult) return null;
+
+    if (modo === 'pergunta') {
+      const taxaFluencia = getTaxaFluencia();
+      if (taxaFluencia >= 60) return { passed: true, msg: '' };
+      return { passed: false, msg: `Tente novamente! Fluência: ${taxaFluencia.toFixed(0)}% (mínimo 60%)` };
+    }
+
     const accuracy = transcriptionResult.score !== undefined
       ? transcriptionResult.score * 100
       : (transcriptionResult.precisao_alvo || 0);
-    const wpm = transcriptionResult.wpm || 0;
-    const hesitacoes = transcriptionResult.hesitacoes?.length || 0;
-
-    if (dificuldade === 'facil') {
-      if (accuracy >= 80 && wpm >= 100 && wpm <= 150) return { passed: true, msg: '' };
-      return { passed: false, msg: accuracy < 80 ? 'Você precisa de 80% de precisão.' : `Ritmo (${wpm} WPM) fora do ideal (100–150).` };
-    }
-    if (dificuldade === 'medio') {
-      if (accuracy >= 85 && hesitacoes === 0) return { passed: true, msg: '' };
-      return { passed: false, msg: accuracy < 85 ? 'Você precisa de 85% de precisão.' : 'Tente sem pausas ou hesitações.' };
-    }
-    if (accuracy >= 90) return { passed: true, msg: '' };
-    return { passed: false, msg: 'No nível difícil, você precisa de 90% de precisão!' };
+    if (accuracy >= 75) return { passed: true, msg: '' };
+    return { passed: false, msg: `Tente mais uma vez! Precisão: ${accuracy.toFixed(0)}% (mínimo 75%)` };
   };
 
   const evalResult = getPassed();
 
   return (
     <View style={styles.root}>
-      {/* White header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+        <TouchableOpacity
+          onPress={() => modo === 'praticar' ? fetchPergunta() : router.back()}
+          style={styles.backBtn}
+        >
           <Ionicons name="arrow-back" size={22} color={c1} />
         </TouchableOpacity>
         <View style={styles.headerMid}>
-          <Text style={styles.headerTitle}>Desafio de Voz</Text>
+          <Text style={styles.headerTitle}>
+            {modo === 'pergunta' ? 'Resposta Livre' : 'Pratique a Frase'}
+          </Text>
           <View style={[styles.levelBadge, { backgroundColor: c1 + '18' }]}>
             <Text style={[styles.levelBadgeText, { color: c1 }]}>
               ETAPA 2 · {LEVEL_LABELS[dificuldade].toUpperCase()}
@@ -312,7 +341,6 @@ export default function Treinar() {
           </View>
         )}
 
-        {/* Mascot card — visible before result */}
         {!transcriptionResult && (
           <View style={styles.mascotPreCard}>
             <View style={[styles.mascotIconWrap, { backgroundColor: '#dd962b18' }]}>
@@ -321,32 +349,38 @@ export default function Treinar() {
             <View style={{ flex: 1 }}>
               <Text style={styles.mascotPreLabel}>DESTRAVAR DIZ:</Text>
               <Text style={styles.mascotPreText}>
-                Fale no seu tempo, estou aqui com você!
+                {modo === 'pergunta'
+                  ? 'Fale no seu tempo, estou aqui com você!'
+                  : 'Tente repetir a frase corrigida com calma!'}
               </Text>
             </View>
           </View>
         )}
 
-        {/* Phrase card */}
+        {/* Pergunta / frase card */}
         <View style={styles.phraseCard}>
           <View style={styles.phraseCardTop}>
             <View style={[styles.phraseBadge, { backgroundColor: c1 + '18' }]}>
               <Text style={[styles.phraseBadgeText, { color: c1 }]}>
-                {textoTitulo.toUpperCase()}
+                {modo === 'pergunta' ? 'PERGUNTA' : 'PARA REPETIR'}
               </Text>
             </View>
-            <Text style={styles.phraseCardTitle}>Leia em voz alta:</Text>
+            <Text style={styles.phraseCardTitle}>
+              {modo === 'pergunta' ? 'Responda em até 1 minuto:' : 'Repita em voz alta:'}
+            </Text>
           </View>
           <View style={styles.phraseBox}>
             <Text style={[styles.phraseText, { color: c1 }]}>"{textoTreino}"</Text>
           </View>
           <View style={styles.breathHint}>
-            <Ionicons name="leaf-outline" size={14} color="#845400" />
-            <Text style={styles.breathHintText}>Respire antes de começar</Text>
+            <Ionicons name={modo === 'pergunta' ? 'time-outline' : 'leaf-outline'} size={14} color="#845400" />
+            <Text style={styles.breathHintText}>
+              {modo === 'pergunta' ? 'Fale livremente, sem se preocupar com erros' : 'Respire antes de começar'}
+            </Text>
           </View>
         </View>
 
-        {/* Recording section — hidden after result */}
+        {/* Recording section */}
         {!transcriptionResult && (
           <>
             {needsToRecord && !isRecording && (
@@ -354,10 +388,14 @@ export default function Treinar() {
             )}
 
             {isRecording && (
-              <Text style={styles.timer}>{formatTime(seconds)}</Text>
+              <View style={styles.timerRow}>
+                <Text style={styles.timer}>{formatTime(seconds)}</Text>
+                {modo === 'pergunta' && (
+                  <Text style={styles.timerLimit}>/ 01:00</Text>
+                )}
+              </View>
             )}
 
-            {/* Recording area 280×280 */}
             <View style={styles.recordingArea}>
               {!isRecording && !isTranscribing && (
                 <>
@@ -381,7 +419,6 @@ export default function Treinar() {
               )}
             </View>
 
-            {/* Waveform — always visible */}
             <View style={styles.waveformArea}>
               {[4, 7, 10, 14, 10, 7, 4, 7, 11, 14, 10, 7, 4].map((h, i) => (
                 <View
@@ -400,7 +437,9 @@ export default function Treinar() {
 
             {!isRecording && !isTranscribing && (
               <Text style={styles.footerText}>
-                Sua voz é única e importante. Sinta a vibração em seu peito enquanto fala calmamente.
+                {modo === 'pergunta'
+                  ? 'Não há resposta certa ou errada. Expresse-se naturalmente!'
+                  : 'Sua voz é única e importante. Sinta a vibração em seu peito enquanto fala calmamente.'}
               </Text>
             )}
           </>
@@ -409,7 +448,9 @@ export default function Treinar() {
         {/* Result card */}
         {transcriptionResult && (
           <View style={styles.resultCard}>
-            <Text style={styles.resultTitle}>Resultado da Análise</Text>
+            <Text style={styles.resultTitle}>
+              {modo === 'pergunta' ? 'Análise da Resposta' : 'Resultado da Prática'}
+            </Text>
 
             {transcriptionResult.xpGanho !== undefined && (
               <View style={styles.xpBadge}>
@@ -425,11 +466,15 @@ export default function Treinar() {
               <View style={styles.metricDivider} />
               <View style={styles.metricItem}>
                 <Text style={styles.metricValue}>
-                  {transcriptionResult.score !== undefined
-                    ? (transcriptionResult.score * 100).toFixed(0)
-                    : (transcriptionResult.precisao_alvo || 0)}%
+                  {modo === 'pergunta'
+                    ? `${getTaxaFluencia().toFixed(0)}%`
+                    : `${transcriptionResult.score !== undefined
+                        ? (transcriptionResult.score * 100).toFixed(0)
+                        : (transcriptionResult.precisao_alvo || 0)}%`}
                 </Text>
-                <Text style={styles.metricLabel}>Precisão</Text>
+                <Text style={styles.metricLabel}>
+                  {modo === 'pergunta' ? 'Fluência' : 'Precisão'}
+                </Text>
               </View>
               <View style={styles.metricDivider} />
               <View style={styles.metricItem}>
@@ -450,16 +495,19 @@ export default function Treinar() {
               </View>
             )}
 
+            {/* Seção 1: O que você disse */}
             {transcriptionResult.analise_palavras?.length > 0 && (
               <View style={styles.transcriptionBox}>
-                <Text style={styles.transcriptionTitle}>Sua leitura</Text>
+                <Text style={styles.transcriptionTitle}>
+                  {modo === 'pergunta' ? 'O que você disse' : 'Sua leitura'}
+                </Text>
                 <Text style={styles.transcriptionText}>
                   {transcriptionResult.analise_palavras.map((item: any, i: number) => {
                     const color =
-                      item.categoria === 'correta'        ? '#16a34a'
-                      : item.categoria === 'pouco_clara'  ? '#ca8a04'
-                      : item.categoria === 'prolongamento'? '#ea580c'
-                      : item.categoria === 'disfluente'   ? '#9333ea'
+                      item.categoria === 'correta'         ? '#16a34a'
+                      : item.categoria === 'pouco_clara'   ? '#ca8a04'
+                      : item.categoria === 'prolongamento' ? '#ea580c'
+                      : item.categoria === 'disfluente'    ? '#9333ea'
                       : '#dc2626';
                     return (
                       <Text key={i} style={{ color, fontWeight: '700' }}>
@@ -470,10 +518,10 @@ export default function Treinar() {
                 </Text>
                 <View style={styles.legendRow}>
                   {[
-                    { color: '#16a34a', label: 'Correta' },
+                    { color: '#16a34a', label: 'Fluente' },
                     { color: '#9333ea', label: 'Gaguejo' },
                     { color: '#ea580c', label: 'Prolongada' },
-                    { color: '#dc2626', label: 'Incorreta' },
+                    { color: '#dc2626', label: 'Disfluente' },
                   ].map(l => (
                     <View key={l.label} style={styles.legendItem}>
                       <View style={[styles.legendDot, { backgroundColor: l.color }]} />
@@ -481,6 +529,24 @@ export default function Treinar() {
                     </View>
                   ))}
                 </View>
+              </View>
+            )}
+
+            {/* Seção 2: Como ficaria (só no modo pergunta) */}
+            {modo === 'pergunta' && transcriptionResult.transcricao_corrigida && (
+              <View style={styles.corrigidaBox}>
+                <View style={styles.corrigidaHeader}>
+                  <Ionicons name="checkmark-circle" size={15} color="#16a34a" />
+                  <Text style={styles.corrigidaTitle}>Como ficaria</Text>
+                </View>
+                <Text style={styles.corrigidaText}>"{transcriptionResult.transcricao_corrigida}"</Text>
+                <TouchableOpacity
+                  style={[styles.praticarBtn, { backgroundColor: c1 }]}
+                  onPress={() => handlePraticarFrase(transcriptionResult.transcricao_corrigida)}
+                >
+                  <Ionicons name="mic" size={15} color="#fff" />
+                  <Text style={styles.praticarBtnText}>Praticar essa frase</Text>
+                </TouchableOpacity>
               </View>
             )}
 
@@ -501,7 +567,9 @@ export default function Treinar() {
 
             {evalResult?.passed ? (
               <TouchableOpacity style={[styles.actionBtn, { backgroundColor: c1 }]} onPress={handleNext}>
-                <Text style={styles.actionBtnText}>Próxima Frase →</Text>
+                <Text style={styles.actionBtnText}>
+                  {modo === 'praticar' ? 'Ótimo! Próxima Pergunta →' : 'Próxima Pergunta →'}
+                </Text>
               </TouchableOpacity>
             ) : (
               <View style={styles.failBlock}>
@@ -523,7 +591,6 @@ export default function Treinar() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: '#f7fafd' },
 
-  // ── Header ─────────────────────────────────────────────────────
   header: {
     flexDirection: 'row', alignItems: 'center',
     paddingTop: 52, paddingBottom: 12, paddingHorizontal: 16,
@@ -554,7 +621,6 @@ const styles = StyleSheet.create({
   },
   completionText: { color: '#064e3b', fontSize: 14, fontWeight: '700', textAlign: 'center' },
 
-  // ── Mascot pre-card ────────────────────────────────────────────
   mascotPreCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     width: '100%',
@@ -571,7 +637,6 @@ const styles = StyleSheet.create({
   mascotPreLabel: { fontSize: 10, fontWeight: '800', color: '#845400', letterSpacing: 0.6, marginBottom: 3 },
   mascotPreText: { fontSize: 13, color: '#404751', fontWeight: '500', lineHeight: 18 },
 
-  // ── Phrase card ────────────────────────────────────────────────
   phraseCard: {
     width: '100%', backgroundColor: '#fff',
     borderRadius: 20, padding: 20, marginBottom: 20,
@@ -596,12 +661,13 @@ const styles = StyleSheet.create({
 
   retryHint: { color: '#f59e0b', fontSize: 14, fontWeight: '700', textAlign: 'center', marginBottom: 8 },
 
+  timerRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6, marginBottom: 8 },
   timer: {
     fontSize: 44, fontWeight: '300', color: '#181c1e',
-    fontFamily: 'monospace', marginBottom: 8, letterSpacing: 2,
+    fontFamily: 'monospace', letterSpacing: 2,
   },
+  timerLimit: { fontSize: 18, color: '#9ca3af', fontWeight: '400', fontFamily: 'monospace' },
 
-  // ── Recording area 280×280 ─────────────────────────────────────
   recordingArea: {
     width: 280, height: 280, alignItems: 'center', justifyContent: 'center',
     marginBottom: 12,
@@ -609,12 +675,12 @@ const styles = StyleSheet.create({
   ring1: {
     position: 'absolute',
     width: 192, height: 192, borderRadius: 96, borderWidth: 2,
-    top: 44, left: 44,   // (280 - 192) / 2 = 44
+    top: 44, left: 44,
   },
   ring2: {
     position: 'absolute',
     width: 256, height: 256, borderRadius: 128, borderWidth: 1.5,
-    top: 12, left: 12,   // (280 - 256) / 2 = 12
+    top: 12, left: 12,
   },
   micBtn: {
     width: 128, height: 128, borderRadius: 64,
@@ -625,7 +691,6 @@ const styles = StyleSheet.create({
   },
   micBtnLabel: { color: '#fff', fontWeight: '800', fontSize: 12, letterSpacing: 0.8 },
 
-  // ── Waveform ───────────────────────────────────────────────────
   waveformArea: {
     flexDirection: 'row', alignItems: 'flex-end', gap: 3, marginBottom: 20, height: 20,
   },
@@ -639,7 +704,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  // ── Result card ────────────────────────────────────────────────
   resultCard: {
     width: '100%', backgroundColor: '#fff', borderRadius: 20,
     padding: 20, marginTop: 8,
@@ -662,7 +726,6 @@ const styles = StyleSheet.create({
   metricLabel: { fontSize: 11, color: '#9ca3af', fontWeight: '600', marginTop: 2 },
   metricDivider: { width: 1, height: 32, backgroundColor: '#e5e7eb' },
 
-  // ── Mascot card (result feedback) ─────────────────────────────
   mascotCard: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: '#fffbeb',
@@ -680,7 +743,6 @@ const styles = StyleSheet.create({
   mascotLabel: { fontSize: 9, fontWeight: '800', color: '#845400', letterSpacing: 0.6, marginBottom: 2 },
   mascotText: { fontSize: 13, color: '#404751', fontWeight: '500', lineHeight: 18 },
 
-  // ── Transcription analysis ─────────────────────────────────────
   transcriptionBox: {
     backgroundColor: '#f9f7ff', borderRadius: 14, padding: 14,
     borderLeftWidth: 3, borderLeftColor: '#5e41d0', marginBottom: 10, gap: 8,
@@ -691,6 +753,21 @@ const styles = StyleSheet.create({
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   legendDot: { width: 8, height: 8, borderRadius: 4 },
   legendText: { fontSize: 10, color: '#707883', fontWeight: '600' },
+
+  corrigidaBox: {
+    backgroundColor: '#f0fdf4', borderRadius: 14, padding: 14,
+    borderLeftWidth: 3, borderLeftColor: '#16a34a', marginBottom: 10, gap: 10,
+  },
+  corrigidaHeader: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  corrigidaTitle: { fontSize: 10, fontWeight: '800', color: '#16a34a', textTransform: 'uppercase', letterSpacing: 0.6 },
+  corrigidaText: { fontSize: 16, color: '#14532d', fontWeight: '600', lineHeight: 24, fontStyle: 'italic' },
+  praticarBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 7, paddingVertical: 12, borderRadius: 12,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.10, shadowRadius: 4, elevation: 2,
+  },
+  praticarBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 
   sinaisCard: {
     backgroundColor: '#fef3ee', borderRadius: 12, padding: 12,

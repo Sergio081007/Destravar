@@ -1,290 +1,363 @@
 import { useEffect, useRef, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import Animated, {
-  useSharedValue, useAnimatedStyle,
-  withTiming, withRepeat, Easing, runOnJS, cancelAnimation,
-} from 'react-native-reanimated';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 
-// isHold = fase sem movimento (círculo mantém escala atual, usa setTimeout)
+// Fases: dur em ms, toRadius em px, colorIdx mapeia para PHASE_COLORS
 const PHASES = [
-  { label: 'Inspire', hint: 'Encha os pulmões devagar',        dur: 4000, toScale: 1.3,  expanding: true,  isHold: false },
-  { label: 'Segure',  hint: 'Mantenha o ar por um instante',   dur: 2000, toScale: 1.3,  expanding: true,  isHold: true  },
-  { label: 'Expire',  hint: 'Solte o ar bem devagar',          dur: 4000, toScale: 0.65, expanding: false, isHold: false },
-  { label: 'Relaxe',  hint: 'Prepare-se para o próximo ciclo', dur: 2000, toScale: 0.65, expanding: false, isHold: true  },
+  { label: 'Inspire', sub: 'Encha os pulmões devagar', dur: 4000, toRadius: 140, colorIdx: 0 },
+  { label: 'Segure',  sub: 'Mantenha o ar',            dur: 2000, toRadius: 140, colorIdx: 1 },
+  { label: 'Solte',   sub: 'Libere devagar',           dur: 4000, toRadius: 80,  colorIdx: 2 },
 ];
 
-const TOTAL_CYCLES = 3;
-
-const LEVEL_COLORS: Record<string, [string, string]> = {
-  facil:   ['#0061a2', '#4da9ff'],
-  medio:   ['#10b981', '#34d399'],
-  dificil: ['#5e41d0', '#8b5cf6'],
-};
+// Cores por fase (circle, glow interno, glow externo)
+const PHASE_COLORS = [
+  { circle: '#818cf8', g1: 'rgba(129,140,248,0.18)', g2: 'rgba(129,140,248,0.07)' }, // inspire: índigo
+  { circle: '#c084fc', g1: 'rgba(192,132,252,0.18)', g2: 'rgba(192,132,252,0.07)' }, // segure: lilás
+  { circle: '#34d399', g1: 'rgba(52,211,153,0.18)',  g2: 'rgba(52,211,153,0.07)'  }, // solte: verde-azul
+];
 
 const LEVEL_LABELS: Record<string, string> = {
   facil: 'Fácil', medio: 'Médio', dificil: 'Difícil',
 };
 
-export default function Exercicio1() {
+export default function BreathingExercise({ onComplete }: { onComplete?: () => void }) {
   const router = useRouter();
   const { dificuldade: rawDiff } = useLocalSearchParams<{ dificuldade: string }>();
   const dificuldade = rawDiff || 'facil';
-  const [c1, c2] = LEVEL_COLORS[dificuldade] || LEVEL_COLORS.facil;
 
-  const [phaseIdx, setPhaseIdx] = useState(0);
-  const [cycle, setCycle]       = useState(1);
-  const [done, setDone]         = useState(false);
-  const [running, setRunning]   = useState(false);
+  const [phaseIdx, setPhaseIdx]             = useState(-1);   // -1 = idle
+  const [timeLeft, setTimeLeft]             = useState(4);
+  const [cycle, setCycle]                   = useState(1);
+  const [completedCycles, setCompletedCycles] = useState(0);
+  const [running, setRunning]               = useState(false);
+  const [done, setDone]                     = useState(false);
 
-  const circleScale  = useSharedValue(0.5);
-  const ring1Scale   = useSharedValue(1.0);
-  const ring1Opacity = useSharedValue(0.35);
-  const ring2Scale   = useSharedValue(1.0);
-  const ring2Opacity = useSharedValue(0.15);
+  // Timing — controlado 100% por setTimeout + Date.now()
+  const phaseTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const countdownRef   = useRef<ReturnType<typeof setInterval> | null>(null);
+  const completedRef   = useRef(0);
 
-  // Pulse idle dos anéis — ativo só quando não está respirando
-  useEffect(() => {
-    if (running) return;
-    ring1Scale.value   = withRepeat(withTiming(1.2,  { duration: 1400, easing: Easing.inOut(Easing.ease) }), -1, true);
-    ring1Opacity.value = withRepeat(withTiming(0.12, { duration: 1400 }), -1, true);
-    ring2Scale.value   = withRepeat(withTiming(1.38, { duration: 1900, easing: Easing.inOut(Easing.ease) }), -1, true);
-    ring2Opacity.value = withRepeat(withTiming(0.06, { duration: 1900 }), -1, true);
-  }, [running]);
+  // Animações — React Native Animated (sem Reanimated)
+  const circleRadius = useRef(new Animated.Value(80)).current;
+  const colorPhase   = useRef(new Animated.Value(0)).current;
 
-  const circleStyle = useAnimatedStyle(() => ({ transform: [{ scale: circleScale.value }] }));
-  const ring1Style  = useAnimatedStyle(() => ({ transform: [{ scale: ring1Scale.value }], opacity: ring1Opacity.value }));
-  const ring2Style  = useAnimatedStyle(() => ({ transform: [{ scale: ring2Scale.value }], opacity: ring2Opacity.value }));
+  // Interpolações de cor por fase (0→1→2)
+  const circleColor = colorPhase.interpolate({
+    inputRange:  [0, 1, 2],
+    outputRange: PHASE_COLORS.map(p => p.circle),
+  });
+  const glow1Color = colorPhase.interpolate({
+    inputRange:  [0, 1, 2],
+    outputRange: PHASE_COLORS.map(p => p.g1),
+  });
+  const glow2Color = colorPhase.interpolate({
+    inputRange:  [0, 1, 2],
+    outputRange: PHASE_COLORS.map(p => p.g2),
+  });
 
-  // ── Encadeia fases via callback do withTiming (tudo na UI thread) ──
+  // Tamanhos animados derivados do raio
+  const circleSize = Animated.multiply(circleRadius, 2);
+  const glow1Size  = Animated.multiply(circleRadius, 3.2);
+  const glow1BR    = Animated.multiply(circleRadius, 1.6);
+  const glow2Size  = Animated.multiply(circleRadius, 4.6);
+  const glow2BR    = Animated.multiply(circleRadius, 2.3);
+
+  useEffect(() => () => clearTimers(), []);
+
+  function clearTimers() {
+    if (phaseTimerRef.current)  { clearTimeout(phaseTimerRef.current);   phaseTimerRef.current = null; }
+    if (countdownRef.current)   { clearInterval(countdownRef.current);   countdownRef.current = null; }
+  }
+
   function startPhase(pIdx: number, cNum: number) {
-    // Ciclos concluídos
-    if (cNum > TOTAL_CYCLES) {
-      setDone(true);
-      setRunning(false);
-      return;
-    }
-    // Fim de um ciclo → próximo ciclo
+    // Fim de um ciclo completo
     if (pIdx >= PHASES.length) {
+      completedRef.current += 1;
+      setCompletedCycles(completedRef.current);
       startPhase(0, cNum + 1);
       return;
     }
 
-    // Atualiza labels de texto
-    setPhaseIdx(pIdx);
-    if (pIdx === 0) setCycle(cNum);
-
     const phase = PHASES[pIdx];
+    setPhaseIdx(pIdx);
+    setCycle(cNum);
 
-    // Círculo: anima suavemente até o toScale da fase
-    // Ao terminar, runOnJS dispara a próxima fase no JS thread
-    circleScale.value = withTiming(
-      phase.toScale,
-      { duration: phase.dur, easing: Easing.inOut(Easing.ease) },
-      (finished) => {
-        'worklet';
-        if (finished) runOnJS(startPhase)(pIdx + 1, cNum);
-      },
-    );
+    // Anima o círculo (puramente visual — não controla o tempo)
+    Animated.timing(circleRadius, {
+      toValue:        phase.toRadius,
+      duration:       phase.dur,
+      easing:         Easing.linear,
+      useNativeDriver: false,
+    }).start();
 
-    // Anéis expandem/contraem em sincronia com o círculo
-    ring1Scale.value   = withTiming(phase.expanding ? 1.28 : 0.88, { duration: phase.dur, easing: Easing.inOut(Easing.ease) });
-    ring2Scale.value   = withTiming(phase.expanding ? 1.48 : 0.94, { duration: phase.dur, easing: Easing.inOut(Easing.ease) });
-    ring1Opacity.value = withTiming(phase.expanding ? 0.42 : 0.10, { duration: phase.dur });
-    ring2Opacity.value = withTiming(phase.expanding ? 0.18 : 0.04, { duration: phase.dur });
+    // Transição de cor suave ao mudar de fase
+    Animated.timing(colorPhase, {
+      toValue:        phase.colorIdx,
+      duration:       400,
+      easing:         Easing.out(Easing.ease),
+      useNativeDriver: false,
+    }).start();
+
+    // Contagem regressiva precisa com Date.now() para evitar drift
+    const startTime = Date.now();
+    if (countdownRef.current) clearInterval(countdownRef.current);
+    setTimeLeft(Math.ceil(phase.dur / 1000));
+    countdownRef.current = setInterval(() => {
+      const remaining = Math.max(0, Math.ceil((phase.dur - (Date.now() - startTime)) / 1000));
+      setTimeLeft(remaining);
+      if (remaining <= 0) {
+        clearInterval(countdownRef.current!);
+        countdownRef.current = null;
+      }
+    }, 200);
+
+    // Avanço de fase exclusivamente via setTimeout
+    if (phaseTimerRef.current) clearTimeout(phaseTimerRef.current);
+    phaseTimerRef.current = setTimeout(() => {
+      phaseTimerRef.current = null;
+      startPhase(pIdx + 1, cNum);
+    }, phase.dur);
   }
 
   function handleStart() {
-    cancelAnimation(circleScale);
-    cancelAnimation(ring1Scale);
-    cancelAnimation(ring2Scale);
-    cancelAnimation(ring1Opacity);
-    cancelAnimation(ring2Opacity);
-
+    clearTimers();
+    circleRadius.setValue(80);
+    colorPhase.setValue(0);
+    completedRef.current = 0;
+    setCompletedCycles(0);
     setRunning(true);
-    setPhaseIdx(0);
-    setCycle(1);
     setDone(false);
-
-    circleScale.value = 0.5;
     startPhase(0, 1);
   }
 
-  function goToExercise() {
+  function handleComplete() {
+    clearTimers();
+    Animated.timing(circleRadius, {
+      toValue: 80, duration: 800,
+      easing: Easing.out(Easing.ease), useNativeDriver: false,
+    }).start();
+    setRunning(false);
+    setDone(true);
+    if (onComplete) onComplete();
+  }
+
+  function goToNextExercise() {
     router.push({ pathname: '/treinar', params: { dificuldade } });
   }
 
-  const phase = PHASES[phaseIdx];
+  const canComplete  = completedRef.current >= 1;
+  const currentPhase = phaseIdx >= 0 ? PHASES[phaseIdx] : null;
 
   return (
     <View style={styles.root}>
+
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={c1} />
+          <Ionicons name="arrow-back" size={20} color="#9ca3af" />
         </TouchableOpacity>
         <View style={styles.headerMid}>
-          <Text style={styles.headerTitle}>Exercício de Respiração</Text>
-          <View style={[styles.stepBadge, { backgroundColor: c1 + '18' }]}>
-            <Text style={[styles.stepBadgeText, { color: c1 }]}>
-              ETAPA 1 · {LEVEL_LABELS[dificuldade].toUpperCase()}
-            </Text>
+          <Text style={styles.headerTitle}>Respiração Guiada</Text>
+          <Text style={styles.headerSub}>ETAPA 1 · {(LEVEL_LABELS[dificuldade] || 'Fácil').toUpperCase()}</Text>
+        </View>
+        {/* Contador de ciclos ou botão pular */}
+        {running ? (
+          <View style={styles.cycleTag}>
+            <Text style={styles.cycleTagText}>Ciclo {cycle}</Text>
           </View>
-        </View>
-        <TouchableOpacity onPress={goToExercise} style={styles.skipBtn}>
-          <Text style={[styles.skipText, { color: c1 }]}>Pular</Text>
-        </TouchableOpacity>
+        ) : (
+          <TouchableOpacity onPress={goToNextExercise} style={styles.skipBtn}>
+            <Text style={styles.skipText}>Pular</Text>
+          </TouchableOpacity>
+        )}
       </View>
 
-      {/* Mascot card */}
-      <View style={styles.mascotCard}>
-        <View style={[styles.mascotIconWrap, { backgroundColor: '#dd962b18' }]}>
-          <Ionicons name="leaf-outline" size={18} color="#845400" />
-        </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.mascotLabel}>DESTRAVAR DIZ:</Text>
-          <Text style={styles.mascotText}>
-            Respirar fundo antes de falar relaxa as cordas vocais e reduz bloqueios.
-          </Text>
-        </View>
-      </View>
-
-      {/* Círculo de respiração */}
+      {/* Área central do círculo */}
       <View style={styles.circleArea}>
-        <View style={styles.ringsContainer}>
-          <Animated.View style={[styles.ring2, { borderColor: c2 }, ring2Style]} />
-          <Animated.View style={[styles.ring1, { borderColor: c1 }, ring1Style]} />
-          <Animated.View style={[styles.circle, { backgroundColor: c1, shadowColor: c1 }, circleStyle]}>
-            <Ionicons name="leaf" size={44} color="#fff" />
-          </Animated.View>
-        </View>
+
+        {/* Halos de brilho — escalam junto com o círculo */}
+        <Animated.View style={[
+          styles.glowBase,
+          { width: glow2Size, height: glow2Size, borderRadius: glow2BR, backgroundColor: glow2Color },
+        ]} />
+        <Animated.View style={[
+          styles.glowBase,
+          { width: glow1Size, height: glow1Size, borderRadius: glow1BR, backgroundColor: glow1Color },
+        ]} />
+
+        {/* Círculo principal */}
+        <Animated.View style={[
+          styles.circle,
+          { width: circleSize, height: circleSize, borderRadius: circleRadius, backgroundColor: circleColor },
+        ]} />
       </View>
 
       {/* Texto da fase */}
       <View style={styles.phaseArea}>
-        {running && !done ? (
+        {running && currentPhase ? (
           <>
-            <Text style={[styles.phaseLabel, { color: c1 }]}>{phase.label}</Text>
-            <Text style={styles.phaseHint}>{phase.hint}</Text>
-            <View style={[styles.cycleTrack, { backgroundColor: c1 + '18' }]}>
-              <Text style={[styles.cycleText, { color: c1 }]}>
-                Ciclo {cycle} de {TOTAL_CYCLES}
-              </Text>
-            </View>
+            <Text style={styles.phaseLabel}>{currentPhase.label}</Text>
+            <Text style={styles.phaseSub}>{currentPhase.sub}</Text>
+            <Text style={styles.countdown}>{timeLeft}</Text>
           </>
         ) : done ? (
           <>
-            <Text style={[styles.phaseLabel, { color: '#16a34a' }]}>Muito bem! 🌿</Text>
-            <Text style={styles.phaseHint}>Sua respiração está calibrada. Agora vamos praticar.</Text>
+            <Text style={[styles.phaseLabel, { color: '#34d399' }]}>Muito bem</Text>
+            <Text style={styles.phaseSub}>Respiração concluída.{'\n'}Agora vamos praticar a voz.</Text>
           </>
         ) : (
           <>
-            <Text style={[styles.phaseLabel, { color: c1 }]}>Vamos respirar</Text>
-            <Text style={styles.phaseHint}>
-              {TOTAL_CYCLES} ciclos · inspire, segure, expire e relaxe
+            <Text style={styles.phaseLabel}>Primeiro, respire</Text>
+            <Text style={styles.phaseSub}>
+              Relaxe os ombros.{'\n'}Inspire 4s · Segure 2s · Solte 4s
             </Text>
+            <Text style={styles.suggestion}>Sugerido: 4 a 5 ciclos</Text>
           </>
         )}
       </View>
 
-      {/* Botão de ação */}
+      {/* Botões */}
       <View style={styles.actions}>
         {done ? (
-          <TouchableOpacity
-            style={[styles.btn, { backgroundColor: '#16a34a', shadowColor: '#16a34a' }]}
-            onPress={goToExercise}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.btnText}>Iniciar o exercício de voz →</Text>
+          <TouchableOpacity style={styles.btnPrimary} onPress={goToNextExercise} activeOpacity={0.8}>
+            <Text style={styles.btnPrimaryText}>Próximo exercício →</Text>
           </TouchableOpacity>
         ) : !running ? (
-          <TouchableOpacity
-            style={[styles.btn, { backgroundColor: c1, shadowColor: c1 }]}
-            onPress={handleStart}
-            activeOpacity={0.85}
-          >
-            <Text style={styles.btnText}>Começar respiração</Text>
+          <TouchableOpacity style={styles.btnPrimary} onPress={handleStart} activeOpacity={0.8}>
+            <Text style={styles.btnPrimaryText}>Começar</Text>
           </TouchableOpacity>
-        ) : null}
+        ) : (
+          <TouchableOpacity
+            style={[styles.btnComplete, canComplete && styles.btnCompleteActive]}
+            onPress={canComplete ? handleComplete : undefined}
+            activeOpacity={canComplete ? 0.8 : 1}
+          >
+            <Text style={[styles.btnCompleteText, canComplete && styles.btnCompleteTextActive]}>
+              {canComplete ? 'Concluir' : `Conclua pelo menos 1 ciclo`}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
+
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#f7fafd' },
+  root: {
+    flex: 1,
+    backgroundColor: '#0d0f14',
+  },
 
+  // ── Header ────────────────────────────────────────────────────────
   header: {
     flexDirection: 'row', alignItems: 'center',
-    paddingTop: 52, paddingBottom: 12, paddingHorizontal: 16,
-    backgroundColor: '#fff',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05, shadowRadius: 8, elevation: 3,
+    paddingTop: 54, paddingBottom: 14, paddingHorizontal: 20,
   },
   backBtn: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: '#f7fafd',
-    justifyContent: 'center', alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.07, shadowRadius: 4, elevation: 2,
-  },
-  headerMid: { flex: 1, alignItems: 'center', gap: 5 },
-  headerTitle: { fontSize: 15, fontWeight: '700', color: '#181c1e' },
-  stepBadge: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
-  stepBadgeText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.8 },
-  skipBtn: { width: 46, alignItems: 'flex-end' },
-  skipText: { fontSize: 13, fontWeight: '600' },
-
-  mascotCard: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    marginHorizontal: 20, marginTop: 8,
-    backgroundColor: '#fffbeb',
-    borderRadius: 16, padding: 14,
-    borderLeftWidth: 3, borderLeftColor: '#dd962b',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05, shadowRadius: 8, elevation: 2,
-  },
-  mascotIconWrap: {
     width: 36, height: 36, borderRadius: 18,
+    backgroundColor: '#1c1f28',
     justifyContent: 'center', alignItems: 'center',
   },
-  mascotLabel: { fontSize: 10, fontWeight: '800', color: '#845400', letterSpacing: 0.6, marginBottom: 3 },
-  mascotText:  { fontSize: 13, color: '#404751', fontWeight: '500', lineHeight: 18 },
+  headerMid: { flex: 1, alignItems: 'center', gap: 3 },
+  headerTitle: { fontSize: 15, fontWeight: '600', color: '#e5e7eb', letterSpacing: 0.2 },
+  headerSub:   { fontSize: 10, fontWeight: '700', color: '#4b5563', letterSpacing: 1.2 },
+  cycleTag: {
+    backgroundColor: '#1c1f28', borderRadius: 12,
+    paddingHorizontal: 10, paddingVertical: 4,
+  },
+  cycleTagText: { fontSize: 11, fontWeight: '700', color: '#6b7280', letterSpacing: 0.5 },
+  skipBtn:  { width: 46, alignItems: 'flex-end' },
+  skipText: { fontSize: 13, fontWeight: '500', color: '#4b5563' },
 
-  circleArea: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  ringsContainer: {
-    width: 300, height: 300,
-    alignItems: 'center', justifyContent: 'center',
+  // ── Círculo ────────────────────────────────────────────────────────
+  circleArea: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  ring2: {
+  glowBase: {
     position: 'absolute',
-    width: 266, height: 266, borderRadius: 133, borderWidth: 1.5,
-    top: 17, left: 17,
-  },
-  ring1: {
-    position: 'absolute',
-    width: 200, height: 200, borderRadius: 100, borderWidth: 2,
-    top: 50, left: 50,
   },
   circle: {
-    width: 140, height: 140, borderRadius: 70,
-    justifyContent: 'center', alignItems: 'center',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.28, shadowRadius: 22, elevation: 12,
+    // width, height, borderRadius, backgroundColor vêm das animated values
   },
 
-  phaseArea: { alignItems: 'center', paddingHorizontal: 36, paddingBottom: 28, gap: 8 },
-  phaseLabel: { fontSize: 34, fontWeight: '900', letterSpacing: -0.5 },
-  phaseHint:  { fontSize: 15, color: '#707883', fontWeight: '500', textAlign: 'center', lineHeight: 21 },
-  cycleTrack: { borderRadius: 999, paddingHorizontal: 14, paddingVertical: 5, marginTop: 2 },
-  cycleText:  { fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
-
-  actions: { paddingHorizontal: 24, paddingBottom: 46 },
-  btn: {
-    paddingVertical: 17, borderRadius: 999, alignItems: 'center',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.28, shadowRadius: 14, elevation: 6,
+  // ── Texto da fase ──────────────────────────────────────────────────
+  phaseArea: {
+    alignItems: 'center',
+    paddingHorizontal: 40,
+    paddingBottom: 16,
+    gap: 8,
+    minHeight: 120,
+    justifyContent: 'center',
   },
-  btnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  phaseLabel: {
+    fontSize: 36,
+    fontWeight: '300',
+    color: '#f9fafb',
+    letterSpacing: 1,
+    textAlign: 'center',
+  },
+  phaseSub: {
+    fontSize: 14,
+    fontWeight: '400',
+    color: '#6b7280',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  countdown: {
+    fontSize: 52,
+    fontWeight: '200',
+    color: '#d1d5db',
+    letterSpacing: -1,
+    marginTop: 4,
+  },
+  suggestion: {
+    fontSize: 12,
+    color: '#374151',
+    fontWeight: '500',
+    marginTop: 4,
+  },
+
+  // ── Botões ─────────────────────────────────────────────────────────
+  actions: {
+    paddingHorizontal: 28,
+    paddingBottom: 48,
+  },
+  btnPrimary: {
+    backgroundColor: '#1e2130',
+    borderWidth: 1,
+    borderColor: '#2d3147',
+    paddingVertical: 16,
+    borderRadius: 999,
+    alignItems: 'center',
+  },
+  btnPrimaryText: {
+    color: '#e5e7eb',
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  btnComplete: {
+    paddingVertical: 16,
+    borderRadius: 999,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#1f2937',
+  },
+  btnCompleteActive: {
+    backgroundColor: '#1a2e1f',
+    borderColor: '#34d399',
+  },
+  btnCompleteText: {
+    color: '#374151',
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: 0.3,
+  },
+  btnCompleteTextActive: {
+    color: '#34d399',
+  },
 });
