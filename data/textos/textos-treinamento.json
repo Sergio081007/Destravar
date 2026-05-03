@@ -20,7 +20,7 @@
       "id": "txt_001", "fase": 1, "dificuldade": "facil",
       "titulo": "Cor favorita",
       "ex2_pergunta": "Qual é a sua cor favorita e por quê?",
-      "ex2_dica": "Resposta curta, 1 ou 2 frases. Fale com calma, sem pressa.",
+      "ex2_dica": "Que sentimento essa cor traz? Que coisas têm essa cor?",
       "ex3_som_alvo": "a",
       "ex3_instrucao": "Fale o som A bem suave, como se fosse um sussurro. Sinta a voz entrar sem esforço.",
       "ex3_exemplo_palavra": "Ana"
@@ -29,7 +29,7 @@
       "id": "txt_002", "fase": 2, "dificuldade": "facil",
       "titulo": "Café da manhã",
       "ex2_pergunta": "O que você gosta de comer no café da manhã?",
-      "ex2_dica": "Descreva o que você come normalmente. Não precisa ser uma resposta longa.",
+      "ex2_dica": "Descreva o que você come normalmente. Qual horário você normalmente come?",
       "ex3_som_alvo": "o",
       "ex3_instrucao": "Fale o som O bem aberto e solto. Não aperte a garganta.",
       "ex3_exemplo_palavra": "Hoje"
@@ -38,16 +38,16 @@
       "id": "txt_003", "fase": 3, "dificuldade": "facil",
       "titulo": "Animal favorito",
       "ex2_pergunta": "Qual é o seu animal favorito? Me conta um pouco sobre ele.",
-      "ex2_dica": "Tente falar 3 ou 4 frases. Respire antes de começar cada ideia.",
+      "ex2_dica": "É doméstico? É aquático? É peludo?",
       "ex3_som_alvo": "f",
       "ex3_instrucao": "Diga FUNDO deixando o ar sair pelo F bem suave. O som F não precisa de força.",
       "ex3_exemplo_palavra": "fundo"
     },
     {
       "id": "txt_004", "fase": 4, "dificuldade": "facil",
-      "titulo": "Rotina matinal",
-      "ex2_pergunta": "Me conta como é a sua rotina de manhã, do momento que acorda até sair de casa.",
-      "ex2_dica": "Narre em sequência. Cada passo é uma frase. Pause entre elas.",
+      "titulo": "Rotina diária",
+      "ex2_pergunta": "Me conta como é a sua rotina.",
+      "ex2_dica": "Narre em sequência, desde que acordou, até se preparar para dormir.",
       "ex3_som_alvo": "v",
       "ex3_instrucao": "Diga VI deixando o ar passar suavemente entre os dentes e o lábio no V. Sem pressão.",
       "ex3_exemplo_palavra": "vi"
@@ -65,7 +65,7 @@
       "id": "txt_006", "fase": 6, "dificuldade": "medio",
       "titulo": "Viagem dos sonhos",
       "ex2_pergunta": "Se você pudesse viajar para qualquer lugar agora, para onde iria e por quê?",
-      "ex2_dica": "Diga o destino e justifique. Tente elaborar com 3 ou 4 frases completas.",
+      "ex2_dica": "Diga o destino e justifique. É fora do seu Estado? É em outro país?",
       "ex3_som_alvo": "b",
       "ex3_instrucao": "Diga BEM com os lábios se tocando muito levemente. Não prenda o ar antes, solte junto com a voz.",
       "ex3_exemplo_palavra": "bem"
@@ -74,7 +74,7 @@
       "id": "txt_007", "fase": 7, "dificuldade": "medio",
       "titulo": "Pessoa importante",
       "ex2_pergunta": "Me conta sobre uma pessoa importante na sua vida e o que ela significa para você.",
-      "ex2_dica": "Fale com naturalidade. Carga emocional positiva ajuda o ritmo a ficar mais fluido.",
+      "ex2_dica": "Pode ser um amigo, parente, etc!",
       "ex3_som_alvo": "p",
       "ex3_instrucao": "Diga PERSISTIR com o P muito leve. Lábios se tocam quase sem pressão e soltam o ar suavemente.",
       "ex3_exemplo_palavra": "persistir"
@@ -83,7 +83,7 @@
       "id": "txt_008", "fase": 8, "dificuldade": "medio",
       "titulo": "Solo ou grupo",
       "ex2_pergunta": "Você prefere trabalhar ou estudar sozinho ou em grupo? Por quê?",
-      "ex2_dica": "Dê a sua opinião e explique. Resposta esperada de 4 a 6 frases.",
+      "ex2_dica": "Dê a sua opinião e explique. É legal ou desafiador?",
       "ex3_som_alvo": "t",
       "ex3_instrucao": "Diga TODA com a língua tocando levemente os dentes superiores no T. Não trave — solte o som junto com a voz.",
       "ex3_exemplo_palavra": "toda"
@@ -91,17 +91,17 @@
     {
       "id": "txt_009", "fase": 9, "dificuldade": "dificil",
       "titulo": "Tecnologia e vida",
-      "ex2_pergunta": "Você acredita que a tecnologia facilita ou complica a vida das pessoas? Explique.",
-      "ex2_dica": "Argumente com clareza. Fale devagar nas transições entre ideias — é onde o ritmo costuma acelerar.",
+      "ex2_pergunta": "Você acredita que a tecnologia facilita ou complica a vida das pessoas?",
+      "ex2_dica": "Fale devagar nas transições entre ideias.",
       "ex3_som_alvo": "d",
       "ex3_instrucao": "Diga DECISÃO com a língua tocando suavemente os dentes no D. Não prenda o ar — o som sai fluido.",
       "ex3_exemplo_palavra": "decisão"
     },
     {
       "id": "txt_010", "fase": 10, "dificuldade": "dificil",
-      "titulo": "Conselho para quem está começando",
-      "ex2_pergunta": "O que você diria para alguém que está começando a usar o Destravar hoje pela primeira vez?",
-      "ex2_dica": "Fale como se estivesse realmente conversando com essa pessoa. Presença e ritmo valem mais que perfeição.",
+      "titulo": "Esporte favorito",
+      "ex2_pergunta": "Você tem algum hobbie? Fale sobre ele.",
+      "ex2_dica": "Você pode falar sobre esporte, jogos, lazer...",
       "ex3_som_alvo": "c",
       "ex3_instrucao": "Diga CONFIANÇA com o C saindo suave. Sinta o ar fluir desde o início da palavra.",
       "ex3_exemplo_palavra": "confiança"
