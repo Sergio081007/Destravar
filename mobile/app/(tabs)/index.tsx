@@ -7,7 +7,7 @@ import Svg, { Path, Defs, LinearGradient as SvgLinearGradient, Stop } from 'reac
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { getProfileData, getLevelProgress, getUserName, getUserChar } from '../utils/storage';
+import { getProfileData, getLevelProgress, getUserName, getUserChar, getDailyXP } from '../utils/storage';
 import AppHeader from '../components/AppHeader';
 
 const CHARS = {
@@ -64,6 +64,7 @@ export default function DesafiosTab() {
   const floatAnim3  = useRef(new Animated.Value(0)).current;
 
   const [xp, setXp]         = useState(0);
+  const [dailyXp, setDailyXp] = useState(0);
   const [streak, setStreak] = useState(0);
   const [myInitials, setMyInitials] = useState('AP');
   const [charIdx, setCharIdx]       = useState<1|2|3|4|5>(1);
@@ -107,9 +108,12 @@ export default function DesafiosTab() {
   useFocusEffect(
     useCallback(() => {
       (async () => {
-        const [profile, prog, name, char] = await Promise.all([getProfileData(), getLevelProgress(), getUserName(), getUserChar()]);
+        const [profile, prog, name, char, daily] = await Promise.all([
+          getProfileData(), getLevelProgress(), getUserName(), getUserChar(), getDailyXP(),
+        ]);
         setCharIdx((char >= 1 && char <= 5 ? char : 1) as 1|2|3|4|5);
         setXp(profile.xp);
+        setDailyXp(daily);
         setStreak(profile.streak);
         setMyInitials(name.trim().slice(0, 2).toUpperCase() || 'AP');
         setProgress(prog);
@@ -130,7 +134,7 @@ export default function DesafiosTab() {
     return { ...node, type: 'locked' };
   });
 
-  const xpToday  = Math.min(xp % 300, 300);
+  const xpToday  = Math.min(dailyXp, 300);
   const xpPct    = (xpToday / 300) * 100;
   const svgPath  = buildSvgPath();
   const svgH     = ACTIVITY_NODES.length * NODE_ROW_H + NODE_ROW_H;

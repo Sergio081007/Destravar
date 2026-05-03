@@ -8,7 +8,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { supabase } from './utils/supabase';
-import { setUserName, setUserId, setUserChar, getOnboardingComplete } from './utils/storage';
+import { setUserName, setUserId, setUserChar, getOnboardingComplete, clearAllData } from './utils/storage';
+import { API_BASE_URL } from './config';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 const HERO_H         = Math.round(SCREEN_H * 0.30);
@@ -64,6 +65,16 @@ export default function Login() {
 
         const charNum = Math.floor(Math.random() * 5) + 1;
         await supabase.auth.updateUser({ data: { nome: trimmedNome, char: charNum } });
+        try {
+          await fetch(`${API_BASE_URL}/usuarios`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
+            body: JSON.stringify({ id: data.user!.id, nome: trimmedNome }),
+          });
+        } catch {
+          // não bloqueia o signup se o backend estiver fora
+        }
+        await clearAllData();
         await setUserName(trimmedNome);
         await setUserId(data.user!.id);
         await setUserChar(charNum);
@@ -78,6 +89,7 @@ export default function Login() {
 
         const savedNome = (data.user.user_metadata?.nome as string) || 'Aprendiz';
         const savedChar = (data.user.user_metadata?.char as number) || 1;
+        await clearAllData();
         await setUserName(savedNome);
         await setUserId(data.user.id);
         await setUserChar(savedChar >= 1 && savedChar <= 5 ? savedChar : 1);

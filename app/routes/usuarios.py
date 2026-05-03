@@ -5,6 +5,7 @@ from app.db.connection import get_connection
 router = APIRouter()
 
 class UsuarioCreate(BaseModel):
+    id: str | None = None
     nome: str
 
 @router.post("/usuarios")
@@ -13,9 +14,13 @@ async def criar_usuario(payload: UsuarioCreate):
         raise HTTPException(status_code=400, detail="Nome não pode ser vazio.")
 
     supabase = get_connection()
+    row: dict = {"nome": payload.nome.strip()}
+    if payload.id:
+        row["id"] = payload.id
+
     response = (
         supabase.table("usuarios")
-        .insert({"nome": payload.nome.strip()})
+        .upsert(row, on_conflict="id")
         .execute()
     )
 

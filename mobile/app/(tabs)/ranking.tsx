@@ -134,11 +134,13 @@ export default function RankingTab() {
               headers: { 'Bypass-Tunnel-Reminder': 'true' },
             });
             if (res.ok) {
-              const data: Array<{ usuario_id: string; nome: string; xp: number }> = await res.json();
-              const real: Player[] = data.map((u, i) => ({
+              const json = await res.json();
+              const entries: Array<{ usuario_id: string; nome: string; xp: number }> =
+                json.ranking ?? json;
+              const real: Player[] = entries.map((u, i) => ({
                 name:     u.nome,
                 initials: u.nome.trim().slice(0, 2).toUpperCase() || '??',
-                xp:       u.xp,
+                xp:       u.xp ?? 0,
                 color:    PLAYER_COLORS[i % PLAYER_COLORS.length],
                 char:     !!userId && u.usuario_id === userId ? resolvedMyChar : charFromId(u.usuario_id),
                 isMe:     !!userId && u.usuario_id === userId,

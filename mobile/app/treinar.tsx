@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text, ScrollView } from 'react-native';
 import Animated, {
   useSharedValue, useAnimatedStyle,
-  withRepeat, withSequence, withTiming, Easing,
+  withRepeat, withSequence, withTiming, Easing, withSpring,
 } from 'react-native-reanimated';
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
@@ -42,12 +42,19 @@ export default function Treinar() {
   const [modo, setModo] = useState<Modo>('pergunta');
   const [fraseParaPraticar, setFraseParaPraticar] = useState<string | null>(null);
   const [levelProgress, setLevelProgress] = useState<any>({ nivel1_completos: 0, nivel2_completos: 0, nivel3_completos: 0 });
-  const [completionMessage, setCompletionMessage] = useState<string | null>(null);
+  const [phaseComplete, setPhaseComplete] = useState<{
+    levelNum: number; sessionNum: number; levelComplete: boolean; allDone: boolean;
+  } | null>(null);
   const [needsToRecord, setNeedsToRecord] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [calibration, setCalibration] = useState<any>(null);
   const [showExitModal, setShowExitModal] = useState(false);
   const pendingExitAction = useRef<any>(null);
+  const skipExitGuard    = useRef(false);
+  const questionsAnswered = useRef(0);
+
+  const overlayOpacity = useSharedValue(0);
+  const cardScale      = useSharedValue(0.75);
 
   const ring1Scale   = useSharedValue(1.0);
   const ring1Opacity = useSharedValue(0.4);
@@ -83,6 +90,11 @@ export default function Treinar() {
   const ring2Style = useAnimatedStyle(() => ({
     transform: [{ scale: ring2Scale.value }], opacity: ring2Opacity.value,
   }));
+  const overlayAnimStyle = useAnimatedStyle(() => ({ opacity: overlayOpacity.value }));
+  const cardAnimStyle    = useAnimatedStyle(() => ({
+    transform: [{ scale: cardScale.value }],
+    opacity: overlayOpacity.value,
+  }));
 
   useEffect(() => {
     getLevelProgress().then(setLevelProgress);
@@ -94,6 +106,7 @@ export default function Treinar() {
 
   useEffect(() => {
     const unsubscribe = (navigation as any).addListener('beforeRemove', (e: any) => {
+      if (skipExitGuard.current) return;
       e.preventDefault();
       pendingExitAction.current = e.data.action;
       setShowExitModal(true);
@@ -102,10 +115,10 @@ export default function Treinar() {
   }, [navigation]);
 
   useEffect(() => {
-    if (!completionMessage) return;
-    const t = setTimeout(() => setCompletionMessage(null), 5000);
-    return () => clearTimeout(t);
-  }, [completionMessage]);
+    if (!phaseComplete) return;
+    overlayOpacity.value = withTiming(1, { duration: 280 });
+    cardScale.value      = withSpring(1, { damping: 14, stiffness: 180 });
+  }, [phaseComplete]);
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
@@ -247,6 +260,12 @@ export default function Treinar() {
     setNeedsToRecord(true);
   };
 
+  const getLevelCount = (prog: any, d: string) => {
+    if (d === 'facil') return prog.nivel1_completos as number;
+    if (d === 'medio') return prog.nivel2_completos as number;
+    return prog.nivel3_completos as number;
+  };
+
   const handleNext = async () => {
     if (modo === 'praticar') {
       fetchPergunta();
@@ -263,6 +282,7 @@ export default function Treinar() {
             dificuldade,
             score: transcriptionResult.score ?? 0,
             wpm: transcriptionResult.wpm ?? 0,
+            xp: transcriptionResult.xpGanho ?? 0,
           }),
         });
       } catch (e) {
@@ -270,22 +290,28 @@ export default function Treinar() {
       }
     }
 
+    questionsAnswered.current += 1;
+
+    if (questionsAnswered.current < 3) {
+      fetchPergunta();
+      return;
+    }
+
+    // All 3 questions done — complete this session
     await incrementLevelProgress(dificuldade);
     const newProgress = await getLevelProgress();
     setLevelProgress(newProgress);
 
-    const nextLevel = getNextLevel(dificuldade);
-    const currentComplete = isLevelComplete(newProgress, dificuldade);
+    const levelComplete = isLevelComplete(newProgress, dificuldade);
+    const nextLevel     = getNextLevel(dificuldade);
+    const sessionNum    = getLevelCount(newProgress, dificuldade);
 
-    if (currentComplete && nextLevel) {
-      setCompletionMessage(`Parabéns! Nível ${getLevelNumber(dificuldade)} concluído. Continue no Nível ${getLevelNumber(nextLevel)}!`);
-      router.replace({ pathname: '/treinar', params: { dificuldade: nextLevel } });
-    } else if (currentComplete && !nextLevel) {
-      setCompletionMessage(`Parabéns! Você concluiu todos os níveis! 🏆`);
-      router.replace('/(tabs)');
-    } else {
-      fetchPergunta();
-    }
+    setPhaseComplete({
+      levelNum: getLevelNumber(dificuldade),
+      sessionNum,
+      levelComplete,
+      allDone: levelComplete && !nextLevel,
+    });
   };
 
   const getTaxaFluencia = () => {
@@ -364,12 +390,6 @@ export default function Treinar() {
       </View>
 
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-        {completionMessage && (
-          <View style={styles.completionBox}>
-            <Text style={styles.completionText}>{completionMessage}</Text>
-          </View>
-        )}
-
         {!transcriptionResult && (
           <View style={styles.mascotPreCard}>
             <View style={[styles.mascotIconWrap, { backgroundColor: '#dd962b18' }]}>
@@ -607,9 +627,62 @@ export default function Treinar() {
         onCancel={() => setShowExitModal(false)}
         onConfirm={() => {
           setShowExitModal(false);
-          navigation.dispatch(pendingExitAction.current);
+          skipExitGuard.current = true;
+          router.replace('/(tabs)');
         }}
       />
+
+      {phaseComplete && (
+        <Animated.View style={[styles.completionOverlay, overlayAnimStyle]}>
+          <Animated.View style={[styles.completionCard, cardAnimStyle]}>
+            <View style={[styles.completionIconRing, { borderColor: c1 + '40' }]}>
+              <View style={[styles.completionIconCircle, { backgroundColor: c1 + '18' }]}>
+                <Ionicons
+                  name={phaseComplete.levelComplete ? 'trophy' : 'checkmark-circle'}
+                  size={40}
+                  color={c1}
+                />
+              </View>
+            </View>
+
+            <Text style={styles.completionTitle}>
+              {phaseComplete.allDone
+                ? 'Todos os níveis\nconcluídos!'
+                : phaseComplete.levelComplete
+                  ? `Nível ${phaseComplete.levelNum}\nconcluído!`
+                  : `Sessão ${phaseComplete.sessionNum} de 3\nconcluída!`}
+            </Text>
+            <Text style={styles.completionSub}>
+              {phaseComplete.allDone
+                ? 'Você completou toda a jornada. Incrível!'
+                : phaseComplete.levelComplete
+                  ? 'Excelente trabalho! Pronto para o próximo desafio?'
+                  : 'Boa prática! Continue treinando para avançar no mapa.'}
+            </Text>
+
+            {phaseComplete.levelComplete && (
+              <View style={styles.completionStars}>
+                {[0, 1, 2].map(i => (
+                  <Ionicons key={i} name="star" size={22} color="#f59e0b" />
+                ))}
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={[styles.completionBtn, { backgroundColor: c1 }]}
+              onPress={() => {
+                skipExitGuard.current = true;
+                router.replace('/(tabs)');
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.completionBtnText}>
+                {phaseComplete.levelComplete ? 'Ver desafios →' : 'Ver mapa →'}
+              </Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </Animated.View>
+      )}
     </View>
   );
 }
@@ -656,11 +729,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, paddingTop: 20, paddingBottom: 40,
   },
 
-  completionBox: {
-    width: '100%', backgroundColor: '#d1fae5',
-    padding: 14, borderRadius: 14, borderWidth: 1, borderColor: '#10b981', marginBottom: 20,
-  },
-  completionText: { color: '#064e3b', fontSize: 14, fontWeight: '700', textAlign: 'center' },
 
   mascotPreCard: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -819,4 +887,43 @@ const styles = StyleSheet.create({
   actionBtnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
   failBlock: { gap: 8 },
   failText: { color: '#ef4444', fontSize: 13, fontWeight: '700', textAlign: 'center' },
+
+  completionOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    justifyContent: 'center', alignItems: 'center',
+    paddingHorizontal: 28, zIndex: 100,
+  },
+  completionCard: {
+    width: '100%', backgroundColor: '#fff',
+    borderRadius: 28, padding: 32,
+    alignItems: 'center', gap: 12,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.25, shadowRadius: 32, elevation: 20,
+  },
+  completionIconRing: {
+    width: 104, height: 104, borderRadius: 52,
+    borderWidth: 2, justifyContent: 'center', alignItems: 'center',
+    marginBottom: 4,
+  },
+  completionIconCircle: {
+    width: 84, height: 84, borderRadius: 42,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  completionTitle: {
+    fontSize: 26, fontWeight: '800', color: '#181c1e',
+    textAlign: 'center', letterSpacing: -0.4, lineHeight: 32,
+  },
+  completionSub: {
+    fontSize: 14, color: '#707883', textAlign: 'center',
+    lineHeight: 20, fontWeight: '500',
+  },
+  completionStars: { flexDirection: 'row', gap: 6, marginVertical: 4 },
+  completionBtn: {
+    width: '100%', paddingVertical: 16,
+    borderRadius: 999, alignItems: 'center', marginTop: 8,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25, shadowRadius: 10, elevation: 6,
+  },
+  completionBtnText: { color: '#fff', fontWeight: '800', fontSize: 16, letterSpacing: 0.2 },
 });

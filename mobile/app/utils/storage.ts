@@ -10,6 +10,8 @@ export const STORAGE_KEYS = {
   USER_ID: '@destravar_user_id',
   USER_CHAR: '@destravar_user_char',
   CALIBRATION: '@destravar_calibration',
+  DAILY_XP: '@destravar_daily_xp',
+  DAILY_XP_DATE: '@destravar_daily_xp_date',
 };
 
 type CalibrationData = {
@@ -40,9 +42,29 @@ export async function addXP(amount: number) {
     const currentXP = currentXPStr ? parseInt(currentXPStr, 10) : 0;
     const newXP = currentXP + amount;
     await AsyncStorage.setItem(STORAGE_KEYS.TOTAL_XP, newXP.toString());
+
+    const today = new Date().toDateString();
+    const dailyDateStr = await AsyncStorage.getItem(STORAGE_KEYS.DAILY_XP_DATE);
+    const dailyXPStr = await AsyncStorage.getItem(STORAGE_KEYS.DAILY_XP);
+    const prevDaily = dailyDateStr === today && dailyXPStr ? parseInt(dailyXPStr, 10) : 0;
+    await AsyncStorage.setItem(STORAGE_KEYS.DAILY_XP, (prevDaily + amount).toString());
+    await AsyncStorage.setItem(STORAGE_KEYS.DAILY_XP_DATE, today);
+
     return newXP;
   } catch (error) {
     console.error("Erro ao salvar XP:", error);
+    return 0;
+  }
+}
+
+export async function getDailyXP(): Promise<number> {
+  try {
+    const today = new Date().toDateString();
+    const dateStr = await AsyncStorage.getItem(STORAGE_KEYS.DAILY_XP_DATE);
+    if (dateStr !== today) return 0;
+    const xpStr = await AsyncStorage.getItem(STORAGE_KEYS.DAILY_XP);
+    return xpStr ? parseInt(xpStr, 10) : 0;
+  } catch {
     return 0;
   }
 }
