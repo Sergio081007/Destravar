@@ -144,11 +144,9 @@ async def obter_texto_por_fase(fase: int):
         raise HTTPException(status_code=404, detail="Texto não encontrado para essa fase.")
 
     return {
-        "id":      texto["id"],
-        "conteudo": texto["conteudo"],
-        "dica":    texto.get("ex2_dica"),
-        "wpm_min": texto.get("ex2_wpm_min"),
-        "wpm_max": texto.get("ex2_wpm_max"),
+        "id":       texto["id"],
+        "pergunta": texto.get("ex2_pergunta"),
+        "dica":     texto.get("ex2_dica"),
     }
 
 
