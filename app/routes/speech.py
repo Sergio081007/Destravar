@@ -441,11 +441,10 @@ async def transcrever(
                     stutter_flag = True
 
                 duracao = round(w["end"] - w["start"], 2)
-                # Palavras curtas (sílabas, artigos): limiar menor — bloqueios em "a", "la" aparecem cedo
                 if len(palavra_atual) <= 2:
-                    limite_tempo = 0.45
+                    limite_tempo = 0.85
                 else:
-                    limite_tempo = max(len(palavra_atual) * 0.18, 0.50)
+                    limite_tempo = max(len(palavra_atual) * 0.22, 0.80)
                 is_prolongation = duracao > limite_tempo
 
                 is_filler = palavra_atual in muletas_comuns
@@ -569,8 +568,8 @@ async def transcrever(
                 categoria = "disfluente"
             elif p["is_prolongation"]:
                 categoria = "prolongamento"
-            elif status_diff == "acerto":
-                categoria = "correta" if p["probability"] >= 0.5 else "pouco_clara"
+            elif not texto_referencia or status_diff == "acerto":
+                categoria = "correta" if p["probability"] >= 0.30 else "pouco_clara"
             else:
                 categoria = "incorreta"
 

@@ -117,7 +117,8 @@ export default function RankingTab() {
           const [profile, name, userId, char] = await Promise.all([
             getProfileData(), getUserName(), getUserId(), getUserChar(),
           ]);
-          setMyChar((char >= 1 && char <= 5 ? char : 1) as 1|2|3|4|5);
+          const resolvedMyChar = (char >= 1 && char <= 5 ? char : 1) as 1|2|3|4|5;
+          setMyChar(resolvedMyChar);
 
           const myXp   = profile?.xp ?? 0;
           const myName = name || 'Você';
@@ -139,7 +140,7 @@ export default function RankingTab() {
                 initials: u.nome.trim().slice(0, 2).toUpperCase() || '??',
                 xp:       u.xp,
                 color:    PLAYER_COLORS[i % PLAYER_COLORS.length],
-                char:     !!userId && u.usuario_id === userId ? myChar : charFromId(u.usuario_id),
+                char:     !!userId && u.usuario_id === userId ? resolvedMyChar : charFromId(u.usuario_id),
                 isMe:     !!userId && u.usuario_id === userId,
               }));
               // Adiciona reais; remove mock com mesmo nome se conflitar
@@ -158,7 +159,7 @@ export default function RankingTab() {
           if (!alreadyIn) {
             combined.push({
               name: myName, initials: myInits,
-              xp: myXp, color: '#0061a2', char: myChar, isMe: true,
+              xp: myXp, color: '#0061a2', char: resolvedMyChar, isMe: true,
             });
           }
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text, ScrollView } from 'react-native';
 import Animated, {
   useSharedValue, useAnimatedStyle,
@@ -6,10 +6,11 @@ import Animated, {
 } from 'react-native-reanimated';
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { calcularXP } from './utils/calcularXP';
-import { addXP, updateStreak, getLevelProgress, incrementLevelProgress, getUserId } from './utils/storage';
+import { addXP, updateStreak, getLevelProgress, incrementLevelProgress, getUserId, getCalibration } from './utils/storage';
 import { API_BASE_URL } from './config';
+import ConfirmExitModal from './components/ConfirmExitModal';
 
 const LEVEL_COLORS: Record<string, readonly [string, string]> = {
   facil:   ['#0061a2', '#4da9ff'],
@@ -25,6 +26,7 @@ type Modo = 'pergunta' | 'praticar';
 
 export default function Treinar() {
   const router = useRouter();
+  const navigation = useNavigation();
   const { dificuldade: rawDiff } = useLocalSearchParams<{ dificuldade: string }>();
   const dificuldade = (rawDiff as string) || 'facil';
   const [c1, c2] = LEVEL_COLORS[dificuldade] || LEVEL_COLORS.facil;
@@ -43,6 +45,9 @@ export default function Treinar() {
   const [completionMessage, setCompletionMessage] = useState<string | null>(null);
   const [needsToRecord, setNeedsToRecord] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [calibration, setCalibration] = useState<any>(null);
+  const [showExitModal, setShowExitModal] = useState(false);
+  const pendingExitAction = useRef<any>(null);
 
   const ring1Scale   = useSharedValue(1.0);
   const ring1Opacity = useSharedValue(0.4);
@@ -82,9 +87,19 @@ export default function Treinar() {
   useEffect(() => {
     getLevelProgress().then(setLevelProgress);
     getUserId().then(setUserId);
+    getCalibration().then(setCalibration);
     fetchPergunta();
     requestPermission();
   }, []);
+
+  useEffect(() => {
+    const unsubscribe = (navigation as any).addListener('beforeRemove', (e: any) => {
+      e.preventDefault();
+      pendingExitAction.current = e.data.action;
+      setShowExitModal(true);
+    });
+    return unsubscribe;
+  }, [navigation]);
 
   useEffect(() => {
     if (!completionMessage) return;
@@ -296,18 +311,15 @@ export default function Treinar() {
 
   const getPassed = () => {
     if (!transcriptionResult) return null;
+    if (modo === 'praticar') return { passed: true, msg: '' };
 
-    if (modo === 'pergunta') {
-      const taxaFluencia = getTaxaFluencia();
-      if (taxaFluencia >= 60) return { passed: true, msg: '' };
-      return { passed: false, msg: `Tente novamente! Fluência: ${taxaFluencia.toFixed(0)}% (mínimo 60%)` };
-    }
-
-    const accuracy = transcriptionResult.score !== undefined
-      ? transcriptionResult.score * 100
-      : (transcriptionResult.precisao_alvo || 0);
-    if (accuracy >= 75) return { passed: true, msg: '' };
-    return { passed: false, msg: `Tente mais uma vez! Precisão: ${accuracy.toFixed(0)}% (mínimo 75%)` };
+    const wpm = transcriptionResult.wpm ?? 0;
+    const minWpm = calibration?.limite_inferior ?? 80;
+    if (wpm >= minWpm) return { passed: true, msg: '' };
+    return {
+      passed: false,
+      msg: `Tente falar um pouco mais rápido! Seu ritmo: ${wpm} wpm (mínimo: ${minWpm} wpm)`,
+    };
   };
 
   const evalResult = getPassed();
@@ -332,6 +344,23 @@ export default function Treinar() {
           </View>
         </View>
         <View style={{ width: 38 }} />
+      </View>
+
+      {/* Indicador de etapas */}
+      <View style={styles.stepRow}>
+        <View style={styles.stepItem}>
+          <View style={[styles.stepCircle, { backgroundColor: '#16a34a' }]}>
+            <Ionicons name="checkmark" size={13} color="#fff" />
+          </View>
+          <Text style={[styles.stepLabel, { color: '#16a34a' }]}>Respiração</Text>
+        </View>
+        <View style={styles.stepLine} />
+        <View style={styles.stepItem}>
+          <View style={[styles.stepCircle, { backgroundColor: c1 }]}>
+            <Text style={styles.stepNum}>2</Text>
+          </View>
+          <Text style={[styles.stepLabel, { color: c1 }]}>Exercício</Text>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
@@ -419,20 +448,8 @@ export default function Treinar() {
               )}
             </View>
 
-            <View style={styles.waveformArea}>
-              {[4, 7, 10, 14, 10, 7, 4, 7, 11, 14, 10, 7, 4].map((h, i) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.waveBar,
-                    { height: h, backgroundColor: isRecording ? c1 + '90' : c1 + '30' },
-                  ]}
-                />
-              ))}
-            </View>
-
             {isTranscribing && (
-              <Text style={styles.statusText}>Analisando sua voz... ⏳</Text>
+              <Text style={[styles.statusText, { color: c1 }]}>Analisando sua voz... ⏳</Text>
             )}
 
             {!isRecording && !isTranscribing && (
@@ -458,14 +475,14 @@ export default function Treinar() {
               </View>
             )}
 
-            <View style={styles.metricsRow}>
+            <View style={[styles.metricsRow, { backgroundColor: c1 + '12' }]}>
               <View style={styles.metricItem}>
-                <Text style={styles.metricValue}>{transcriptionResult.wpm}</Text>
+                <Text style={[styles.metricValue, { color: c1 }]}>{transcriptionResult.wpm}</Text>
                 <Text style={styles.metricLabel}>WPM</Text>
               </View>
               <View style={styles.metricDivider} />
               <View style={styles.metricItem}>
-                <Text style={styles.metricValue}>
+                <Text style={[styles.metricValue, { color: c1 }]}>
                   {modo === 'pergunta'
                     ? `${getTaxaFluencia().toFixed(0)}%`
                     : `${transcriptionResult.score !== undefined
@@ -478,7 +495,7 @@ export default function Treinar() {
               </View>
               <View style={styles.metricDivider} />
               <View style={styles.metricItem}>
-                <Text style={styles.metricValue}>{transcriptionResult.duracao_segundos}s</Text>
+                <Text style={[styles.metricValue, { color: c1 }]}>{transcriptionResult.duracao_segundos}s</Text>
                 <Text style={styles.metricLabel}>Duração</Text>
               </View>
             </View>
@@ -497,8 +514,8 @@ export default function Treinar() {
 
             {/* Seção 1: O que você disse */}
             {transcriptionResult.analise_palavras?.length > 0 && (
-              <View style={styles.transcriptionBox}>
-                <Text style={styles.transcriptionTitle}>
+              <View style={[styles.transcriptionBox, { borderLeftColor: c1, backgroundColor: c1 + '0d' }]}>
+                <Text style={[styles.transcriptionTitle, { color: c1 }]}>
                   {modo === 'pergunta' ? 'O que você disse' : 'Sua leitura'}
                 </Text>
                 <Text style={styles.transcriptionText}>
@@ -584,6 +601,15 @@ export default function Treinar() {
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      <ConfirmExitModal
+        visible={showExitModal}
+        onCancel={() => setShowExitModal(false)}
+        onConfirm={() => {
+          setShowExitModal(false);
+          navigation.dispatch(pendingExitAction.current);
+        }}
+      />
     </View>
   );
 }
@@ -609,6 +635,21 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 15, fontWeight: '700', color: '#181c1e' },
   levelBadge: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
   levelBadgeText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.8 },
+
+  stepRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 12, paddingHorizontal: 60,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1, borderBottomColor: '#f0f2f4',
+  },
+  stepItem: { alignItems: 'center', gap: 4 },
+  stepCircle: {
+    width: 26, height: 26, borderRadius: 13,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  stepNum: { fontSize: 12, fontWeight: '800', color: '#fff' },
+  stepLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.4 },
+  stepLine: { flex: 1, height: 2, backgroundColor: '#e5e8eb', marginHorizontal: 10, marginBottom: 14 },
 
   container: {
     flexGrow: 1, alignItems: 'center',
@@ -691,12 +732,7 @@ const styles = StyleSheet.create({
   },
   micBtnLabel: { color: '#fff', fontWeight: '800', fontSize: 12, letterSpacing: 0.8 },
 
-  waveformArea: {
-    flexDirection: 'row', alignItems: 'flex-end', gap: 3, marginBottom: 20, height: 20,
-  },
-  waveBar: { width: 5, borderRadius: 3 },
-
-  statusText: { fontSize: 14, color: '#5e41d0', fontWeight: '600', marginTop: 8 },
+  statusText: { fontSize: 14, color: '#0061a2', fontWeight: '600', marginTop: 8 },
 
   footerText: {
     textAlign: 'center', paddingHorizontal: 16,
@@ -707,7 +743,7 @@ const styles = StyleSheet.create({
   resultCard: {
     width: '100%', backgroundColor: '#fff', borderRadius: 20,
     padding: 20, marginTop: 8,
-    shadowColor: '#5a32b4', shadowOffset: { width: 0, height: 4 },
+    shadowColor: '#0061a2', shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.10, shadowRadius: 16, elevation: 5,
   },
   resultTitle: { fontSize: 17, fontWeight: '800', color: '#181c1e', textAlign: 'center', marginBottom: 14 },
@@ -718,11 +754,11 @@ const styles = StyleSheet.create({
   },
   xpText: { color: '#b45309', fontWeight: '800', fontSize: 16 },
   metricsRow: {
-    flexDirection: 'row', backgroundColor: '#f8f7ff',
+    flexDirection: 'row', backgroundColor: '#f7fafd',
     borderRadius: 14, padding: 14, marginBottom: 16, alignItems: 'center',
   },
   metricItem: { flex: 1, alignItems: 'center' },
-  metricValue: { fontSize: 22, fontWeight: '800', color: '#7c3aed' },
+  metricValue: { fontSize: 22, fontWeight: '800', color: '#0061a2' },
   metricLabel: { fontSize: 11, color: '#9ca3af', fontWeight: '600', marginTop: 2 },
   metricDivider: { width: 1, height: 32, backgroundColor: '#e5e7eb' },
 
@@ -744,10 +780,10 @@ const styles = StyleSheet.create({
   mascotText: { fontSize: 13, color: '#404751', fontWeight: '500', lineHeight: 18 },
 
   transcriptionBox: {
-    backgroundColor: '#f9f7ff', borderRadius: 14, padding: 14,
-    borderLeftWidth: 3, borderLeftColor: '#5e41d0', marginBottom: 10, gap: 8,
+    backgroundColor: '#f7fafd', borderRadius: 14, padding: 14,
+    borderLeftWidth: 3, borderLeftColor: '#0061a2', marginBottom: 10, gap: 8,
   },
-  transcriptionTitle: { fontSize: 10, fontWeight: '800', color: '#5e41d0', textTransform: 'uppercase', letterSpacing: 0.6 },
+  transcriptionTitle: { fontSize: 10, fontWeight: '800', color: '#0061a2', textTransform: 'uppercase', letterSpacing: 0.6 },
   transcriptionText: { fontSize: 15, color: '#181c1e', lineHeight: 26 },
   legendRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 4 },
   legendItem: { flexDirection: 'row', alignItems: 'center', gap: 4 },

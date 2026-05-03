@@ -1,20 +1,21 @@
 import { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import ConfirmExitModal from './components/ConfirmExitModal';
 
 // Fases: dur em ms, toRadius em px, colorIdx mapeia para PHASE_COLORS
 const PHASES = [
-  { label: 'Inspire', sub: 'Encha os pulmões devagar', dur: 4000, toRadius: 140, colorIdx: 0 },
-  { label: 'Segure',  sub: 'Mantenha o ar',            dur: 2000, toRadius: 140, colorIdx: 1 },
+  { label: 'Inspire', sub: 'Encha os pulmões devagar', dur: 4000, toRadius: 89, colorIdx: 0 },
+  { label: 'Segure',  sub: 'Mantenha o ar',            dur: 2000, toRadius: 89, colorIdx: 1 },
   { label: 'Solte',   sub: 'Libere devagar',           dur: 4000, toRadius: 80,  colorIdx: 2 },
 ];
 
 // Cores por fase (circle, glow interno, glow externo)
 const PHASE_COLORS = [
-  { circle: '#818cf8', g1: 'rgba(129,140,248,0.18)', g2: 'rgba(129,140,248,0.07)' }, // inspire: índigo
-  { circle: '#c084fc', g1: 'rgba(192,132,252,0.18)', g2: 'rgba(192,132,252,0.07)' }, // segure: lilás
-  { circle: '#34d399', g1: 'rgba(52,211,153,0.18)',  g2: 'rgba(52,211,153,0.07)'  }, // solte: verde-azul
+  { circle: '#818cf8', g1: 'rgba(129,140,248,0.22)', g2: 'rgba(129,140,248,0.10)' }, // inspire: índigo
+  { circle: '#c084fc', g1: 'rgba(192,132,252,0.22)', g2: 'rgba(192,132,252,0.10)' }, // segure: lilás
+  { circle: '#34d399', g1: 'rgba(52,211,153,0.22)',  g2: 'rgba(52,211,153,0.10)'  }, // solte: verde-azul
 ];
 
 const LEVEL_LABELS: Record<string, string> = {
@@ -23,6 +24,7 @@ const LEVEL_LABELS: Record<string, string> = {
 
 export default function BreathingExercise({ onComplete }: { onComplete?: () => void }) {
   const router = useRouter();
+  const navigation = useNavigation();
   const { dificuldade: rawDiff } = useLocalSearchParams<{ dificuldade: string }>();
   const dificuldade = rawDiff || 'facil';
 
@@ -32,6 +34,8 @@ export default function BreathingExercise({ onComplete }: { onComplete?: () => v
   const [completedCycles, setCompletedCycles] = useState(0);
   const [running, setRunning]               = useState(false);
   const [done, setDone]                     = useState(false);
+  const [showExitModal, setShowExitModal]   = useState(false);
+  const pendingExitAction                   = useRef<any>(null);
 
   // Timing — controlado 100% por setTimeout + Date.now()
   const phaseTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -65,6 +69,16 @@ export default function BreathingExercise({ onComplete }: { onComplete?: () => v
 
   useEffect(() => () => clearTimers(), []);
 
+  useEffect(() => {
+    const unsubscribe = (navigation as any).addListener('beforeRemove', (e: any) => {
+      if (!running && !done) return;
+      e.preventDefault();
+      pendingExitAction.current = e.data.action;
+      setShowExitModal(true);
+    });
+    return unsubscribe;
+  }, [navigation, running, done]);
+
   function clearTimers() {
     if (phaseTimerRef.current)  { clearTimeout(phaseTimerRef.current);   phaseTimerRef.current = null; }
     if (countdownRef.current)   { clearInterval(countdownRef.current);   countdownRef.current = null; }
@@ -75,6 +89,10 @@ export default function BreathingExercise({ onComplete }: { onComplete?: () => v
     if (pIdx >= PHASES.length) {
       completedRef.current += 1;
       setCompletedCycles(completedRef.current);
+      if (completedRef.current >= 3) {
+        handleComplete();
+        return;
+      }
       startPhase(0, cNum + 1);
       return;
     }
@@ -146,7 +164,6 @@ export default function BreathingExercise({ onComplete }: { onComplete?: () => v
     router.push({ pathname: '/treinar', params: { dificuldade } });
   }
 
-  const canComplete  = completedRef.current >= 1;
   const currentPhase = phaseIdx >= 0 ? PHASES[phaseIdx] : null;
 
   return (
@@ -155,22 +172,36 @@ export default function BreathingExercise({ onComplete }: { onComplete?: () => v
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={20} color="#9ca3af" />
+          <Ionicons name="arrow-back" size={20} color="#0061a2" />
         </TouchableOpacity>
         <View style={styles.headerMid}>
           <Text style={styles.headerTitle}>Respiração Guiada</Text>
           <Text style={styles.headerSub}>ETAPA 1 · {(LEVEL_LABELS[dificuldade] || 'Fácil').toUpperCase()}</Text>
         </View>
-        {/* Contador de ciclos ou botão pular */}
         {running ? (
           <View style={styles.cycleTag}>
-            <Text style={styles.cycleTagText}>Ciclo {cycle}</Text>
+            <Text style={styles.cycleTagText}>Ciclo {cycle} / 3</Text>
           </View>
         ) : (
-          <TouchableOpacity onPress={goToNextExercise} style={styles.skipBtn}>
-            <Text style={styles.skipText}>Pular</Text>
-          </TouchableOpacity>
+          <View style={{ width: 60 }} />
         )}
+      </View>
+
+      {/* Indicador de etapas */}
+      <View style={styles.stepRow}>
+        <View style={styles.stepItem}>
+          <View style={[styles.stepCircle, { backgroundColor: '#0061a2' }]}>
+            <Text style={styles.stepNum}>1</Text>
+          </View>
+          <Text style={[styles.stepLabel, { color: '#0061a2' }]}>Respiração</Text>
+        </View>
+        <View style={styles.stepLine} />
+        <View style={styles.stepItem}>
+          <View style={[styles.stepCircle, styles.stepInactive]}>
+            <Text style={[styles.stepNum, { color: '#9ca3af' }]}>2</Text>
+          </View>
+          <Text style={[styles.stepLabel, { color: '#9ca3af' }]}>Exercício</Text>
+        </View>
       </View>
 
       {/* Área central do círculo */}
@@ -190,7 +221,9 @@ export default function BreathingExercise({ onComplete }: { onComplete?: () => v
         <Animated.View style={[
           styles.circle,
           { width: circleSize, height: circleSize, borderRadius: circleRadius, backgroundColor: circleColor },
-        ]} />
+        ]}>
+          <Ionicons name="leaf" size={38} color="rgba(255,255,255,0.85)" />
+        </Animated.View>
       </View>
 
       {/* Texto da fase */}
@@ -203,16 +236,14 @@ export default function BreathingExercise({ onComplete }: { onComplete?: () => v
           </>
         ) : done ? (
           <>
-            <Text style={[styles.phaseLabel, { color: '#34d399' }]}>Muito bem</Text>
+            <Text style={[styles.phaseLabel, { color: '#34d399' }]}>Perfeito!</Text>
             <Text style={styles.phaseSub}>Respiração concluída.{'\n'}Agora vamos praticar a voz.</Text>
           </>
         ) : (
           <>
             <Text style={styles.phaseLabel}>Primeiro, respire</Text>
-            <Text style={styles.phaseSub}>
-              Relaxe os ombros.{'\n'}Inspire 4s · Segure 2s · Solte 4s
-            </Text>
-            <Text style={styles.suggestion}>Sugerido: 4 a 5 ciclos</Text>
+            <Text style={styles.phaseSub}>Relaxe os ombros e siga o ritmo do círculo.</Text>
+            <Text style={styles.suggestion}>Complete 3 respirações para avançar</Text>
           </>
         )}
       </View>
@@ -228,18 +259,22 @@ export default function BreathingExercise({ onComplete }: { onComplete?: () => v
             <Text style={styles.btnPrimaryText}>Começar</Text>
           </TouchableOpacity>
         ) : (
-          <TouchableOpacity
-            style={[styles.btnComplete, canComplete && styles.btnCompleteActive]}
-            onPress={canComplete ? handleComplete : undefined}
-            activeOpacity={canComplete ? 0.8 : 1}
-          >
-            <Text style={[styles.btnCompleteText, canComplete && styles.btnCompleteTextActive]}>
-              {canComplete ? 'Concluir' : `Conclua pelo menos 1 ciclo`}
+          <View style={styles.btnComplete}>
+            <Text style={styles.btnCompleteText}>
+              Ciclo {completedCycles + 1} de 3...
             </Text>
-          </TouchableOpacity>
+          </View>
         )}
       </View>
 
+      <ConfirmExitModal
+        visible={showExitModal}
+        onCancel={() => setShowExitModal(false)}
+        onConfirm={() => {
+          setShowExitModal(false);
+          navigation.dispatch(pendingExitAction.current);
+        }}
+      />
     </View>
   );
 }
@@ -247,29 +282,49 @@ export default function BreathingExercise({ onComplete }: { onComplete?: () => v
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#0d0f14',
+    backgroundColor: '#f7fafd',
   },
 
   // ── Header ────────────────────────────────────────────────────────
   header: {
     flexDirection: 'row', alignItems: 'center',
     paddingTop: 54, paddingBottom: 14, paddingHorizontal: 20,
+    backgroundColor: '#fff',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05, shadowRadius: 8, elevation: 3,
   },
   backBtn: {
     width: 36, height: 36, borderRadius: 18,
-    backgroundColor: '#1c1f28',
+    backgroundColor: '#f7fafd',
     justifyContent: 'center', alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.07, shadowRadius: 4, elevation: 2,
   },
   headerMid: { flex: 1, alignItems: 'center', gap: 3 },
-  headerTitle: { fontSize: 15, fontWeight: '600', color: '#e5e7eb', letterSpacing: 0.2 },
-  headerSub:   { fontSize: 10, fontWeight: '700', color: '#4b5563', letterSpacing: 1.2 },
+  headerTitle: { fontSize: 15, fontWeight: '700', color: '#181c1e', letterSpacing: 0.2 },
+  headerSub:   { fontSize: 10, fontWeight: '800', color: '#0061a2', letterSpacing: 1.2 },
   cycleTag: {
-    backgroundColor: '#1c1f28', borderRadius: 12,
+    backgroundColor: '#eff6ff', borderRadius: 12,
     paddingHorizontal: 10, paddingVertical: 4,
   },
-  cycleTagText: { fontSize: 11, fontWeight: '700', color: '#6b7280', letterSpacing: 0.5 },
-  skipBtn:  { width: 46, alignItems: 'flex-end' },
-  skipText: { fontSize: 13, fontWeight: '500', color: '#4b5563' },
+  cycleTagText: { fontSize: 11, fontWeight: '700', color: '#0061a2', letterSpacing: 0.5 },
+
+  // ── Indicador de etapas ────────────────────────────────────────────
+  stepRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 12, paddingHorizontal: 60,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1, borderBottomColor: '#f0f2f4',
+  },
+  stepItem: { alignItems: 'center', gap: 4 },
+  stepCircle: {
+    width: 26, height: 26, borderRadius: 13,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  stepInactive: { backgroundColor: '#e5e8eb' },
+  stepNum: { fontSize: 12, fontWeight: '800', color: '#fff' },
+  stepLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.4 },
+  stepLine: { flex: 1, height: 2, backgroundColor: '#e5e8eb', marginHorizontal: 10, marginBottom: 14 },
 
   // ── Círculo ────────────────────────────────────────────────────────
   circleArea: {
@@ -281,7 +336,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
   },
   circle: {
-    // width, height, borderRadius, backgroundColor vêm das animated values
+    justifyContent: 'center', alignItems: 'center',
   },
 
   // ── Texto da fase ──────────────────────────────────────────────────
@@ -296,27 +351,27 @@ const styles = StyleSheet.create({
   phaseLabel: {
     fontSize: 36,
     fontWeight: '300',
-    color: '#f9fafb',
+    color: '#181c1e',
     letterSpacing: 1,
     textAlign: 'center',
   },
   phaseSub: {
     fontSize: 14,
     fontWeight: '400',
-    color: '#6b7280',
+    color: '#404751',
     textAlign: 'center',
     lineHeight: 20,
   },
   countdown: {
     fontSize: 52,
     fontWeight: '200',
-    color: '#d1d5db',
+    color: '#0061a2',
     letterSpacing: -1,
     marginTop: 4,
   },
   suggestion: {
     fontSize: 12,
-    color: '#374151',
+    color: '#9ca3af',
     fontWeight: '500',
     marginTop: 4,
   },
@@ -327,37 +382,38 @@ const styles = StyleSheet.create({
     paddingBottom: 48,
   },
   btnPrimary: {
-    backgroundColor: '#1e2130',
-    borderWidth: 1,
-    borderColor: '#2d3147',
+    backgroundColor: '#0061a2',
     paddingVertical: 16,
     borderRadius: 999,
     alignItems: 'center',
+    shadowColor: '#0061a2', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25, shadowRadius: 8, elevation: 4,
   },
   btnPrimaryText: {
-    color: '#e5e7eb',
+    color: '#fff',
     fontSize: 15,
-    fontWeight: '600',
+    fontWeight: '700',
     letterSpacing: 0.3,
   },
   btnComplete: {
     paddingVertical: 16,
     borderRadius: 999,
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#1f2937',
+    borderWidth: 1.5,
+    borderColor: '#e5e8eb',
+    backgroundColor: '#fff',
   },
   btnCompleteActive: {
-    backgroundColor: '#1a2e1f',
+    backgroundColor: '#f0fdf4',
     borderColor: '#34d399',
   },
   btnCompleteText: {
-    color: '#374151',
+    color: '#9ca3af',
     fontSize: 15,
     fontWeight: '600',
     letterSpacing: 0.3,
   },
   btnCompleteTextActive: {
-    color: '#34d399',
+    color: '#16a34a',
   },
 });
