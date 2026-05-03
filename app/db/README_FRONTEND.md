@@ -38,6 +38,7 @@ uvicorn app.main:app --reload
 | `GET` | `/calibracao` | Retorna calibração mais recente do usuário |
 | `GET` | `/textos/aleatorio` | Retorna texto aleatório por dificuldade |
 | `GET` | `/texto/{fase}` | Retorna texto de uma fase específica |
+| `GET` | `/pergunta/aleatoria` | Retorna pergunta aberta aleatória (Exercício 2) |
 | `GET` | `/trava-lingua/{id}` | Retorna trava-língua por ID |
 | `POST` | `/transcrever` | Transcreve áudio e analisa fluência |
 | `POST` | `/comparar-texto` | Compara texto referência com transcrição |
@@ -154,6 +155,64 @@ Retorna o perfil de calibração mais recente do usuário.
 
 ---
 
+## Exercícios — Visão Geral
+
+O app tem **3 exercícios por fase**. Abaixo o comportamento e os endpoints de cada um.
+
+### Exercício 1 — Respiração
+
+**100% local. Nenhuma chamada de API.**
+
+A tela anima as fases inspire / segure / expire / relaxe por 3 ciclos. Ao concluir, registre via `POST /progresso/exercicio`.
+
+**Critério de conclusão:** 1 aprovação.
+
+---
+
+### Exercício 2 — Fala Espontânea
+
+Fluxo completo com API:
+
+```
+1. GET /pergunta/aleatoria
+      └─ exibe a pergunta aberta pro usuário
+
+2. Usuário grava a resposta
+
+3. POST /transcrever  (modo_livre=true, sem texto_referencia)
+      └─ retorna transcricao_corrigida + analise_corrigida
+
+4. Tela exibe transcricao_corrigida com palavras coloridas
+   conforme analise_corrigida (ver tabela de categorias abaixo)
+
+5. Usuário clica "Tentar repetir"
+      └─ frontend mantém transcricao_corrigida em memória
+
+6. Usuário grava novamente
+
+7. POST /transcrever  (modo_livre=false, texto_referencia = transcricao_corrigida)
+      └─ compara a nova gravação com a frase corrigida
+      └─ retorna score, analise_palavras, aprovado, status_feedback
+
+8. Ao aprovar → POST /progresso/exercicio
+```
+
+**Critério de conclusão:** 2 aprovações consecutivas.
+
+---
+
+### Exercício 3 — Suavização Articulatória
+
+**100% local. Nenhuma chamada de API.**
+
+A tela exibe instrução com som-alvo e referências de palavras/frases (campos `ex3_*` do texto da fase, disponíveis via `GET /textos/aleatorio` ou `GET /texto/{fase}`). Exercício de automonitoramento sem gravação.
+
+Ao fim, dois botões: **"Consegui"** ou **"Precisei forçar"**.
+
+**Critério de conclusão:** 3 marcações "Consegui" consecutivas → `POST /progresso/exercicio`.
+
+---
+
 ## Conteúdo (Textos e Trava-Línguas)
 
 ### `GET /textos/aleatorio`
@@ -213,6 +272,30 @@ Retorna um texto para a fase informada. Retorna apenas `conteudo`, `dica` e limi
 
 ---
 
+### `GET /pergunta/aleatoria?ultimo_id={id}`
+
+Retorna uma pergunta aberta aleatória para o Exercício 2. Passe `ultimo_id` para evitar repetir a mesma pergunta.
+
+**Query params**
+
+| Parâmetro | Tipo | Obrigatório | Descrição |
+|-----------|------|-------------|-----------|
+| `ultimo_id` | string | ❌ | ID da última pergunta exibida (evita repetição) |
+
+**Resposta**
+```json
+{
+  "id": "uuid",
+  "conteudo": "Como foi seu dia?",
+  "dica": "Fale sobre algo que aconteceu hoje.",
+  "duracao_max": 30
+}
+```
+
+> `duracao_max` está em segundos — use para limitar o tempo de gravação na UI.
+
+---
+
 ### `GET /trava-lingua/{id}`
 
 Retorna uma trava-língua pelo ID. Usar quando `ex3_trava_lingua_id` do texto não for `null`.
@@ -239,85 +322,109 @@ Retorna uma trava-língua pelo ID. Usar quando `ex3_trava_lingua_id` do texto n�
 
 ### `POST /transcrever`
 
-Endpoint principal da sessão de fala. Recebe o áudio gravado pelo usuário, transcreve com Whisper e retorna análise completa de fluência, detecção de gaguejo, WPM e score.
+Endpoint principal de análise de fala. Usado em dois modos: **livre** (fala espontânea, Exercício 2 — 1ª gravação) e **leitura** (comparação com texto de referência, Exercício 2 — "Tentar repetir").
 
 **Body (multipart/form-data)**
 
 | Campo | Tipo | Obrigatório | Descrição |
 |-------|------|-------------|-----------|
 | `file` | file | ✅ | Áudio gravado pelo usuário |
-| `texto_referencia` | string | ❌ | Texto que o usuário deveria ler |
 | `usuario_id` | string | ❌ | ID do usuário (necessário para análise de oscilação) |
+| `modo_livre` | boolean | ❌ | `true` na 1ª gravação do Ex. 2 (fala espontânea); omita ou `false` no "Tentar repetir" |
+| `texto_referencia` | string | ❌ | Omita no modo livre; preencha com a `transcricao_corrigida` no "Tentar repetir" |
+| `wpm_min` | float | ❌ | WPM mínimo esperado (campo `ex2_wpm_min` do texto) |
+| `wpm_max` | float | ❌ | WPM máximo esperado (campo `ex2_wpm_max` do texto) |
 
-**Resposta (campos principais)**
+---
+
+**Resposta — modo livre (`modo_livre=true`)**
 
 ```json
 {
-  "transcricao":           "Texto que o Whisper entendeu",
-  "texto_alvo":            "Texto de referência",
-  "precisao_alvo":         87.5,
-  "duracao_segundos":      14.2,
-  "total_palavras":        32,
-  "wpm":                   135.2,
-  "fluencia":              "normal",
+  "modo_livre": true,
+  "transcricao":           "eu eu fui ao ao mercado comprar leite",
+  "transcricao_corrigida": "eu fui ao mercado comprar leite",
 
-  "score":                 0.76,
-  "score_bruto":           0.92,
+  "analise_corrigida": [
+    { "word": "eu",      "categoria": "disfluente" },
+    { "word": "fui",     "categoria": "correta"    },
+    { "word": "ao",      "categoria": "disfluente" },
+    { "word": "mercado", "categoria": "correta"    },
+    { "word": "comprar", "categoria": "correta"    },
+    { "word": "leite",   "categoria": "correta"    }
+  ],
 
+  "aprovado": false,
+  "status_feedback": {
+    "status":     "diretivo",
+    "subtipo":    "precisao",
+    "titulo":     "Quase lá!",
+    "mensagem":   "Tente falar com mais calma.",
+    "wpm_obtido": 95.4,
+    "precisao":   72.0,
+    "faixa_min":  null,
+    "faixa_max":  null,
+    "desvio_pct": 0.0
+  },
+
+  "wpm":                   95.4,
+  "taxa_fluencia":         0.72,
+  "score":                 0.72,
+  "feedback_fono":         "Respire antes de cada frase. Você está quase lá!",
+  "duracao_segundos":      8.4,
+  "total_palavras":        6,
   "repeticoes":            2,
-  "taxa_repeticao":        0.0625,
+  "taxa_repeticao":        0.18,
   "bloqueios_silenciosos": 1,
-  "muletas_detectadas":    1,
+  "muletas_detectadas":    0,
+  "blocos_gaguejo":        [...],
+  "blocos_silabicos":      [...],
+  "prolongamentos":        [...],
+  "hesitacoes":            [...],
+  "oscilacoes":            1,
+  "taxa_oscilacao":        0.08,
+  "wpm_base":              130.0,
+  "calibrado":             true
+}
+```
 
-  "blocos_gaguejo": [
+> **`transcricao_corrigida`** — guarde este valor no estado local. Ele será usado como `texto_referencia` no `POST /transcrever` do "Tentar repetir".
+
+> **`analise_corrigida`** — lista das palavras da versão **corrigida** já com a categoria herdada da versão bruta. Use para colorir a frase corrigida na tela (ver tabela de categorias abaixo).
+
+---
+
+**Resposta — modo leitura (`modo_livre=false`, com `texto_referencia`)**
+
+Mesmos campos acima, mais:
+
+```json
+{
+  "modo_livre":    false,
+  "precisao_alvo": 94.3,
+  "score_bruto":   0.91,
+  "score":         0.82,
+  "omitidas":      ["comprar"],
+
+  "analise_palavras": [
     {
-      "palavra":     "meu",
-      "repeticoes":  3,
-      "pausa_antes": 0.8,
-      "inicio":      1.2,
-      "fim":         2.1,
-      "com_bloqueio": true
+      "word":            "eu",
+      "start":           0.12,
+      "end":             0.38,
+      "probability":     0.98,
+      "duration":        0.26,
+      "silence_before":  0.0,
+      "is_stutter":      false,
+      "is_filler":       false,
+      "is_prolongation": false,
+      "wpm_local":       128.0,
+      "oscilacao":       "normal",
+      "status_diff":     "acerto",
+      "categoria":       "correta",
+      "repeticao_direta": false,
+      "bloco_silabico":  false
     }
   ],
-  "blocos_silabicos": [
-    {
-      "fragmento":    "la",
-      "repeticoes":   3,
-      "palavra_alvo": "lago",
-      "inicio":       4.0,
-      "fim":          5.1,
-      "tipo":         "silabico"
-    }
-  ],
-  "prolongamentos": [
-    {
-      "palavra":       "meeeu",
-      "inicio":        6.5,
-      "fim":           7.2,
-      "duracao":       0.7,
-      "fator_excesso": 2.3
-    }
-  ],
-
-  "hesitacoes": [
-    {
-      "palavra_anterior": "comprar",
-      "palavra_seguinte": "pão",
-      "inicio":           8.1,
-      "fim":              10.5,
-      "duracao_pausa":    2.4
-    }
-  ],
-
-  "feedback_fono": "Quase lá! Respire antes de cada frase. Você consegue!",
-
-  "omitidas":   ["café"],
-  "analise_palavras": [...],
-
-  "oscilacoes":    3,
-  "taxa_oscilacao": 0.09,
-  "wpm_base":      130.0,
-  "calibrado":     true,
 
   "penalidade_repeticao":      0.09,
   "penalidade_blocos":         0.05,
@@ -330,10 +437,28 @@ Endpoint principal da sessão de fala. Recebe o áudio gravado pelo usuário, tr
 }
 ```
 
-**Campo `fluencia`:** `"disfluente"` | `"lento"` | `"normal"` | `"rapido"`
+---
 
-**Campo `analise_palavras`:** lista com cada palavra transcrita + metadados de timing, probabilidade e categoria:
-- `categoria`: `"correta"` | `"pouco_clara"` | `"incorreta"` | `"disfluente"` | `"prolongamento"`
+**Categorias de palavras — guia de cores**
+
+Usadas em `analise_corrigida` (modo livre) e `analise_palavras` (modo leitura):
+
+| Categoria | Cor sugerida | Significado |
+|-----------|--------------|-------------|
+| `correta` | verde | Palavra falada sem problemas |
+| `disfluente` | vermelho | Repetição de palavra ou sílaba (gaguejo) |
+| `muleta` | laranja | Palavra de preenchimento (ah, hum, tipo, então...) |
+| `prolongamento` | amarelo | Vogal ou consoante esticada anormalmente |
+| `acelerado` | azul claro | Ritmo acima do limite superior calibrado |
+| `lento` | roxo/cinza | Ritmo abaixo do limite inferior calibrado |
+| `pouco_clara` | cinza claro | Prob. de reconhecimento < 50% (só modo leitura) |
+| `incorreta` | vermelho escuro | Palavra diferente do texto esperado (só modo leitura) |
+
+**Campo `aprovado`:** `true` quando `score >= 0.70` e WPM dentro da faixa calibrada.
+
+**Campo `status_feedback.status`:** `"aprovado"` | `"aviso_suave"` | `"diretivo"`
+
+**Campo `fluencia`:** `"disfluente"` | `"lento"` | `"normal"` | `"rapido"`
 
 **Campo `oscilacoes` / `taxa_oscilacao`:** só preenchido se o usuário foi calibrado (`calibrado: true`).
 
@@ -561,32 +686,49 @@ const texto = await res.json()
 
 ---
 
-## Fluxo típico de uma sessão
+## Fluxos típicos por exercício
 
+### Exercício 1 — Respiração (local)
 ```
-1. App inicia → GET /mapa/{usuario_id}
-   → descobre a fase atual e quais exercícios estão desbloqueados
+1. GET /mapa/{usuario_id}         → verifica se está desbloqueado
+2. [animação local — sem API]
+3. POST /sessao/iniciar           → { fase, tipo: "exercicio_1" }
+4. POST /sessao/completar         → { sessao_id, score: 1.0 }
+5. POST /progresso/exercicio      → { dificuldade, score: 1.0, wpm: 0 }
+6. GET /mapa/{usuario_id}         → atualiza UI
+```
 
-2. Usuário entra num exercício → GET /texto/{fase}
-   → exibe o texto para leitura
+### Exercício 2 — Fala Espontânea
+```
+1. GET /mapa/{usuario_id}         → verifica se está desbloqueado
+2. GET /pergunta/aleatoria        → exibe a pergunta
+3. POST /sessao/iniciar           → { fase, tipo: "exercicio_2" }
 
-3. Usuário começa a gravar → POST /sessao/iniciar
-   → guarda o sessao_id retornado
+4. [1ª gravação]
+   POST /transcrever  modo_livre=true
+   → guarda transcricao_corrigida em estado local
+   → exibe transcricao_corrigida colorida via analise_corrigida
 
-4. Usuário termina de gravar → POST /transcrever
-   → usa o score e wpm retornados para feedback visual
+5. [usuário clica "Tentar repetir"]
+   POST /transcrever  modo_livre=false, texto_referencia=transcricao_corrigida
+   → exibe score e feedback
 
-5. Sessão concluída → POST /sessao/completar
-   → envia sessao_id + wpm + score
+6. POST /sessao/completar         → { sessao_id, wpm, score }
+7. POST /progresso/exercicio      → { dificuldade, score, wpm }
+8. GET /mapa/{usuario_id}         → atualiza UI
+```
 
-6. Atualiza mapa → GET /mapa/{usuario_id}
-   → exibe progresso e desbloqueios
-
-7. Tela de perfil → GET /streak/{usuario_id}
-   → exibe XP e streak
-
-8. Quando texto tem ex3_trava_lingua_id preenchido → GET /trava-lingua/{id}
-   → carrega o trava-língua vinculado ao exercício 3
+### Exercício 3 — Suavização Articulatória (local)
+```
+1. GET /mapa/{usuario_id}         → verifica se está desbloqueado
+2. GET /textos/aleatorio          → usa campos ex3_* para instrução e som-alvo
+   (se ex3_trava_lingua_id != null → GET /trava-lingua/{id})
+3. POST /sessao/iniciar           → { fase, tipo: "exercicio_3" }
+4. [automonitoramento local — sem gravação]
+5. Usuário marca "Consegui" ou "Precisei forçar"
+6. POST /sessao/completar         → { sessao_id, score: 1.0 ou 0.0 }
+7. POST /progresso/exercicio      → { dificuldade, score, wpm: 0 }
+8. GET /mapa/{usuario_id}         → atualiza UI
 ```
 
 ---

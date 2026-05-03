@@ -75,6 +75,43 @@ class ComparacaoRequest(BaseModel):
     texto_transcrito: str = ""
 
 
+def _alinhar_analise_corrigida(analise_palavras_bruta: list, transcricao_corrigida: str) -> list:
+    """Mapeia as categorias da transcrição bruta para as palavras da transcrição corrigida.
+
+    Usa SequenceMatcher para alinhar as duas listas de palavras e herdar a
+    categoria do token correspondente na bruta. Palavras inseridas pelo LLM
+    (sem correspondente na bruta) recebem categoria 'correta'.
+    """
+    palavras_corrigida = normalizar(transcricao_corrigida)
+    if not palavras_corrigida:
+        return []
+
+    palavras_bruta_norm = []
+    for p in analise_palavras_bruta:
+        norm = normalizar(p["word"])
+        palavras_bruta_norm.append(norm[0] if norm else p["word"].strip().lower())
+
+    categorias_bruta = [p["categoria"] for p in analise_palavras_bruta]
+    matcher = SequenceMatcher(None, palavras_bruta_norm, palavras_corrigida)
+
+    result = []
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "equal":
+            for bi, ci in zip(range(i1, i2), range(j1, j2)):
+                result.append({"word": palavras_corrigida[ci], "categoria": categorias_bruta[bi]})
+        elif tag == "insert":
+            for ci in range(j1, j2):
+                result.append({"word": palavras_corrigida[ci], "categoria": "correta"})
+        elif tag == "replace":
+            bruta_indices = list(range(i1, i2))
+            for k, ci in enumerate(range(j1, j2)):
+                bi = bruta_indices[k] if k < len(bruta_indices) else bruta_indices[-1]
+                result.append({"word": palavras_corrigida[ci], "categoria": categorias_bruta[bi]})
+        # tag == "delete": palavra só existe na bruta, não aparece na corrigida — ignorar
+
+    return result
+
+
 @router.get("/textos/aleatorio")
 async def obter_texto_aleatorio(
     dificuldade: str = Query(default="facil"),
@@ -359,12 +396,14 @@ async def transcrever(
                 print("Erro ao gerar feedback:", e)
 
             taxa_oscilacao = round(oscilacoes_detectadas / total_palavras, 4) if calibracao and total_palavras > 0 else 0.0
+            analise_corrigida = _alinhar_analise_corrigida(analise_palavras, transcricao_corrigida)
 
             return {
                 "filename":              file.filename,
                 "modo_livre":            True,
                 "transcricao":           texto,
                 "transcricao_corrigida": transcricao_corrigida,
+                "analise_corrigida":     analise_corrigida,
                 "texto_alvo":            "",
                 "precisao_alvo":         0.0,
                 "taxa_fluencia":         taxa_fluencia,
