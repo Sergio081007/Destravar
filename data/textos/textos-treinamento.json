@@ -1,6 +1,6 @@
 {
-  "versao": "5.1.0",
-  "descricao": "Conteúdo do app Destravar - textos de calibração, exercícios por fase e trava-línguas.",
+  "versao": "6.0.0",
+  "descricao": "Conteúdo do app Destravar - exercício 2 agora usa perguntas abertas para fala espontânea em vez de leitura de texto.",
 
   "calibracao": {
     "id": "texto_calibracao",
@@ -18,116 +18,93 @@
   "textos": [
     {
       "id": "txt_001", "fase": 1, "dificuldade": "facil",
-      "titulo": "Apresentação simples",
-      "conteudo": "Meu nome é Ana. Eu moro em São Paulo. Eu gosto de ler.",
-      "palavras": 11,
-      "ex2_wpm_min": 100, "ex2_wpm_max": 140,
-      "ex2_dica": "Fale com calma. Cada ponto é uma pausa real.",
+      "titulo": "Cor favorita",
+      "ex2_pergunta": "Qual é a sua cor favorita e por quê?",
+      "ex2_dica": "Que sentimento essa cor traz? Que coisas têm essa cor?",
       "ex3_som_alvo": "a",
       "ex3_instrucao": "Fale o som A bem suave, como se fosse um sussurro. Sinta a voz entrar sem esforço.",
       "ex3_exemplo_palavra": "Ana"
     },
     {
       "id": "txt_002", "fase": 2, "dificuldade": "facil",
-      "titulo": "O dia a dia",
-      "conteudo": "Hoje eu acordei cedo. Tomei café com pão. O dia estava bonito.",
-      "palavras": 13,
-      "ex2_wpm_min": 100, "ex2_wpm_max": 140,
-      "ex2_dica": "Respire antes de cada frase.",
+      "titulo": "Café da manhã",
+      "ex2_pergunta": "O que você gosta de comer no café da manhã?",
+      "ex2_dica": "Descreva o que você come normalmente. Qual horário você normalmente come?",
       "ex3_som_alvo": "o",
       "ex3_instrucao": "Fale o som O bem aberto e solto. Não aperte a garganta.",
       "ex3_exemplo_palavra": "Hoje"
     },
     {
       "id": "txt_003", "fase": 3, "dificuldade": "facil",
-      "titulo": "Rotina matinal",
-      "conteudo": "Acordo às sete. Bebo água, me alongo e preparo o café. O dia começa bem quando a gente respira fundo.",
-      "palavras": 19,
-      "ex2_wpm_min": 105, "ex2_wpm_max": 145,
-      "ex2_dica": "Equilíbrio: nem rápido demais, nem com pausas longas.",
+      "titulo": "Animal favorito",
+      "ex2_pergunta": "Qual é o seu animal favorito? Me conta um pouco sobre ele.",
+      "ex2_dica": "É doméstico? É aquático? É peludo?",
       "ex3_som_alvo": "f",
       "ex3_instrucao": "Diga FUNDO deixando o ar sair pelo F bem suave. O som F não precisa de força.",
       "ex3_exemplo_palavra": "fundo"
     },
     {
       "id": "txt_004", "fase": 4, "dificuldade": "facil",
-      "titulo": "Passeio no parque",
-      "conteudo": "Fui ao parque e vi pássaros, flores e crianças. O sol estava forte mas havia uma brisa boa. Fiquei lá por um tempo só observando.",
-      "palavras": 27,
-      "ex2_wpm_min": 105, "ex2_wpm_max": 145,
-      "ex2_dica": "Cada vírgula vale uma pausa real. Não atropele.",
+      "titulo": "Rotina diária",
+      "ex2_pergunta": "Me conta como é a sua rotina.",
+      "ex2_dica": "Narre em sequência, desde que acordou, até se preparar para dormir.",
       "ex3_som_alvo": "v",
       "ex3_instrucao": "Diga VI deixando o ar passar suavemente entre os dentes e o lábio no V. Sem pressão.",
       "ex3_exemplo_palavra": "vi"
     },
     {
       "id": "txt_005", "fase": 5, "dificuldade": "medio",
-      "titulo": "A chuva",
-      "conteudo": "Começou a chover de repente. As gotas caíam devagar no começo e foram ficando mais fortes. A rua ficou molhada e as pessoas correram para se abrigar. Foi uma chuva curta mas intensa.",
-      "palavras": 37,
-      "ex2_wpm_min": 110, "ex2_wpm_max": 150,
-      "ex2_dica": "Fale no ritmo da chuva fina. Lento e constante.",
+      "titulo": "Série ou filme",
+      "ex2_pergunta": "Qual foi a última série ou filme que você assistiu? Me conta um pouco.",
+      "ex2_dica": "Fale o nome, do que se trata e o que achou. Tente manter o ritmo constante.",
       "ex3_som_alvo": "m",
       "ex3_instrucao": "Diga MAIS com os lábios se tocando levemente no M. Não prenda o ar, deixe a voz entrar junto.",
       "ex3_exemplo_palavra": "mais"
     },
     {
       "id": "txt_006", "fase": 6, "dificuldade": "medio",
-      "titulo": "Planos para amanhã",
-      "conteudo": "Amanhã vou ao médico pela manhã. Depois encontro um amigo no café da esquina. À tarde preciso terminar um trabalho importante. À noite quero assistir um filme em casa com a família.",
-      "palavras": 35,
-      "ex2_wpm_min": 110, "ex2_wpm_max": 150,
-      "ex2_dica": "Pense no que vai dizer antes de começar cada frase.",
+      "titulo": "Viagem dos sonhos",
+      "ex2_pergunta": "Se você pudesse viajar para qualquer lugar agora, para onde iria e por quê?",
+      "ex2_dica": "Diga o destino e justifique. É fora do seu Estado? É em outro país?",
       "ex3_som_alvo": "b",
       "ex3_instrucao": "Diga BEM com os lábios se tocando muito levemente. Não prenda o ar antes, solte junto com a voz.",
       "ex3_exemplo_palavra": "bem"
     },
     {
       "id": "txt_007", "fase": 7, "dificuldade": "medio",
-      "titulo": "Sobre perseverança",
-      "conteudo": "Persistir em algo difícil é um desafio que todo mundo enfrenta em algum momento. A vontade de desistir aparece quando os resultados demoram a chegar. Mas é exatamente nesses momentos que o crescimento acontece de forma mais intensa e duradoura.",
-      "palavras": 43,
-      "ex2_wpm_min": 115, "ex2_wpm_max": 155,
-      "ex2_dica": "Voz firme, ritmo constante. Nem acelerado nem entrecortado.",
+      "titulo": "Pessoa importante",
+      "ex2_pergunta": "Me conta sobre uma pessoa importante na sua vida e o que ela significa para você.",
+      "ex2_dica": "Pode ser um amigo, parente, etc!",
       "ex3_som_alvo": "p",
       "ex3_instrucao": "Diga PERSISTIR com o P muito leve. Lábios se tocam quase sem pressão e soltam o ar suavemente.",
       "ex3_exemplo_palavra": "persistir"
     },
     {
       "id": "txt_008", "fase": 8, "dificuldade": "medio",
-      "titulo": "O parque da cidade",
-      "conteudo": "Perto de casa existe um parque grande e arborizado. Toda manhã, pessoas de todas as idades caminham, correm ou simplesmente sentam nos bancos para descansar. É um lugar onde o tempo parece mais lento e a mente descansa do ritmo agitado do dia a dia.",
-      "palavras": 48,
-      "ex2_wpm_min": 115, "ex2_wpm_max": 155,
-      "ex2_dica": "Visualize o parque enquanto fala. Isso ajuda o ritmo a ficar natural.",
+      "titulo": "Solo ou grupo",
+      "ex2_pergunta": "Você prefere trabalhar ou estudar sozinho ou em grupo? Por quê?",
+      "ex2_dica": "Dê a sua opinião e explique. É legal ou desafiador?",
       "ex3_som_alvo": "t",
       "ex3_instrucao": "Diga TODA com a língua tocando levemente os dentes superiores no T. Não trave — solte o som junto com a voz.",
-      "ex3_exemplo_palavra": "toda",
-      "ex3_trava_lingua_id": "tl_011"
+      "ex3_exemplo_palavra": "toda"
     },
     {
       "id": "txt_009", "fase": 9, "dificuldade": "dificil",
-      "titulo": "Defesa de ideia",
-      "conteudo": "A tecnologia não substitui a criatividade humana, mas potencializa nossa capacidade de resolver problemas em escala. Ferramentas digitais aceleram processos, mas a tomada de decisão, o julgamento crítico e a empatia continuam sendo habilidades profundamente humanas e insubstituíveis.",
-      "palavras": 43,
-      "ex2_wpm_min": 120, "ex2_wpm_max": 160,
-      "ex2_dica": "Texto com argumento. Equilibre precisão e fluidez.",
+      "titulo": "Tecnologia e vida",
+      "ex2_pergunta": "Você acredita que a tecnologia facilita ou complica a vida das pessoas?",
+      "ex2_dica": "Fale devagar nas transições entre ideias.",
       "ex3_som_alvo": "d",
       "ex3_instrucao": "Diga DECISÃO com a língua tocando suavemente os dentes no D. Não prenda o ar — o som sai fluido.",
-      "ex3_exemplo_palavra": "decisão",
-      "ex3_trava_lingua_id": "tl_008"
+      "ex3_exemplo_palavra": "decisão"
     },
     {
       "id": "txt_010", "fase": 10, "dificuldade": "dificil",
-      "titulo": "Discurso de encerramento",
-      "conteudo": "Chegamos ao fim de uma jornada que exigiu muito de cada um de nós. Não foi fácil. Houve obstáculos, dúvidas e momentos em que a continuidade parecia impossível. Mas aqui estamos. Cada pequeno avanço que fizemos construiu algo que ninguém pode tirar: confiança na própria voz.",
-      "palavras": 52,
-      "ex2_wpm_min": 120, "ex2_wpm_max": 160,
-      "ex2_dica": "Volume, presença e pausa antes da última frase.",
+      "titulo": "Esporte favorito",
+      "ex2_pergunta": "Você tem algum hobbie? Fale sobre ele.",
+      "ex2_dica": "Você pode falar sobre esporte, jogos, lazer...",
       "ex3_som_alvo": "c",
       "ex3_instrucao": "Diga CONFIANÇA com o C saindo suave. Sinta o ar fluir desde o início da palavra.",
-      "ex3_exemplo_palavra": "confiança",
-      "ex3_trava_lingua_id": "tl_013"
+      "ex3_exemplo_palavra": "confiança"
     }
   ],
 

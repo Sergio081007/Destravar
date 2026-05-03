@@ -2,6 +2,29 @@ import random
 from app.db.connection import get_connection
 
 
+def carregar_calibracao(usuario_id: str) -> dict | None:
+    try:
+        supabase = get_connection()
+        response = (
+            supabase.table("calibracao")
+            .select("wpm_base, limite_inferior, limite_superior")
+            .eq("usuario_id", usuario_id)
+            .order("criado_em", desc=True)
+            .limit(1)
+            .execute()
+        )
+        if response.data:
+            row = response.data[0]
+            return {
+                "wpm_base":        row["wpm_base"],
+                "limite_inferior": row["limite_inferior"],
+                "limite_superior": row["limite_superior"],
+            }
+    except Exception:
+        pass
+    return None
+
+
 def fetch_texto(fase: int, ultimo_id: str = None) -> dict | None:
     """
     Busca o texto de treino de uma fase específica.
@@ -61,6 +84,27 @@ def fetch_trava_lingua(trava_lingua_id: str = None, fase_atual: int = None, ulti
 
     if fase_atual is not None:
         query = query.or_(f"fase_minima.is.null,fase_minima.lte.{fase_atual}")
+
+    if ultimo_id:
+        query = query.neq("id", ultimo_id)
+
+    response = query.execute()
+    resultados = response.data
+
+    if not resultados:
+        return None
+
+    return random.choice(resultados)
+
+
+def fetch_pergunta(ultimo_id: str = None) -> dict | None:
+    supabase = get_connection()
+
+    query = (
+        supabase.table("perguntas")
+        .select("id, conteudo, dica, duracao_max")
+        .eq("ativo", True)
+    )
 
     if ultimo_id:
         query = query.neq("id", ultimo_id)
