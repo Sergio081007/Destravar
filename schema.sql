@@ -7,6 +7,7 @@ DROP TABLE IF EXISTS trava_linguas;
 DROP TABLE IF EXISTS textos_calibracao;
 DROP TABLE IF EXISTS usuarios;
 DROP TABLE IF EXISTS mensagens_feedback;
+DROP TABLE IF EXISTS perguntas;
 
 -- 1. usuarios (Ajustada para o Auth)
 CREATE TABLE usuarios (
@@ -56,7 +57,28 @@ CREATE TABLE textos (
     ex3_trava_lingua_id TEXT REFERENCES trava_linguas(id)
 );
 
--- 5. calibracao
+-- 5. perguntas (Atividade 2 — fala livre)
+CREATE TABLE perguntas (
+    id          TEXT PRIMARY KEY,
+    conteudo    TEXT NOT NULL,
+    dica        TEXT,
+    duracao_max INT DEFAULT 60,
+    ativo       BOOLEAN DEFAULT TRUE
+);
+
+INSERT INTO perguntas (id, conteudo, dica, duracao_max) VALUES
+('p_001', 'Como foi o seu dia hoje?',                              'Conte o que aconteceu desde que você acordou.',      60),
+('p_002', 'Qual é o seu nome, cidade e idade?',                    'Fale com calma, uma informação de cada vez.',         30),
+('p_003', 'O que você gosta de fazer nos fins de semana?',         'Pense em algo que te deixa feliz e descreva.',        60),
+('p_004', 'Fale sobre um lugar que você gostaria de conhecer.',    'Pode ser uma cidade, país ou qualquer lugar.',        60),
+('p_005', 'Quem é uma pessoa importante na sua vida e por quê?',   'Pense em alguém especial — família, amigo ou colega.', 60),
+('p_006', 'O que você gosta de comer?',                            'Fale do seu prato favorito ou de uma refeição que você adora.', 30),
+('p_007', 'Como é a sua rotina de manhã?',                         'Descreva o que você faz desde que acorda.',           60),
+('p_008', 'Fale sobre um hobby ou atividade que você gosta.',      'Pode ser esporte, leitura, música — qualquer coisa.', 60),
+('p_009', 'Qual foi a última vez que você se sentiu muito feliz?', 'Lembre de um momento especial e descreva.',           60),
+('p_010', 'O que você fez no último final de semana?',             'Conte com detalhes o que aconteceu.',                 60);
+
+-- 6. calibracao
 CREATE TABLE calibracao (
     id               UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     usuario_id       UUID NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,

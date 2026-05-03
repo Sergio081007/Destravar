@@ -8,7 +8,7 @@ from difflib import SequenceMatcher
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from app.db.connection import get_connection
-from app.db.service import fetch_texto, fetch_trava_lingua, carregar_calibracao
+from app.db.service import fetch_texto, fetch_trava_lingua, carregar_calibracao, fetch_pergunta
 from app.services.analysis import (
     JANELA_OSCILACAO,
     normalizar,
@@ -115,6 +115,14 @@ async def obter_texto_por_fase(fase: int):
     }
 
 
+@router.get("/pergunta/aleatoria")
+async def obter_pergunta_aleatoria(ultimo_id: str = Query(default=None)):
+    pergunta = fetch_pergunta(ultimo_id=ultimo_id)
+    if not pergunta:
+        raise HTTPException(status_code=404, detail="Nenhuma pergunta encontrada.")
+    return pergunta
+
+
 @router.post("/transcrever")
 async def transcrever(
     file: UploadFile = File(...),
@@ -122,6 +130,7 @@ async def transcrever(
     usuario_id: str = Form(default=""),
     wpm_min: float | None = Form(default=None),
     wpm_max: float | None = Form(default=None),
+    modo_livre: bool = Form(default=False),
 ):
     global LAST_TRANSCRIPTION
     texto_alvo = texto_referencia
@@ -265,6 +274,134 @@ async def transcrever(
             palavras_processadas, total_palavras_ref, duracao_total, segmentos
         )
 
+        # ── Modo livre: fala espontânea sem texto de referência ──────────────
+        if modo_livre:
+            analise_palavras = []
+            for idx, p in enumerate(palavras_processadas):
+                palavra_atual_raw    = p["word"].strip().lower()
+                palavra_anterior_raw = palavras_processadas[idx - 1]["word"].strip().lower() if idx > 0 else ""
+                is_repeticao_direta  = (idx > 0 and palavra_atual_raw == palavra_anterior_raw)
+
+                is_bloco_silabico = any(
+                    b["inicio"] <= p["start"] <= b["fim"]
+                    for b in blocos_silabicos
+                )
+
+                # Prioridade: stutter > acelerado/lento > filler > prolongamento > correta
+                if p["is_stutter"] or is_repeticao_direta or is_bloco_silabico:
+                    categoria = "disfluente"
+                elif p["oscilacao"] == "acelerado":
+                    categoria = "acelerado"
+                elif p["oscilacao"] == "lento":
+                    categoria = "lento"
+                elif p["is_filler"]:
+                    categoria = "muleta"
+                elif p["is_prolongation"]:
+                    categoria = "prolongamento"
+                else:
+                    categoria = "correta"
+
+                analise_palavras.append({
+                    **p,
+                    "categoria":        categoria,
+                    "repeticao_direta": is_repeticao_direta,
+                    "bloco_silabico":   is_bloco_silabico,
+                })
+
+            palavras_fluentes = sum(1 for p in analise_palavras if p["categoria"] == "correta")
+            taxa_fluencia = round(palavras_fluentes / total_palavras, 4) if total_palavras > 0 else 0.0
+
+            transcricao_corrigida = texto
+            try:
+                prompt_correcao = (
+                    f"Você recebeu a transcrição bruta de alguém com gagueira. "
+                    f"Reescreva apenas o que a pessoa quis dizer, removendo: repetições de palavras ou sílabas, "
+                    f"palavras incompletas, muletas de linguagem (ah, éé, hum, tipo, então, assim) e sons prolongados. "
+                    f"Transcrição bruta: \"{texto}\". "
+                    f"Retorne apenas a frase corrigida, sem explicações."
+                )
+                resp_correcao = client.chat.completions.create(
+                    messages=[{"role": "user", "content": prompt_correcao}],
+                    model="llama-3.1-8b-instant",
+                    temperature=0.3,
+                    max_tokens=200,
+                )
+                transcricao_corrigida = resp_correcao.choices[0].message.content.strip()
+            except Exception as e:
+                print("Erro ao gerar transcrição corrigida:", e)
+
+            dica_fono = "Não foi possível gerar dica no momento."
+            try:
+                prompt_fono = (
+                    f"Você é uma fonoaudióloga coach em um app gamificado. Analise esses dados de fala espontânea:\n"
+                    f"- Palavras por minuto: {round(wpm, 1)}\n"
+                    f"- Taxa de gaguejo: {round(taxa_repeticao * 100, 1)}%\n"
+                    f"- Blocos de gaguejo: {len(blocos_gaguejo)} (com bloqueio: {blocos_com_bloqueio})\n"
+                    f"- Blocos silábicos: {len(blocos_silabicos)}\n"
+                    f"- Prolongamentos: {total_prolongamentos}\n"
+                    f"- Bloqueios silenciosos: {bloqueios_detectados}\n"
+                    f"- Muletas usadas: {muletas_detectadas}\n"
+                    f"- Fluência: {round(taxa_fluencia * 100, 1)}%\n"
+                    f"- O que disse: \"{texto}\"\n"
+                    f"- Versão corrigida: \"{transcricao_corrigida}\"\n"
+                    f"Responda em português brasileiro com no máximo 18 palavras. "
+                    f"Incentive o paciente a repetir a frase corrigida. "
+                    f"Prioridade: blocos silábicos > prolongamentos > repetições > elogio."
+                )
+                chat_completion = client.chat.completions.create(
+                    messages=[{"role": "user", "content": prompt_fono}],
+                    model="llama-3.1-8b-instant",
+                    temperature=0.7,
+                    max_tokens=100,
+                )
+                dica_fono = chat_completion.choices[0].message.content.strip()
+            except Exception as e:
+                print("Erro ao gerar feedback:", e)
+
+            taxa_oscilacao = round(oscilacoes_detectadas / total_palavras, 4) if calibracao and total_palavras > 0 else 0.0
+
+            return {
+                "filename":              file.filename,
+                "modo_livre":            True,
+                "transcricao":           texto,
+                "transcricao_corrigida": transcricao_corrigida,
+                "texto_alvo":            "",
+                "precisao_alvo":         0.0,
+                "taxa_fluencia":         taxa_fluencia,
+                "duracao_segundos":      round(duracao_total, 2),
+                "total_palavras":        total_palavras,
+                "wpm":                   round(wpm, 2),
+                "repeticoes":            repeticoes,
+                "taxa_repeticao":        round(taxa_repeticao, 4),
+                "bloqueios_silenciosos": bloqueios_detectados,
+                "muletas_detectadas":    muletas_detectadas,
+                "blocos_gaguejo":        blocos_gaguejo,
+                "blocos_silabicos":      blocos_silabicos,
+                "prolongamentos":        prolongamentos_lista,
+                "fluencia":              classificar_fluencia(wpm, taxa_repeticao),
+                "feedback_fono":         dica_fono,
+                "segmentos":             segmentos,
+                "palavras":              palavras_processadas if palavras_obj else [],
+                "analise_palavras":      analise_palavras,
+                "omitidas":              [],
+                "score":                 taxa_fluencia,
+                "score_bruto":           taxa_fluencia,
+                "hesitacoes":            hesitacoes,
+                "oscilacoes":            oscilacoes_detectadas if calibracao else 0,
+                "taxa_oscilacao":        taxa_oscilacao,
+                "wpm_base":              calibracao["wpm_base"] if calibracao else None,
+                "calibrado":             calibracao is not None,
+                **calcular_aprovacao(
+                    wpm=wpm,
+                    score_penalizado=taxa_fluencia,
+                    wpm_min=wpm_min,
+                    wpm_max=wpm_max,
+                    limite_inferior=calibracao["limite_inferior"] if calibracao else None,
+                    limite_superior=calibracao["limite_superior"] if calibracao else None,
+                ),
+            }
+
+        # ── Modo leitura: comparação com texto de referência (comportamento original) ──
         precisao_alvo = 0.0
         if texto_alvo and len(texto) > 0:
             precisao_alvo = round(
@@ -277,21 +414,21 @@ async def transcrever(
 
         dica_fono = "Não foi possível gerar dica no momento."
         try:
-            prompt_fono = f"""
-            Você é uma fonoaudióloga coach em um app gamificado, analise esses dados:
-            - Palavras por minuto: {round(wpm, 1)}
-            - Taxa de repetição (gaguejo): {round(taxa_repeticao * 100, 1)}%
-            - Blocos de gaguejo: {len(blocos_gaguejo)} (com bloqueio: {blocos_com_bloqueio})
-            - Blocos silábicos (ex: 'la la la lago'): {len(blocos_silabicos)}
-            - Prolongamentos (ex: 'Aaaa casa'): {total_prolongamentos}
-            - Bloqueios silenciosos: {bloqueios_detectados}
-            - Muletas usadas: {muletas_detectadas}
-            - Transcrição: "{texto}"
-            - Texto esperado: "{texto_alvo}"
-            Responda em português brasileiro com no máximo 18 palavras.
-            Prioridade: blocos silábicos > prolongamentos > repetições > elogio.
-            Exemplo: "Quase lá! Respire antes de cada frase. Você consegue!"
-            """
+            prompt_fono = (
+                f"Você é uma fonoaudióloga coach em um app gamificado, analise esses dados:\n"
+                f"- Palavras por minuto: {round(wpm, 1)}\n"
+                f"- Taxa de repetição (gaguejo): {round(taxa_repeticao * 100, 1)}%\n"
+                f"- Blocos de gaguejo: {len(blocos_gaguejo)} (com bloqueio: {blocos_com_bloqueio})\n"
+                f"- Blocos silábicos (ex: 'la la la lago'): {len(blocos_silabicos)}\n"
+                f"- Prolongamentos (ex: 'Aaaa casa'): {total_prolongamentos}\n"
+                f"- Bloqueios silenciosos: {bloqueios_detectados}\n"
+                f"- Muletas usadas: {muletas_detectadas}\n"
+                f"- Transcrição: \"{texto}\"\n"
+                f"- Texto esperado: \"{texto_alvo}\"\n"
+                f"Responda em português brasileiro com no máximo 18 palavras.\n"
+                f"Prioridade: blocos silábicos > prolongamentos > repetições > elogio.\n"
+                f"Exemplo: \"Quase lá! Respire antes de cada frase. Você consegue!\""
+            )
             chat_completion = client.chat.completions.create(
                 messages=[{"role": "user", "content": prompt_fono}],
                 model="llama-3.1-8b-instant",
