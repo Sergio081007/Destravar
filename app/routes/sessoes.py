@@ -17,6 +17,8 @@ class SessaoCompletar(BaseModel):
     aprovado: bool | None = None
     wpm_obtido: float | None = None
     score: float | None = None
+    score_fluencia: float | None = None
+    transcricao_corrigida: str | None = None
 
 
 @router.post("/sessao/iniciar")
@@ -55,6 +57,10 @@ async def completar_sessao(payload: SessaoCompletar):
         update["wpm_obtido"] = payload.wpm_obtido
     if payload.score is not None:
         update["score"] = payload.score
+    if payload.score_fluencia is not None:
+        update["score_fluencia"] = payload.score_fluencia
+    if payload.transcricao_corrigida is not None:
+        update["transcricao_corrigida"] = payload.transcricao_corrigida
 
     response = (
         supabase.table("sessoes")

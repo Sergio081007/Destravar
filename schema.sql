@@ -105,10 +105,12 @@ CREATE TABLE sessoes (
     tipo          TEXT,
     tentativa     INT,
     status        TEXT NOT NULL DEFAULT 'em_andamento', -- 'em_andamento' | 'concluida'
-    aprovado      BOOLEAN,
-    wpm_obtido    FLOAT,
-    score         FLOAT,
-    resultado_ex3 TEXT,
+    aprovado              BOOLEAN,
+    wpm_obtido            FLOAT,
+    score                 FLOAT,
+    score_fluencia        FLOAT,   -- taxa de fluência da fala espontânea (passo 1 do ex2)
+    transcricao_corrigida TEXT,    -- versão fluente gerada pelo LLM no passo 1 do ex2
+    resultado_ex3         TEXT,
     criado_em     TIMESTAMPTZ DEFAULT NOW()
 );
 
