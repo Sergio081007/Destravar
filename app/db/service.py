@@ -38,8 +38,8 @@ def fetch_texto(fase: int, ultimo_id: str = None) -> dict | None:
     query = (
         supabase.table("textos")
         .select(
-            "id, fase, dificuldade, titulo, conteudo, palavras, "
-            "ex2_wpm_min, ex2_wpm_max, ex2_dica, "
+            "id, fase, dificuldade, titulo, "
+            "ex2_pergunta, ex2_dica, "
             "ex3_som_alvo, ex3_instrucao, ex3_exemplo_palavra, ex3_trava_lingua_id"
         )
         .eq("fase", fase)
@@ -96,26 +96,6 @@ def fetch_trava_lingua(trava_lingua_id: str = None, fase_atual: int = None, ulti
 
     return random.choice(resultados)
 
-
-def fetch_pergunta(ultimo_id: str = None) -> dict | None:
-    supabase = get_connection()
-
-    query = (
-        supabase.table("perguntas")
-        .select("id, conteudo, dica, duracao_max")
-        .eq("ativo", True)
-    )
-
-    if ultimo_id:
-        query = query.neq("id", ultimo_id)
-
-    response = query.execute()
-    resultados = response.data
-
-    if not resultados:
-        return None
-
-    return random.choice(resultados)
 
 
 def fetch_texto_calibracao() -> dict | None:

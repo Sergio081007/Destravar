@@ -8,21 +8,15 @@ router = APIRouter()
 class SessaoIniciar(BaseModel):
     usuario_id: str
     fase: int
+    exercicio: int
     tipo: str
 
 
 class SessaoCompletar(BaseModel):
     sessao_id: str
-    wpm: float | None = None
+    aprovado: bool | None = None
+    wpm_obtido: float | None = None
     score: float | None = None
-
-
-class ProgressoExercicio(BaseModel):
-    usuario_id: str
-    dificuldade: str
-    score: float
-    wpm: float
-    xp: int = 0
 
 
 @router.post("/sessao/iniciar")
@@ -33,9 +27,10 @@ async def iniciar_sessao(payload: SessaoIniciar):
         supabase.table("sessoes")
         .insert({
             "usuario_id": payload.usuario_id,
-            "fase": payload.fase,
-            "tipo": payload.tipo,
-            "status": "em_andamento"
+            "fase":       payload.fase,
+            "exercicio":  payload.exercicio,
+            "tipo":       payload.tipo,
+            "status":     "em_andamento",
         })
         .execute()
     )
@@ -45,7 +40,7 @@ async def iniciar_sessao(payload: SessaoIniciar):
 
     return {
         "sessao_id": response.data[0]["id"],
-        "status": "iniciada"
+        "status":    "iniciada",
     }
 
 
@@ -53,13 +48,17 @@ async def iniciar_sessao(payload: SessaoIniciar):
 async def completar_sessao(payload: SessaoCompletar):
     supabase = get_connection()
 
+    update: dict = {"status": "concluida"}
+    if payload.aprovado is not None:
+        update["aprovado"] = payload.aprovado
+    if payload.wpm_obtido is not None:
+        update["wpm_obtido"] = payload.wpm_obtido
+    if payload.score is not None:
+        update["score"] = payload.score
+
     response = (
         supabase.table("sessoes")
-        .update({
-            "status": "concluida",
-            "wpm": payload.wpm,
-            "score": payload.score
-        })
+        .update(update)
         .eq("id", payload.sessao_id)
         .execute()
     )
@@ -67,51 +66,4 @@ async def completar_sessao(payload: SessaoCompletar):
     if not response.data:
         raise HTTPException(status_code=500, detail="Erro ao completar sessão.")
 
-    return {
-        "status": "concluida"
-    }
-
-
-@router.post("/progresso/exercicio")
-async def registrar_progresso(payload: ProgressoExercicio):
-    supabase = get_connection()
-
-    xp_ganho = payload.xp if payload.xp > 0 else round(payload.score * 100)
-
-    user_resp = (
-        supabase.table("usuarios")
-        .select("xp")
-        .eq("id", payload.usuario_id)
-        .execute()
-    )
-
-    if not user_resp.data:
-        raise HTTPException(status_code=404, detail="Usuário não encontrado.")
-
-    xp_atual = user_resp.data[0].get("xp") or 0
-
-    supabase.table("usuarios").update({"xp": xp_atual + xp_ganho}).eq("id", payload.usuario_id).execute()
-
-    return {"status": "registrado", "xp_ganho": xp_ganho}
-
-
-@router.get("/ranking")
-async def get_ranking():
-    supabase = get_connection()
-
-    response = (
-        supabase.table("usuarios")
-        .select("id, nome, xp")
-        .gt("xp", 0)
-        .order("xp", desc=True)
-        .limit(50)
-        .execute()
-    )
-
-    if not response.data:
-        return []
-
-    return [
-        {"usuario_id": u["id"], "nome": u["nome"], "xp": u.get("xp") or 0}
-        for u in response.data
-    ]
+    return {"status": "concluida"}

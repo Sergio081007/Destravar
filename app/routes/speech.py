@@ -8,7 +8,7 @@ from difflib import SequenceMatcher
 from pydantic import BaseModel
 from dotenv import load_dotenv
 from app.db.connection import get_connection
-from app.db.service import fetch_texto, fetch_trava_lingua, carregar_calibracao, fetch_pergunta
+from app.db.service import fetch_texto, fetch_trava_lingua, carregar_calibracao
 from app.services.analysis import (
     JANELA_OSCILACAO,
     normalizar,
@@ -149,13 +149,6 @@ async def obter_texto_por_fase(fase: int):
         "dica":     texto.get("ex2_dica"),
     }
 
-
-@router.get("/pergunta/aleatoria")
-async def obter_pergunta_aleatoria(ultimo_id: str = Query(default=None)):
-    pergunta = fetch_pergunta(ultimo_id=ultimo_id)
-    if not pergunta:
-        raise HTTPException(status_code=404, detail="Nenhuma pergunta encontrada.")
-    return pergunta
 
 
 @router.post("/transcrever")

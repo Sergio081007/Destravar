@@ -20,7 +20,7 @@
       "id": "txt_001", "fase": 1, "dificuldade": "facil",
       "titulo": "Cor favorita",
       "ex2_pergunta": "Qual é a sua cor favorita e por quê?",
-      "ex2_dica": "Que sentimento essa cor traz? Que coisas têm essa cor?",
+      "ex2_dica": "Que sentimento essa cor traz? Quais objetos têm essa cor?",
       "ex3_som_alvo": "a",
       "ex3_instrucao": "Fale o som A bem suave, como se fosse um sussurro. Sinta a voz entrar sem esforço.",
       "ex3_exemplo_palavra": "Ana"
