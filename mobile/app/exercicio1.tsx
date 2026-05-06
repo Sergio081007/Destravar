@@ -22,11 +22,21 @@ const LEVEL_LABELS: Record<string, string> = {
   facil: 'Fácil', medio: 'Médio', dificil: 'Difícil',
 };
 
-export default function BreathingExercise({ onComplete }: { onComplete?: () => void }) {
+const LEVEL_COLORS: Record<string, string> = {
+  facil: '#0061a2', medio: '#10b981', dificil: '#5e41d0',
+};
+
+type Props = {
+  onComplete?: () => void;
+  isPanel?: boolean;  // quando true: sem header próprio, sem beforeRemove listener
+};
+
+export default function BreathingExercise({ onComplete, isPanel }: Props) {
   const router = useRouter();
   const navigation = useNavigation();
   const { dificuldade: rawDiff } = useLocalSearchParams<{ dificuldade: string }>();
   const dificuldade = rawDiff || 'facil';
+  const c1 = LEVEL_COLORS[dificuldade] || '#0061a2';
 
   const [phaseIdx, setPhaseIdx]             = useState(-1);   // -1 = idle
   const [timeLeft, setTimeLeft]             = useState(4);
@@ -70,6 +80,7 @@ export default function BreathingExercise({ onComplete }: { onComplete?: () => v
   useEffect(() => () => clearTimers(), []);
 
   useEffect(() => {
+    if (isPanel) return;
     const unsubscribe = (navigation as any).addListener('beforeRemove', (e: any) => {
       if (!running && !done) return;
       e.preventDefault();
@@ -77,7 +88,7 @@ export default function BreathingExercise({ onComplete }: { onComplete?: () => v
       setShowExitModal(true);
     });
     return unsubscribe;
-  }, [navigation, running, done]);
+  }, [navigation, running, done, isPanel]);
 
   function clearTimers() {
     if (phaseTimerRef.current)  { clearTimeout(phaseTimerRef.current);   phaseTimerRef.current = null; }
@@ -161,7 +172,7 @@ export default function BreathingExercise({ onComplete }: { onComplete?: () => v
   }
 
   function goToNextExercise() {
-    router.push({ pathname: '/treinar', params: { dificuldade } });
+    router.replace({ pathname: '/treinar', params: { dificuldade } });
   }
 
   const currentPhase = phaseIdx >= 0 ? PHASES[phaseIdx] : null;
@@ -169,40 +180,43 @@ export default function BreathingExercise({ onComplete }: { onComplete?: () => v
   return (
     <View style={styles.root}>
 
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={20} color="#0061a2" />
-        </TouchableOpacity>
-        <View style={styles.headerMid}>
-          <Text style={styles.headerTitle}>Respiração Guiada</Text>
-          <Text style={styles.headerSub}>ETAPA 1 · {(LEVEL_LABELS[dificuldade] || 'Fácil').toUpperCase()}</Text>
-        </View>
-        {running ? (
-          <View style={styles.cycleTag}>
-            <Text style={styles.cycleTagText}>Ciclo {cycle} / 3</Text>
+      {/* Header e indicador de etapas — ocultados quando renderizado como painel */}
+      {!isPanel && (
+        <>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+              <Ionicons name="arrow-back" size={20} color={c1} />
+            </TouchableOpacity>
+            <View style={styles.headerMid}>
+              <Text style={styles.headerTitle}>Respiração Guiada</Text>
+              <Text style={[styles.headerSub, { color: c1 }]}>ETAPA 1 · {(LEVEL_LABELS[dificuldade] || 'Fácil').toUpperCase()}</Text>
+            </View>
+            {running ? (
+              <View style={[styles.cycleTag, { backgroundColor: c1 + '18' }]}>
+                <Text style={[styles.cycleTagText, { color: c1 }]}>Ciclo {cycle} / 3</Text>
+              </View>
+            ) : (
+              <View style={{ width: 60 }} />
+            )}
           </View>
-        ) : (
-          <View style={{ width: 60 }} />
-        )}
-      </View>
 
-      {/* Indicador de etapas */}
-      <View style={styles.stepRow}>
-        <View style={styles.stepItem}>
-          <View style={[styles.stepCircle, { backgroundColor: '#0061a2' }]}>
-            <Text style={styles.stepNum}>1</Text>
+          <View style={styles.stepRow}>
+            <View style={styles.stepItem}>
+              <View style={[styles.stepCircle, { backgroundColor: c1 }]}>
+                <Text style={styles.stepNum}>1</Text>
+              </View>
+              <Text style={[styles.stepLabel, { color: c1 }]}>Respiração</Text>
+            </View>
+            <View style={styles.stepLine} />
+            <View style={styles.stepItem}>
+              <View style={[styles.stepCircle, styles.stepInactive]}>
+                <Text style={[styles.stepNum, { color: '#9ca3af' }]}>2</Text>
+              </View>
+              <Text style={[styles.stepLabel, { color: '#9ca3af' }]}>Exercício</Text>
+            </View>
           </View>
-          <Text style={[styles.stepLabel, { color: '#0061a2' }]}>Respiração</Text>
-        </View>
-        <View style={styles.stepLine} />
-        <View style={styles.stepItem}>
-          <View style={[styles.stepCircle, styles.stepInactive]}>
-            <Text style={[styles.stepNum, { color: '#9ca3af' }]}>2</Text>
-          </View>
-          <Text style={[styles.stepLabel, { color: '#9ca3af' }]}>Exercício</Text>
-        </View>
-      </View>
+        </>
+      )}
 
       {/* Área central do círculo */}
       <View style={styles.circleArea}>
@@ -232,7 +246,7 @@ export default function BreathingExercise({ onComplete }: { onComplete?: () => v
           <>
             <Text style={styles.phaseLabel}>{currentPhase.label}</Text>
             <Text style={styles.phaseSub}>{currentPhase.sub}</Text>
-            <Text style={styles.countdown}>{timeLeft}</Text>
+            <Text style={[styles.countdown, { color: c1 }]}>{timeLeft}</Text>
           </>
         ) : done ? (
           <>
@@ -251,11 +265,11 @@ export default function BreathingExercise({ onComplete }: { onComplete?: () => v
       {/* Botões */}
       <View style={styles.actions}>
         {done ? (
-          <TouchableOpacity style={styles.btnPrimary} onPress={goToNextExercise} activeOpacity={0.8}>
+          <TouchableOpacity style={[styles.btnPrimary, { backgroundColor: c1, shadowColor: c1 }]} onPress={goToNextExercise} activeOpacity={0.8}>
             <Text style={styles.btnPrimaryText}>Próximo exercício →</Text>
           </TouchableOpacity>
         ) : !running ? (
-          <TouchableOpacity style={styles.btnPrimary} onPress={handleStart} activeOpacity={0.8}>
+          <TouchableOpacity style={[styles.btnPrimary, { backgroundColor: c1, shadowColor: c1 }]} onPress={handleStart} activeOpacity={0.8}>
             <Text style={styles.btnPrimaryText}>Começar</Text>
           </TouchableOpacity>
         ) : (
@@ -267,14 +281,16 @@ export default function BreathingExercise({ onComplete }: { onComplete?: () => v
         )}
       </View>
 
-      <ConfirmExitModal
-        visible={showExitModal}
-        onCancel={() => setShowExitModal(false)}
-        onConfirm={() => {
-          setShowExitModal(false);
-          navigation.dispatch(pendingExitAction.current);
-        }}
-      />
+      {!isPanel && (
+        <ConfirmExitModal
+          visible={showExitModal}
+          onCancel={() => setShowExitModal(false)}
+          onConfirm={() => {
+            setShowExitModal(false);
+            navigation.dispatch(pendingExitAction.current);
+          }}
+        />
+      )}
     </View>
   );
 }

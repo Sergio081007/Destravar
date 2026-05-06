@@ -8,7 +8,7 @@ import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { calcularXP } from './utils/calcularXP';
-import { addXP, updateStreak, getLevelProgress, incrementLevelProgress, getUserId, getCalibration } from './utils/storage';
+import { addXP, updateStreak, getLevelProgress, incrementLevelProgress, getUserId, getCalibration, loseHeart } from './utils/storage';
 import { API_BASE_URL } from './config';
 import ConfirmExitModal from './components/ConfirmExitModal';
 
@@ -24,11 +24,17 @@ const LEVEL_LABELS: Record<string, string> = {
 
 type Modo = 'pergunta' | 'praticar';
 
-export default function Treinar() {
+type Props = {
+  isPanel?: boolean;  // quando true: sem header próprio, sem beforeRemove listener
+  onExit?: () => void; // chamado em lugar de router.replace quando isPanel=true
+};
+
+export default function Treinar({ isPanel, onExit }: Props) {
   const router = useRouter();
   const navigation = useNavigation();
-  const { dificuldade: rawDiff } = useLocalSearchParams<{ dificuldade: string }>();
+  const { dificuldade: rawDiff, replay } = useLocalSearchParams<{ dificuldade: string; replay: string }>();
   const dificuldade = (rawDiff as string) || 'facil';
+  const isReplay = replay === 'true';
   const [c1, c2] = LEVEL_COLORS[dificuldade] || LEVEL_COLORS.facil;
 
   const [permissionResponse, requestPermission] = Audio.usePermissions();
@@ -52,6 +58,7 @@ export default function Treinar() {
   const pendingExitAction = useRef<any>(null);
   const skipExitGuard    = useRef(false);
   const questionsAnswered = useRef(0);
+  const sessionXpRef      = useRef(0);
 
   const overlayOpacity = useSharedValue(0);
   const cardScale      = useSharedValue(0.75);
@@ -105,6 +112,7 @@ export default function Treinar() {
   }, []);
 
   useEffect(() => {
+    if (isPanel) return;
     const unsubscribe = (navigation as any).addListener('beforeRemove', (e: any) => {
       if (skipExitGuard.current) return;
       e.preventDefault();
@@ -112,7 +120,7 @@ export default function Treinar() {
       setShowExitModal(true);
     });
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, isPanel]);
 
   useEffect(() => {
     if (!phaseComplete) return;
@@ -232,15 +240,23 @@ export default function Treinar() {
           ? taxaFluenciaNum
           : (data.score !== undefined ? data.score * 100 : (data.precisao_alvo || 0));
 
-        const finalXP = calcularXP({
-          fluencia: numFluencia,
-          taxaAcerto,
-          wpm: data.wpm,
-          meta: { wpmMin: 130, wpmMax: 160 },
-        });
-        data.xpGanho = finalXP;
-        await addXP(finalXP);
-        await updateStreak();
+        const minWpm = calibration?.limite_inferior ?? 80;
+        const passed = modo !== 'pergunta' || (data.wpm ?? 0) >= minWpm;
+
+        if (passed && !isReplay) {
+          const finalXP = calcularXP({
+            fluencia: numFluencia,
+            taxaAcerto,
+            wpm: data.wpm,
+            meta: { wpmMin: 130, wpmMax: 160 },
+          });
+          data.xpGanho = finalXP;
+          sessionXpRef.current += finalXP;
+          await updateStreak();
+        }
+
+        if (modo === 'pergunta' && !passed) await loseHeart();
+
         setTranscriptionResult(data);
       } else {
         console.error('Erro na API:', await res.text());
@@ -267,7 +283,7 @@ export default function Treinar() {
   };
 
   const handleNext = async () => {
-    if (modo === 'praticar') {
+    if (modo === 'praticar' || isReplay) {
       fetchPergunta();
       return;
     }
@@ -297,7 +313,8 @@ export default function Treinar() {
       return;
     }
 
-    // All 3 questions done — complete this session
+    // All 3 questions done — commit XP and complete this session
+    if (sessionXpRef.current > 0) await addXP(sessionXpRef.current);
     await incrementLevelProgress(dificuldade);
     const newProgress = await getLevelProgress();
     setLevelProgress(newProgress);
@@ -350,44 +367,57 @@ export default function Treinar() {
 
   const evalResult = getPassed();
 
+  const handleExit = () => {
+    if (isPanel && onExit) {
+      onExit();
+    } else {
+      skipExitGuard.current = true;
+      router.replace('/(tabs)');
+    }
+  };
+
   return (
     <View style={styles.root}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => modo === 'praticar' ? fetchPergunta() : router.back()}
-          style={styles.backBtn}
-        >
-          <Ionicons name="arrow-back" size={22} color={c1} />
-        </TouchableOpacity>
-        <View style={styles.headerMid}>
-          <Text style={styles.headerTitle}>
-            {modo === 'pergunta' ? 'Resposta Livre' : 'Pratique a Frase'}
-          </Text>
-          <View style={[styles.levelBadge, { backgroundColor: c1 + '18' }]}>
-            <Text style={[styles.levelBadgeText, { color: c1 }]}>
-              ETAPA 2 · {LEVEL_LABELS[dificuldade].toUpperCase()}
-            </Text>
+      {/* Header e indicador de etapas — ocultados quando renderizado como painel */}
+      {!isPanel && (
+        <>
+          <View style={styles.header}>
+            <TouchableOpacity
+              onPress={() => modo === 'praticar' ? fetchPergunta() : router.back()}
+              style={styles.backBtn}
+            >
+              <Ionicons name="arrow-back" size={22} color={c1} />
+            </TouchableOpacity>
+            <View style={styles.headerMid}>
+              <Text style={styles.headerTitle}>
+                {modo === 'pergunta' ? 'Resposta Livre' : 'Pratique a Frase'}
+              </Text>
+              <View style={[styles.levelBadge, { backgroundColor: c1 + '18' }]}>
+                <Text style={[styles.levelBadgeText, { color: c1 }]}>
+                  ETAPA 2 · {LEVEL_LABELS[dificuldade].toUpperCase()}
+                </Text>
+              </View>
+            </View>
+            <View style={{ width: 38 }} />
           </View>
-        </View>
-        <View style={{ width: 38 }} />
-      </View>
 
-      {/* Indicador de etapas */}
-      <View style={styles.stepRow}>
-        <View style={styles.stepItem}>
-          <View style={[styles.stepCircle, { backgroundColor: '#16a34a' }]}>
-            <Ionicons name="checkmark" size={13} color="#fff" />
+          <View style={styles.stepRow}>
+            <View style={styles.stepItem}>
+              <View style={[styles.stepCircle, { backgroundColor: '#16a34a' }]}>
+                <Ionicons name="checkmark" size={13} color="#fff" />
+              </View>
+              <Text style={[styles.stepLabel, { color: '#16a34a' }]}>Respiração</Text>
+            </View>
+            <View style={styles.stepLine} />
+            <View style={styles.stepItem}>
+              <View style={[styles.stepCircle, { backgroundColor: c1 }]}>
+                <Text style={styles.stepNum}>2</Text>
+              </View>
+              <Text style={[styles.stepLabel, { color: c1 }]}>Exercício</Text>
+            </View>
           </View>
-          <Text style={[styles.stepLabel, { color: '#16a34a' }]}>Respiração</Text>
-        </View>
-        <View style={styles.stepLine} />
-        <View style={styles.stepItem}>
-          <View style={[styles.stepCircle, { backgroundColor: c1 }]}>
-            <Text style={styles.stepNum}>2</Text>
-          </View>
-          <Text style={[styles.stepLabel, { color: c1 }]}>Exercício</Text>
-        </View>
-      </View>
+        </>
+      )}
 
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         {!transcriptionResult && (
@@ -432,10 +462,6 @@ export default function Treinar() {
         {/* Recording section */}
         {!transcriptionResult && (
           <>
-            {needsToRecord && !isRecording && (
-              <Text style={styles.retryHint}>Tente novamente! 🔄</Text>
-            )}
-
             {isRecording && (
               <View style={styles.timerRow}>
                 <Text style={styles.timer}>{formatTime(seconds)}</Text>
@@ -611,8 +637,9 @@ export default function Treinar() {
             ) : (
               <View style={styles.failBlock}>
                 <Text style={styles.failText}>⚠️ {evalResult?.msg}</Text>
-                <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#f59e0b' }]} onPress={handleRetry}>
-                  <Text style={styles.actionBtnText}>Tentar Novamente 🔄</Text>
+                <TouchableOpacity style={styles.retryBtn} onPress={handleRetry}>
+                  <Ionicons name="refresh" size={16} color="#b45309" />
+                  <Text style={styles.retryBtnText}>Tentar Novamente</Text>
                 </TouchableOpacity>
               </View>
             )}
@@ -622,15 +649,16 @@ export default function Treinar() {
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      <ConfirmExitModal
-        visible={showExitModal}
-        onCancel={() => setShowExitModal(false)}
-        onConfirm={() => {
-          setShowExitModal(false);
-          skipExitGuard.current = true;
-          router.replace('/(tabs)');
-        }}
-      />
+      {!isPanel && (
+        <ConfirmExitModal
+          visible={showExitModal}
+          onCancel={() => setShowExitModal(false)}
+          onConfirm={() => {
+            setShowExitModal(false);
+            handleExit();
+          }}
+        />
+      )}
 
       {phaseComplete && (
         <Animated.View style={[styles.completionOverlay, overlayAnimStyle]}>
@@ -670,10 +698,7 @@ export default function Treinar() {
 
             <TouchableOpacity
               style={[styles.completionBtn, { backgroundColor: c1 }]}
-              onPress={() => {
-                skipExitGuard.current = true;
-                router.replace('/(tabs)');
-              }}
+              onPress={handleExit}
               activeOpacity={0.85}
             >
               <Text style={styles.completionBtnText}>
@@ -768,7 +793,6 @@ const styles = StyleSheet.create({
   breathHint: { flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center' },
   breathHintText: { fontSize: 12, color: '#845400', fontWeight: '600', fontStyle: 'italic' },
 
-  retryHint: { color: '#f59e0b', fontSize: 14, fontWeight: '700', textAlign: 'center', marginBottom: 8 },
 
   timerRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6, marginBottom: 8 },
   timer: {
@@ -885,8 +909,15 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.12, shadowRadius: 6, elevation: 3,
   },
   actionBtnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
-  failBlock: { gap: 8 },
+  failBlock: { gap: 10 },
   failText: { color: '#ef4444', fontSize: 13, fontWeight: '700', textAlign: 'center' },
+  retryBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 14, borderRadius: 14,
+    backgroundColor: '#fffbeb',
+    borderWidth: 1.5, borderColor: '#f59e0b',
+  },
+  retryBtnText: { color: '#b45309', fontWeight: '700', fontSize: 15 },
 
   completionOverlay: {
     ...StyleSheet.absoluteFillObject,
