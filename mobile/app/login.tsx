@@ -8,7 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { supabase } from './utils/supabase';
-import { setUserName, setUserId, setUserChar, getOnboardingComplete, clearAllData } from './utils/storage';
+import { setUserName, setUserId, setUserChar, setTotalXP, setLevelProgress, getOnboardingComplete, clearAllData } from './utils/storage';
 import { API_BASE_URL } from './config';
 
 const { height: SCREEN_H } = Dimensions.get('window');
@@ -93,6 +93,21 @@ export default function Login() {
         await setUserName(savedNome);
         await setUserId(data.user.id);
         await setUserChar(savedChar >= 1 && savedChar <= 5 ? savedChar : 1);
+
+        // Restaura dados do Supabase Auth metadata
+        const meta = data.user.user_metadata ?? {};
+        if (meta.progress) await setLevelProgress(meta.progress);
+
+        // Restaura XP do servidor
+        try {
+          const xpRes = await fetch(`${API_BASE_URL}/usuarios/${data.user.id}`, {
+            headers: { 'Bypass-Tunnel-Reminder': 'true' },
+          });
+          if (xpRes.ok) {
+            const userData = await xpRes.json();
+            if (userData.xp > 0) await setTotalXP(userData.xp);
+          }
+        } catch {}
 
         const onboarded = await getOnboardingComplete();
         router.replace(onboarded ? '/(tabs)' : '/onboarding');

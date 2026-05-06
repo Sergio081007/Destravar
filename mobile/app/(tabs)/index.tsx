@@ -7,7 +7,7 @@ import Svg, { Path, Defs, LinearGradient as SvgLinearGradient, Stop } from 'reac
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { getProfileData, getLevelProgress, getUserName, getUserChar, getDailyXP } from '../utils/storage';
+import { getProfileData, getLevelProgress, getUserName, getUserChar, getHeartsState } from '../utils/storage';
 import AppHeader from '../components/AppHeader';
 
 const CHARS = {
@@ -27,6 +27,8 @@ function buildSvgPath(): string {
     x: cx + n.offset,
     y: SVG_PATH_TOP + i * NODE_ROW_H + NODE_ROW_H / 2,
   }));
+  // Ponto extra: centro do card "em breve", sempre ao centro
+  pts.push({ x: cx, y: SVG_PATH_TOP + ACTIVITY_NODES.length * NODE_ROW_H + 72 });
 
   let d = `M ${pts[0].x} ${pts[0].y}`;
   for (let i = 0; i < pts.length - 1; i++) {
@@ -51,10 +53,17 @@ const ACTIVITY_NODES = [
   { id: 'd3', title: 'Mestre Final',        dif: 'dificil', lvl: 2, step: 2, offset:   0, label: undefined },
 ] as const;
 
-type NodeType = 'completed' | 'active' | 'locked' | 'special';
+type NodeType = 'completed' | 'active' | 'locked';
 
 const NODE_ROW_H = 155;
 const SVG_PATH_TOP = 20;
+
+function formatRegenTime(tsMs: number): string {
+  const d = new Date(tsMs);
+  const h = d.getHours().toString().padStart(2, '0');
+  const m = d.getMinutes().toString().padStart(2, '0');
+  return `${h}:${m}`;
+}
 
 export default function DesafiosTab() {
   const router = useRouter();
@@ -63,9 +72,9 @@ export default function DesafiosTab() {
   const floatAnim2  = useRef(new Animated.Value(0)).current;
   const floatAnim3  = useRef(new Animated.Value(0)).current;
 
-  const [xp, setXp]         = useState(0);
-  const [dailyXp, setDailyXp] = useState(0);
-  const [streak, setStreak] = useState(0);
+  const [streak, setStreak]       = useState(0);
+  const [hearts, setHearts]       = useState(5);
+  const [nextRegenAt, setNextRegenAt] = useState<number | null>(null);
   const [myInitials, setMyInitials] = useState('AP');
   const [charIdx, setCharIdx]       = useState<1|2|3|4|5>(1);
   const [progress, setProgress] = useState({
@@ -108,18 +117,38 @@ export default function DesafiosTab() {
   useFocusEffect(
     useCallback(() => {
       (async () => {
-        const [profile, prog, name, char, daily] = await Promise.all([
-          getProfileData(), getLevelProgress(), getUserName(), getUserChar(), getDailyXP(),
+        const [profile, prog, name, char, heartsData] = await Promise.all([
+          getProfileData(), getLevelProgress(), getUserName(), getUserChar(), getHeartsState(),
         ]);
         setCharIdx((char >= 1 && char <= 5 ? char : 1) as 1|2|3|4|5);
-        setXp(profile.xp);
-        setDailyXp(daily);
         setStreak(profile.streak);
+        setHearts(heartsData.hearts);
+        setNextRegenAt(heartsData.nextRegenMs !== null ? Date.now() + heartsData.nextRegenMs : null);
         setMyInitials(name.trim().slice(0, 2).toUpperCase() || 'AP');
         setProgress(prog);
       })();
     }, [])
   );
+
+  // Auto-refresh quando o próximo coração regenerar
+  useEffect(() => {
+    if (nextRegenAt === null) return;
+    const remaining = nextRegenAt - Date.now();
+    if (remaining <= 0) {
+      getHeartsState().then(h => {
+        setHearts(h.hearts);
+        setNextRegenAt(h.nextRegenMs !== null ? Date.now() + h.nextRegenMs : null);
+      });
+      return;
+    }
+    const timer = setTimeout(() => {
+      getHeartsState().then(h => {
+        setHearts(h.hearts);
+        setNextRegenAt(h.nextRegenMs !== null ? Date.now() + h.nextRegenMs : null);
+      });
+    }, remaining);
+    return () => clearTimeout(timer);
+  }, [nextRegenAt]);
 
   // Derive node states
   const counts = [progress.nivel1_completos, progress.nivel2_completos, progress.nivel3_completos];
@@ -127,17 +156,14 @@ export default function DesafiosTab() {
   const nodes = ACTIVITY_NODES.map((node, idx): typeof node & { type: NodeType } => {
     const prevDone = node.lvl === 0 ? 3 : counts[node.lvl - 1];
     if (prevDone < 3) {
-      return { ...node, type: idx === ACTIVITY_NODES.length - 1 ? 'special' : 'locked' };
+      return { ...node, type: 'locked' };
     }
     if (node.step < counts[node.lvl]) return { ...node, type: 'completed' };
     if (!activeAssigned) { activeAssigned = true; return { ...node, type: 'active' }; }
     return { ...node, type: 'locked' };
   });
-
-  const xpToday  = Math.min(dailyXp, 300);
-  const xpPct    = (xpToday / 300) * 100;
   const svgPath  = buildSvgPath();
-  const svgH     = ACTIVITY_NODES.length * NODE_ROW_H + NODE_ROW_H;
+  const svgH     = ACTIVITY_NODES.length * NODE_ROW_H + NODE_ROW_H + 100;
 
   return (
     <ExpoLinearGradient
@@ -234,8 +260,8 @@ export default function DesafiosTab() {
           {nodes.map((node) => {
             const isActive    = node.type === 'active';
             const isCompleted = node.type === 'completed';
-            const isSpecial   = node.type === 'special';
-            const canTap      = isActive || isCompleted;
+            const noLives     = isActive && hearts === 0;
+            const canTap      = (isActive && hearts > 0) || isCompleted;
 
             return (
               <View key={node.id} style={styles.nodeRow}>
@@ -246,22 +272,25 @@ export default function DesafiosTab() {
                 )}
 
                 <TouchableOpacity
-                  disabled={!canTap}
+                  disabled={!canTap || isCompleted}
                   activeOpacity={0.8}
-                  onPress={() => router.push({ pathname: '/exercicio1', params: { dificuldade: node.dif } })}
+                  onPress={() => router.push({
+                    pathname: '/desafio',
+                    params: { dificuldade: node.dif },
+                  })}
                   style={{ transform: [{ translateX: node.offset }], alignItems: 'center' }}
                 >
-                  {isSpecial ? (
-                    <View style={styles.nodeSpecial}>
-                      <Ionicons name="gift-outline" size={32} color="rgba(64,71,81,0.4)" />
-                    </View>
-                  ) : isCompleted ? (
+                  {isCompleted ? (
                     <View style={styles.nodeCompleted}>
                       <Ionicons name="star" size={28} color="#fff" />
                     </View>
                   ) : isActive ? (
-                    <View style={styles.nodeActive}>
-                      <Ionicons name="extension-puzzle" size={32} color="#fff" />
+                    <View style={[styles.nodeActive, noLives && styles.nodeActiveDepleted]}>
+                      <Ionicons
+                        name={noLives ? 'heart-outline' : 'extension-puzzle'}
+                        size={32}
+                        color="#fff"
+                      />
                     </View>
                   ) : (
                     <View style={styles.nodeLocked}>
@@ -269,16 +298,36 @@ export default function DesafiosTab() {
                     </View>
                   )}
 
-                  {isActive && (
+                  {isActive && !noLives && (
                     <Animated.View style={[styles.startBadge, { transform: [{ translateY: bounceAnim }] }]}>
                       <Text style={styles.startBadgeText}>Começar</Text>
                       <Ionicons name="play" size={11} color="#fff" />
                     </Animated.View>
                   )}
+                  {noLives && (
+                    <View style={styles.noLivesBadge}>
+                      <Ionicons name="heart-outline" size={11} color="#fff" />
+                      <Text style={styles.startBadgeText}>Sem vidas</Text>
+                    </View>
+                  )}
                 </TouchableOpacity>
               </View>
             );
           })}
+        </View>
+
+        {/* Em breve — card ao final do mapa */}
+        <View style={styles.comingSoonCard}>
+          <View style={styles.comingSoonIconWrap}>
+            <Ionicons name="rocket-outline" size={28} color="#5e41d0" />
+          </View>
+          <View style={styles.comingSoonPill}>
+            <Text style={styles.comingSoonPillText}>Em breve</Text>
+          </View>
+          <Text style={styles.comingSoonTitle}>Novas fases chegando!</Text>
+          <Text style={styles.comingSoonSub}>
+            Continue praticando — muito mais está por vir.
+          </Text>
         </View>
 
         <View style={{ height: 110 }} />
@@ -287,13 +336,23 @@ export default function DesafiosTab() {
       {/* Stats card */}
       <View style={styles.statsCard}>
         <View style={styles.statsLeft}>
-          <View style={styles.statsLabelRow}>
-            <Text style={styles.statsSmLabel}>XP Hoje</Text>
-            <Text style={styles.statsXpVal}>{xpToday} / 300</Text>
+          <Text style={styles.statsSmLabel}>Vidas</Text>
+          <View style={styles.heartsRow}>
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Ionicons
+                key={i}
+                name={i < hearts ? 'heart' : 'heart-outline'}
+                size={22}
+                color={i < hearts ? '#ba1a1a' : '#9CA3AF'}
+              />
+            ))}
           </View>
-          <View style={styles.statsBarBg}>
-            <View style={[styles.statsBarFill, { width: `${xpPct}%` as any }]} />
-          </View>
+          {nextRegenAt !== null && (
+            <View style={styles.regenPill}>
+              <Ionicons name="time-outline" size={11} color="#ba1a1a" />
+              <Text style={styles.regenText}>+1 às {formatRegenTime(nextRegenAt)}</Text>
+            </View>
+          )}
         </View>
         <View style={styles.statsDivider} />
         <View style={styles.statsRight}>
@@ -306,6 +365,7 @@ export default function DesafiosTab() {
           </View>
         </View>
       </View>
+
     </ExpoLinearGradient>
   );
 }
@@ -402,20 +462,18 @@ const styles = StyleSheet.create({
     shadowRadius: 20,
     elevation: 12,
   },
+  nodeActiveDepleted: {
+    backgroundColor: '#ba1a1a',
+    borderColor: 'rgba(186,26,26,0.2)',
+    shadowColor: '#ba1a1a',
+    opacity: 0.75,
+  },
 
   nodeLocked: {
     width: 64, height: 64, borderRadius: 32,
     backgroundColor: '#e0e3e6',
     justifyContent: 'center', alignItems: 'center',
     borderWidth: 4, borderColor: 'rgba(192,199,211,0.6)',
-  },
-
-  nodeSpecial: {
-    width: 96, height: 96, borderRadius: 48,
-    backgroundColor: '#f1f4f7',
-    justifyContent: 'center', alignItems: 'center',
-    borderWidth: 4, borderColor: '#c0c7d3',
-    borderStyle: 'dashed',
   },
 
   statsCard: {
@@ -434,24 +492,21 @@ const styles = StyleSheet.create({
     shadowRadius: 24,
     elevation: 12,
   },
-  statsLeft: { flex: 1 },
-  statsLabelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-  },
+  statsLeft: { flex: 1, gap: 6 },
   statsSmLabel: {
     fontSize: 10, fontWeight: '700',
     color: '#707883', textTransform: 'uppercase', letterSpacing: 0.5,
   },
-  statsXpVal: { fontSize: 12, fontWeight: '700', color: '#0061a2' },
-  statsBarBg: { height: 10, backgroundColor: '#ebeef1', borderRadius: 999, overflow: 'hidden' },
-  statsBarFill: {
-    height: '100%', backgroundColor: '#0061a2', borderRadius: 999,
-    shadowColor: '#0061a2', shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.3, shadowRadius: 6,
+  heartsRow: { flexDirection: 'row', gap: 4, alignItems: 'center' },
+  regenPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    alignSelf: 'flex-start',
+    backgroundColor: '#fff1f1',
+    borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3,
+    borderWidth: 1, borderColor: '#fecdd3',
   },
+  regenText: { fontSize: 10, color: '#ba1a1a', fontWeight: '700' },
+
   statsDivider: { width: 1, height: 40, backgroundColor: '#c0c7d3', marginHorizontal: 16 },
   statsRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   streakNum: { fontSize: 26, fontWeight: '900', color: '#5e41d0', lineHeight: 30 },
@@ -460,4 +515,49 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(94,65,208,0.1)',
     justifyContent: 'center', alignItems: 'center',
   },
+
+  noLivesBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: '#ba1a1a',
+    paddingHorizontal: 20, paddingVertical: 8,
+    borderRadius: 999, marginTop: 20,
+    shadowColor: '#ba1a1a', shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.3, shadowRadius: 14, elevation: 8,
+  },
+
+  comingSoonCard: {
+    marginHorizontal: 32,
+    marginTop: 16,
+    padding: 24,
+    borderRadius: 24,
+    backgroundColor: '#ede9ff',
+    borderWidth: 2,
+    borderColor: '#7c5ef0',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    gap: 8,
+    zIndex: 10,
+  },
+  comingSoonIconWrap: {
+    width: 56, height: 56, borderRadius: 28,
+    backgroundColor: 'rgba(94,65,208,0.1)',
+    justifyContent: 'center', alignItems: 'center',
+    marginBottom: 4,
+  },
+  comingSoonPill: {
+    backgroundColor: 'rgba(94,65,208,0.12)',
+    borderRadius: 999,
+    paddingHorizontal: 12, paddingVertical: 4,
+  },
+  comingSoonPillText: {
+    fontSize: 11, fontWeight: '700',
+    color: '#5e41d0', textTransform: 'uppercase', letterSpacing: 0.8,
+  },
+  comingSoonTitle: {
+    fontSize: 17, fontWeight: '800', color: '#181c1e', textAlign: 'center',
+  },
+  comingSoonSub: {
+    fontSize: 13, color: '#707883', textAlign: 'center', lineHeight: 19,
+  },
+
 });

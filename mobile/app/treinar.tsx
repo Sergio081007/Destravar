@@ -8,15 +8,13 @@ import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { calcularXP } from './utils/calcularXP';
-import { addXP, updateStreak, getLevelProgress, incrementLevelProgress, getUserId, getCalibration } from './utils/storage';
+import { addXP, updateStreak, getLevelProgress, incrementLevelProgress, getUserId, getCalibration, loseHeart, getHeartsState } from './utils/storage';
 import { API_BASE_URL } from './config';
 import ConfirmExitModal from './components/ConfirmExitModal';
+import HeartLostModal from './components/HeartLostModal';
+import { Colors, Shadow } from './theme';
 
-const LEVEL_COLORS: Record<string, readonly [string, string]> = {
-  facil:   ['#0061a2', '#4da9ff'],
-  medio:   ['#10b981', '#34d399'],
-  dificil: ['#5e41d0', '#8b5cf6'],
-};
+
 
 const LEVEL_LABELS: Record<string, string> = {
   facil: 'Fácil', medio: 'Médio', dificil: 'Difícil',
@@ -24,12 +22,18 @@ const LEVEL_LABELS: Record<string, string> = {
 
 type Modo = 'pergunta' | 'praticar';
 
-export default function Treinar() {
+type Props = {
+  isPanel?: boolean;
+  onExit?: () => void;
+  onComplete?: () => void;
+};
+
+export default function Treinar({ isPanel, onExit, onComplete }: Props) {
   const router = useRouter();
   const navigation = useNavigation();
-  const { dificuldade: rawDiff } = useLocalSearchParams<{ dificuldade: string }>();
+  const { dificuldade: rawDiff, replay } = useLocalSearchParams<{ dificuldade: string; replay: string }>();
   const dificuldade = (rawDiff as string) || 'facil';
-  const [c1, c2] = LEVEL_COLORS[dificuldade] || LEVEL_COLORS.facil;
+  const isReplay = replay === 'true';
 
   const [permissionResponse, requestPermission] = Audio.usePermissions();
   const [isRecording, setIsRecording] = useState(false);
@@ -42,19 +46,20 @@ export default function Treinar() {
   const [modo, setModo] = useState<Modo>('pergunta');
   const [fraseParaPraticar, setFraseParaPraticar] = useState<string | null>(null);
   const [levelProgress, setLevelProgress] = useState<any>({ nivel1_completos: 0, nivel2_completos: 0, nivel3_completos: 0 });
-  const [phaseComplete, setPhaseComplete] = useState<{
-    levelNum: number; sessionNum: number; levelComplete: boolean; allDone: boolean;
-  } | null>(null);
+
   const [needsToRecord, setNeedsToRecord] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [calibration, setCalibration] = useState<any>(null);
   const [showExitModal, setShowExitModal] = useState(false);
+  const [heartsLeft, setHeartsLeft] = useState<number | null>(null);
+  const [showHeartLost, setShowHeartLost] = useState(false);
   const pendingExitAction = useRef<any>(null);
   const skipExitGuard    = useRef(false);
   const questionsAnswered = useRef(0);
+  const consecutivePasses = useRef(0);
+  const totalAttempts = useRef(0);
+  const sessionXpRef      = useRef(0);
 
-  const overlayOpacity = useSharedValue(0);
-  const cardScale      = useSharedValue(0.75);
 
   const ring1Scale   = useSharedValue(1.0);
   const ring1Opacity = useSharedValue(0.4);
@@ -90,21 +95,19 @@ export default function Treinar() {
   const ring2Style = useAnimatedStyle(() => ({
     transform: [{ scale: ring2Scale.value }], opacity: ring2Opacity.value,
   }));
-  const overlayAnimStyle = useAnimatedStyle(() => ({ opacity: overlayOpacity.value }));
-  const cardAnimStyle    = useAnimatedStyle(() => ({
-    transform: [{ scale: cardScale.value }],
-    opacity: overlayOpacity.value,
-  }));
+
 
   useEffect(() => {
     getLevelProgress().then(setLevelProgress);
     getUserId().then(setUserId);
     getCalibration().then(setCalibration);
+    getHeartsState().then(s => setHeartsLeft(s.hearts));
     fetchPergunta();
     requestPermission();
   }, []);
 
   useEffect(() => {
+    if (isPanel) return;
     const unsubscribe = (navigation as any).addListener('beforeRemove', (e: any) => {
       if (skipExitGuard.current) return;
       e.preventDefault();
@@ -112,13 +115,8 @@ export default function Treinar() {
       setShowExitModal(true);
     });
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, isPanel]);
 
-  useEffect(() => {
-    if (!phaseComplete) return;
-    overlayOpacity.value = withTiming(1, { duration: 280 });
-    cardScale.value      = withSpring(1, { damping: 14, stiffness: 180 });
-  }, [phaseComplete]);
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null;
@@ -137,6 +135,15 @@ export default function Treinar() {
     }
   }, [seconds]);
 
+  const FALLBACKS = [
+    "Como foi o seu dia hoje?",
+    "Qual é a sua comida favorita e por quê?",
+    "O que você gosta de fazer no tempo livre?",
+    "Conte sobre um lugar que você gostaria de visitar.",
+    "Qual foi o melhor filme ou série que você assistiu recentemente?",
+    "Se você pudesse ter um superpoder, qual seria?"
+  ];
+
   const fetchPergunta = async () => {
     setTextoTreino('Carregando pergunta...');
     setTranscriptionResult(null);
@@ -150,12 +157,15 @@ export default function Treinar() {
       });
       if (res.ok) {
         const data = await res.json();
-        setTextoTreino(data.pergunta || data.conteudo || 'Como foi o seu dia?');
+        setTextoTreino(data.pergunta || data.conteudo || FALLBACKS[0]);
       } else {
         throw new Error(`HTTP ${res.status}`);
       }
     } catch {
-      setTextoTreino('Como foi o seu dia hoje?');
+      // Rotaciona as perguntas baseado no número de fases que já passou!
+      const progressObj = await getLevelProgress();
+      const progress = progressObj[dificuldade as keyof typeof progressObj] || 0;
+      setTextoTreino(FALLBACKS[progress % FALLBACKS.length]);
     }
   };
 
@@ -232,15 +242,29 @@ export default function Treinar() {
           ? taxaFluenciaNum
           : (data.score !== undefined ? data.score * 100 : (data.precisao_alvo || 0));
 
-        const finalXP = calcularXP({
-          fluencia: numFluencia,
-          taxaAcerto,
-          wpm: data.wpm,
-          meta: { wpmMin: 130, wpmMax: 160 },
-        });
-        data.xpGanho = finalXP;
-        await addXP(finalXP);
-        await updateStreak();
+        const minWpm = calibration?.limite_inferior ?? 80;
+        const passed = modo !== 'pergunta' || (data.wpm ?? 0) >= minWpm;
+
+        if (passed && !isReplay) {
+          const finalXP = calcularXP({
+            fluencia: numFluencia,
+            taxaAcerto,
+            wpm: data.wpm,
+            meta: { wpmMin: 130, wpmMax: 160 },
+          });
+          data.xpGanho = finalXP;
+          sessionXpRef.current += finalXP;
+          await updateStreak();
+        }
+
+        if (modo === 'pergunta' && !passed) {
+          const remHearts = await loseHeart();
+          setHeartsLeft(remHearts);
+          setShowHeartLost(true);
+        } else {
+          setShowHeartLost(false);
+        }
+
         setTranscriptionResult(data);
       } else {
         console.error('Erro na API:', await res.text());
@@ -267,7 +291,7 @@ export default function Treinar() {
   };
 
   const handleNext = async () => {
-    if (modo === 'praticar') {
+    if (modo === 'praticar' || isReplay) {
       fetchPergunta();
       return;
     }
@@ -290,28 +314,28 @@ export default function Treinar() {
       }
     }
 
-    questionsAnswered.current += 1;
+    totalAttempts.current += 1;
+    if (evalResult?.passed) {
+      consecutivePasses.current += 1;
+    } else {
+      consecutivePasses.current = 0;
+    }
 
-    if (questionsAnswered.current < 3) {
-      fetchPergunta();
+    if (consecutivePasses.current >= 2 || totalAttempts.current >= 5) {
+      if (sessionXpRef.current > 0) {
+        await addXP(sessionXpRef.current);
+        sessionXpRef.current = 0;
+      }
+
+      if (onComplete) {
+        onComplete();
+      } else {
+        router.replace('/(tabs)');
+      }
       return;
     }
 
-    // All 3 questions done — complete this session
-    await incrementLevelProgress(dificuldade);
-    const newProgress = await getLevelProgress();
-    setLevelProgress(newProgress);
-
-    const levelComplete = isLevelComplete(newProgress, dificuldade);
-    const nextLevel     = getNextLevel(dificuldade);
-    const sessionNum    = getLevelCount(newProgress, dificuldade);
-
-    setPhaseComplete({
-      levelNum: getLevelNumber(dificuldade),
-      sessionNum,
-      levelComplete,
-      allDone: levelComplete && !nextLevel,
-    });
+    fetchPergunta();
   };
 
   const getTaxaFluencia = () => {
@@ -344,52 +368,44 @@ export default function Treinar() {
     if (wpm >= minWpm) return { passed: true, msg: '' };
     return {
       passed: false,
-      msg: `Tente falar um pouco mais rápido! Seu ritmo: ${wpm} wpm (mínimo: ${minWpm} wpm)`,
+      msg: 'Seu ritmo ficou um pouquinho abaixo do ideal. Respire fundo e tente fluir as palavras mais naturalmente.',
     };
   };
 
   const evalResult = getPassed();
 
+  const handleExit = async () => {
+    if (sessionXpRef.current > 0) {
+      await addXP(sessionXpRef.current);
+      sessionXpRef.current = 0;
+    }
+    if (isPanel && onExit) {
+      onExit();
+    } else {
+      skipExitGuard.current = true;
+      router.replace('/(tabs)');
+    }
+  };
+
   return (
     <View style={styles.root}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          onPress={() => modo === 'praticar' ? fetchPergunta() : router.back()}
-          style={styles.backBtn}
-        >
-          <Ionicons name="arrow-back" size={22} color={c1} />
-        </TouchableOpacity>
-        <View style={styles.headerMid}>
-          <Text style={styles.headerTitle}>
-            {modo === 'pergunta' ? 'Resposta Livre' : 'Pratique a Frase'}
-          </Text>
-          <View style={[styles.levelBadge, { backgroundColor: c1 + '18' }]}>
-            <Text style={[styles.levelBadgeText, { color: c1 }]}>
-              ETAPA 2 · {LEVEL_LABELS[dificuldade].toUpperCase()}
-            </Text>
-          </View>
+      {!isPanel && (
+        <View style={styles.standaloneHeader}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.standaloneBackBtn}>
+            <Ionicons name="arrow-back" size={24} color={Colors.primary} />
+          </TouchableOpacity>
+          <Text style={styles.standaloneTitle}>Treinamento Livre</Text>
         </View>
-        <View style={{ width: 38 }} />
-      </View>
-
-      {/* Indicador de etapas */}
-      <View style={styles.stepRow}>
-        <View style={styles.stepItem}>
-          <View style={[styles.stepCircle, { backgroundColor: '#16a34a' }]}>
-            <Ionicons name="checkmark" size={13} color="#fff" />
-          </View>
-          <Text style={[styles.stepLabel, { color: '#16a34a' }]}>Respiração</Text>
-        </View>
-        <View style={styles.stepLine} />
-        <View style={styles.stepItem}>
-          <View style={[styles.stepCircle, { backgroundColor: c1 }]}>
-            <Text style={styles.stepNum}>2</Text>
-          </View>
-          <Text style={[styles.stepLabel, { color: c1 }]}>Exercício</Text>
-        </View>
-      </View>
+      )}
 
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        
+        {/* Header Padronizado */}
+        <View style={styles.headerArea}>
+          <Text style={styles.superTitle}>DESAFIO DE RITMO</Text>
+          <Text style={styles.title}>Controle de Velocidade</Text>
+          <Text style={styles.subtitle}>Fale a resposta da pergunta de forma clara e rítmica.</Text>
+        </View>
         {!transcriptionResult && (
           <View style={styles.mascotPreCard}>
             <View style={[styles.mascotIconWrap, { backgroundColor: '#dd962b18' }]}>
@@ -409,8 +425,8 @@ export default function Treinar() {
         {/* Pergunta / frase card */}
         <View style={styles.phraseCard}>
           <View style={styles.phraseCardTop}>
-            <View style={[styles.phraseBadge, { backgroundColor: c1 + '18' }]}>
-              <Text style={[styles.phraseBadgeText, { color: c1 }]}>
+            <View style={[styles.phraseBadge, { backgroundColor: Colors.primary + '18' }]}>
+              <Text style={[styles.phraseBadgeText, { color: Colors.primary }]}>
                 {modo === 'pergunta' ? 'PERGUNTA' : 'PARA REPETIR'}
               </Text>
             </View>
@@ -419,7 +435,7 @@ export default function Treinar() {
             </Text>
           </View>
           <View style={styles.phraseBox}>
-            <Text style={[styles.phraseText, { color: c1 }]}>"{textoTreino}"</Text>
+            <Text style={[styles.phraseText, { color: Colors.primary }]}>"{textoTreino}"</Text>
           </View>
           <View style={styles.breathHint}>
             <Ionicons name={modo === 'pergunta' ? 'time-outline' : 'leaf-outline'} size={14} color="#845400" />
@@ -432,10 +448,6 @@ export default function Treinar() {
         {/* Recording section */}
         {!transcriptionResult && (
           <>
-            {needsToRecord && !isRecording && (
-              <Text style={styles.retryHint}>Tente novamente! 🔄</Text>
-            )}
-
             {isRecording && (
               <View style={styles.timerRow}>
                 <Text style={styles.timer}>{formatTime(seconds)}</Text>
@@ -448,8 +460,8 @@ export default function Treinar() {
             <View style={styles.recordingArea}>
               {!isRecording && !isTranscribing && (
                 <>
-                  <Animated.View style={[styles.ring2, { borderColor: c2 }, ring2Style]} />
-                  <Animated.View style={[styles.ring1, { borderColor: c1 }, ring1Style]} />
+                  <Animated.View style={[styles.ring2, { borderColor: Colors.primary + '60' }, ring2Style]} />
+                  <Animated.View style={[styles.ring1, { borderColor: Colors.primary }, ring1Style]} />
                 </>
               )}
 
@@ -457,7 +469,7 @@ export default function Treinar() {
                 <TouchableOpacity
                   style={[
                     styles.micBtn,
-                    { backgroundColor: isRecording ? '#dc2626' : c1, shadowColor: isRecording ? '#dc2626' : c1 },
+                    { backgroundColor: isRecording ? '#dc2626' : Colors.primary, shadowColor: isRecording ? '#dc2626' : Colors.primary },
                   ]}
                   onPress={isRecording ? handleStopPress : handleRecordPress}
                   activeOpacity={0.85}
@@ -469,7 +481,7 @@ export default function Treinar() {
             </View>
 
             {isTranscribing && (
-              <Text style={[styles.statusText, { color: c1 }]}>Analisando sua voz... ⏳</Text>
+              <Text style={[styles.statusText, { color: Colors.primary }]}>Analisando sua voz... ⏳</Text>
             )}
 
             {!isRecording && !isTranscribing && (
@@ -495,14 +507,14 @@ export default function Treinar() {
               </View>
             )}
 
-            <View style={[styles.metricsRow, { backgroundColor: c1 + '12' }]}>
+            <View style={[styles.metricsRow, { backgroundColor: Colors.primary + '12' }]}>
               <View style={styles.metricItem}>
-                <Text style={[styles.metricValue, { color: c1 }]}>{transcriptionResult.wpm}</Text>
-                <Text style={styles.metricLabel}>WPM</Text>
+                <Text style={[styles.metricValue, { color: Colors.primary }]}>{transcriptionResult.wpm}</Text>
+                <Text style={styles.metricLabel}>RITMO</Text>
               </View>
               <View style={styles.metricDivider} />
               <View style={styles.metricItem}>
-                <Text style={[styles.metricValue, { color: c1 }]}>
+                <Text style={[styles.metricValue, { color: Colors.primary }]}>
                   {modo === 'pergunta'
                     ? `${getTaxaFluencia().toFixed(0)}%`
                     : `${transcriptionResult.score !== undefined
@@ -515,7 +527,7 @@ export default function Treinar() {
               </View>
               <View style={styles.metricDivider} />
               <View style={styles.metricItem}>
-                <Text style={[styles.metricValue, { color: c1 }]}>{transcriptionResult.duracao_segundos}s</Text>
+                <Text style={[styles.metricValue, { color: Colors.primary }]}>{transcriptionResult.duracao_segundos}s</Text>
                 <Text style={styles.metricLabel}>Duração</Text>
               </View>
             </View>
@@ -534,8 +546,8 @@ export default function Treinar() {
 
             {/* Seção 1: O que você disse */}
             {transcriptionResult.analise_palavras?.length > 0 && (
-              <View style={[styles.transcriptionBox, { borderLeftColor: c1, backgroundColor: c1 + '0d' }]}>
-                <Text style={[styles.transcriptionTitle, { color: c1 }]}>
+              <View style={[styles.transcriptionBox, { borderLeftColor: Colors.primary, backgroundColor: Colors.primary + '0d' }]}>
+                <Text style={[styles.transcriptionTitle, { color: Colors.primary }]}>
                   {modo === 'pergunta' ? 'O que você disse' : 'Sua leitura'}
                 </Text>
                 <Text style={styles.transcriptionText}>
@@ -603,7 +615,7 @@ export default function Treinar() {
             )}
 
             {evalResult?.passed ? (
-              <TouchableOpacity style={[styles.actionBtn, { backgroundColor: c1 }]} onPress={handleNext}>
+              <TouchableOpacity style={[styles.actionBtn, { backgroundColor: Colors.primary }]} onPress={handleNext}>
                 <Text style={styles.actionBtnText}>
                   {modo === 'praticar' ? 'Ótimo! Próxima Pergunta →' : 'Próxima Pergunta →'}
                 </Text>
@@ -611,9 +623,18 @@ export default function Treinar() {
             ) : (
               <View style={styles.failBlock}>
                 <Text style={styles.failText}>⚠️ {evalResult?.msg}</Text>
-                <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#f59e0b' }]} onPress={handleRetry}>
-                  <Text style={styles.actionBtnText}>Tentar Novamente 🔄</Text>
-                </TouchableOpacity>
+                
+                {(heartsLeft === null || heartsLeft > 0) ? (
+                  <TouchableOpacity style={styles.retryBtn} onPress={handleRetry}>
+                    <Ionicons name="refresh" size={16} color="#ef4444" />
+                    <Text style={styles.retryBtnText}>Tentar Novamente</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity style={[styles.retryBtn, { backgroundColor: '#f3f4f6', borderColor: '#d1d5db' }]} onPress={handleExit}>
+                    <Ionicons name="exit-outline" size={16} color="#6b7280" />
+                    <Text style={[styles.retryBtnText, { color: '#6b7280' }]}>Sair (Sem vidas)</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             )}
           </View>
@@ -622,111 +643,77 @@ export default function Treinar() {
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      <ConfirmExitModal
-        visible={showExitModal}
-        onCancel={() => setShowExitModal(false)}
-        onConfirm={() => {
-          setShowExitModal(false);
-          skipExitGuard.current = true;
-          router.replace('/(tabs)');
-        }}
-      />
+      {!isPanel && (
+        <ConfirmExitModal
+          visible={showExitModal}
+          onCancel={() => setShowExitModal(false)}
+          onConfirm={() => {
+            setShowExitModal(false);
+            handleExit();
+          }}
+        />
+      )}
 
-      {phaseComplete && (
-        <Animated.View style={[styles.completionOverlay, overlayAnimStyle]}>
-          <Animated.View style={[styles.completionCard, cardAnimStyle]}>
-            <View style={[styles.completionIconRing, { borderColor: c1 + '40' }]}>
-              <View style={[styles.completionIconCircle, { backgroundColor: c1 + '18' }]}>
-                <Ionicons
-                  name={phaseComplete.levelComplete ? 'trophy' : 'checkmark-circle'}
-                  size={40}
-                  color={c1}
-                />
-              </View>
-            </View>
 
-            <Text style={styles.completionTitle}>
-              {phaseComplete.allDone
-                ? 'Todos os níveis\nconcluídos!'
-                : phaseComplete.levelComplete
-                  ? `Nível ${phaseComplete.levelNum}\nconcluído!`
-                  : `Sessão ${phaseComplete.sessionNum} de 3\nconcluída!`}
-            </Text>
-            <Text style={styles.completionSub}>
-              {phaseComplete.allDone
-                ? 'Você completou toda a jornada. Incrível!'
-                : phaseComplete.levelComplete
-                  ? 'Excelente trabalho! Pronto para o próximo desafio?'
-                  : 'Boa prática! Continue treinando para avançar no mapa.'}
-            </Text>
-
-            {phaseComplete.levelComplete && (
-              <View style={styles.completionStars}>
-                {[0, 1, 2].map(i => (
-                  <Ionicons key={i} name="star" size={22} color="#f59e0b" />
-                ))}
-              </View>
-            )}
-
-            <TouchableOpacity
-              style={[styles.completionBtn, { backgroundColor: c1 }]}
-              onPress={() => {
-                skipExitGuard.current = true;
-                router.replace('/(tabs)');
-              }}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.completionBtnText}>
-                {phaseComplete.levelComplete ? 'Ver desafios →' : 'Ver mapa →'}
-              </Text>
-            </TouchableOpacity>
-          </Animated.View>
-        </Animated.View>
+      {heartsLeft !== null && (
+        <HeartLostModal
+          visible={showHeartLost}
+          heartsLeft={heartsLeft}
+          onClose={() => setShowHeartLost(false)}
+          onExit={handleExit}
+        />
       )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#f7fafd' },
-
-  header: {
+  root: { flex: 1, backgroundColor: Colors.surface },
+  
+  // ── Header Padronizado ──────────────────────────────────────────────
+  standaloneHeader: {
     flexDirection: 'row', alignItems: 'center',
-    paddingTop: 52, paddingBottom: 12, paddingHorizontal: 16,
-    backgroundColor: '#fff',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05, shadowRadius: 8, elevation: 3,
+    paddingTop: 54, paddingBottom: 14, paddingHorizontal: 20,
+    backgroundColor: Colors.white,
+    borderBottomWidth: 1, borderBottomColor: Colors.surfaceVariant,
   },
-  backBtn: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: '#f7fafd',
+  standaloneBackBtn: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: Colors.surface,
     justifyContent: 'center', alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.07, shadowRadius: 4, elevation: 2,
   },
-  headerMid: { flex: 1, alignItems: 'center', gap: 5 },
-  headerTitle: { fontSize: 15, fontWeight: '700', color: '#181c1e' },
-  levelBadge: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
-  levelBadgeText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.8 },
+  standaloneTitle: {
+    marginLeft: 16, fontSize: 17, fontWeight: '700', color: Colors.dark,
+  },
 
-  stepRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    paddingVertical: 12, paddingHorizontal: 60,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1, borderBottomColor: '#f0f2f4',
+  headerArea: {
+    alignItems: 'center',
+    marginBottom: 20,
   },
-  stepItem: { alignItems: 'center', gap: 4 },
-  stepCircle: {
-    width: 26, height: 26, borderRadius: 13,
-    justifyContent: 'center', alignItems: 'center',
+  superTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: Colors.gray,
+    letterSpacing: 1.5,
+    marginBottom: 8,
   },
-  stepNum: { fontSize: 12, fontWeight: '800', color: '#fff' },
-  stepLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.4 },
-  stepLine: { flex: 1, height: 2, backgroundColor: '#e5e8eb', marginHorizontal: 10, marginBottom: 14 },
+  title: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: Colors.dark,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 15,
+    color: Colors.outline,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
 
   container: {
     flexGrow: 1, alignItems: 'center',
-    paddingHorizontal: 20, paddingTop: 20, paddingBottom: 40,
+    paddingHorizontal: 20, paddingTop: 30, paddingBottom: 40,
   },
 
 
@@ -747,10 +734,9 @@ const styles = StyleSheet.create({
   mascotPreText: { fontSize: 13, color: '#404751', fontWeight: '500', lineHeight: 18 },
 
   phraseCard: {
-    width: '100%', backgroundColor: '#fff',
+    width: '100%', backgroundColor: Colors.white,
     borderRadius: 20, padding: 20, marginBottom: 20,
-    shadowColor: '#0061a2', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08, shadowRadius: 16, elevation: 4,
+    ...Shadow.md,
     gap: 10,
   },
   phraseCardTop: { gap: 6 },
@@ -758,8 +744,8 @@ const styles = StyleSheet.create({
   phraseBadgeText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.6 },
   phraseCardTitle: { fontSize: 14, fontWeight: '700', color: '#404751' },
   phraseBox: {
-    backgroundColor: '#f7fafd', borderRadius: 14, padding: 16,
-    borderWidth: 1, borderColor: '#e5e8eb',
+    backgroundColor: Colors.surface, borderRadius: 14, padding: 16,
+    borderWidth: 1, borderColor: Colors.surfaceVariant,
   },
   phraseText: {
     fontSize: 20, fontWeight: '700',
@@ -768,7 +754,6 @@ const styles = StyleSheet.create({
   breathHint: { flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center' },
   breathHintText: { fontSize: 12, color: '#845400', fontWeight: '600', fontStyle: 'italic' },
 
-  retryHint: { color: '#f59e0b', fontSize: 14, fontWeight: '700', textAlign: 'center', marginBottom: 8 },
 
   timerRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6, marginBottom: 8 },
   timer: {
@@ -794,8 +779,7 @@ const styles = StyleSheet.create({
   micBtn: {
     width: 128, height: 128, borderRadius: 64,
     justifyContent: 'center', alignItems: 'center',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3, shadowRadius: 20, elevation: 12,
+    ...Shadow.lg,
     gap: 4,
   },
   micBtnLabel: { color: '#fff', fontWeight: '800', fontSize: 12, letterSpacing: 0.8 },
@@ -809,10 +793,9 @@ const styles = StyleSheet.create({
   },
 
   resultCard: {
-    width: '100%', backgroundColor: '#fff', borderRadius: 20,
+    width: '100%', backgroundColor: Colors.white, borderRadius: 20,
     padding: 20, marginTop: 8,
-    shadowColor: '#0061a2', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.10, shadowRadius: 16, elevation: 5,
+    ...Shadow.md,
   },
   resultTitle: { fontSize: 17, fontWeight: '800', color: '#181c1e', textAlign: 'center', marginBottom: 14 },
   xpBadge: {
@@ -867,11 +850,10 @@ const styles = StyleSheet.create({
   corrigidaText: { fontSize: 16, color: '#14532d', fontWeight: '600', lineHeight: 24, fontStyle: 'italic' },
   praticarBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 7, paddingVertical: 12, borderRadius: 12,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.10, shadowRadius: 4, elevation: 2,
+    gap: 7, paddingVertical: 14, borderRadius: 999,
+    ...Shadow.sm,
   },
-  praticarBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  praticarBtnText: { color: Colors.white, fontWeight: '700', fontSize: 14 },
 
   sinaisCard: {
     backgroundColor: '#fef3ee', borderRadius: 12, padding: 12,
@@ -880,50 +862,25 @@ const styles = StyleSheet.create({
   sinaisText: { fontSize: 13, color: '#9a3412', fontWeight: '600' },
 
   actionBtn: {
-    paddingVertical: 16, borderRadius: 14, alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12, shadowRadius: 6, elevation: 3,
+    paddingVertical: 18, borderRadius: 999, alignItems: 'center',
+    ...Shadow.md,
   },
-  actionBtnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
-  failBlock: { gap: 8 },
+  actionBtnText: { color: Colors.white, fontWeight: '800', fontSize: 16 },
+  failBlock: { gap: 10 },
   failText: { color: '#ef4444', fontSize: 13, fontWeight: '700', textAlign: 'center' },
+  heartLostContainer: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, backgroundColor: '#fef2f2', paddingVertical: 10, borderRadius: 12,
+    borderWidth: 1, borderColor: '#fecaca', marginBottom: 2,
+  },
+  heartLostText: { color: '#dc2626', fontSize: 13, fontWeight: '700' },
+  retryBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, paddingVertical: 18, borderRadius: 999,
+    backgroundColor: '#fef2f2',
+    borderWidth: 2, borderColor: '#fca5a5',
+  },
+  retryBtnText: { color: '#ef4444', fontWeight: '700', fontSize: 15 },
 
-  completionOverlay: {
-    ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.65)',
-    justifyContent: 'center', alignItems: 'center',
-    paddingHorizontal: 28, zIndex: 100,
-  },
-  completionCard: {
-    width: '100%', backgroundColor: '#fff',
-    borderRadius: 28, padding: 32,
-    alignItems: 'center', gap: 12,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 16 },
-    shadowOpacity: 0.25, shadowRadius: 32, elevation: 20,
-  },
-  completionIconRing: {
-    width: 104, height: 104, borderRadius: 52,
-    borderWidth: 2, justifyContent: 'center', alignItems: 'center',
-    marginBottom: 4,
-  },
-  completionIconCircle: {
-    width: 84, height: 84, borderRadius: 42,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  completionTitle: {
-    fontSize: 26, fontWeight: '800', color: '#181c1e',
-    textAlign: 'center', letterSpacing: -0.4, lineHeight: 32,
-  },
-  completionSub: {
-    fontSize: 14, color: '#707883', textAlign: 'center',
-    lineHeight: 20, fontWeight: '500',
-  },
-  completionStars: { flexDirection: 'row', gap: 6, marginVertical: 4 },
-  completionBtn: {
-    width: '100%', paddingVertical: 16,
-    borderRadius: 999, alignItems: 'center', marginTop: 8,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25, shadowRadius: 10, elevation: 6,
-  },
-  completionBtnText: { color: '#fff', fontWeight: '800', fontSize: 16, letterSpacing: 0.2 },
+
 });

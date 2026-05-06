@@ -279,13 +279,14 @@ async def obter_ranking(limite: int = 10):
     )
     prog_rows = prog_response.data or []
 
-    # Busca nomes dos usuários
+    # Busca nomes e avatares dos usuários
     usuarios_response = (
         supabase.table("usuarios")
-        .select("id, nome")
+        .select("id, nome, avatar_id")
         .execute()
     )
-    nomes = {u["id"]: u["nome"] for u in (usuarios_response.data or [])}
+    nomes    = {u["id"]: u["nome"]            for u in (usuarios_response.data or [])}
+    avatares = {u["id"]: u.get("avatar_id")   for u in (usuarios_response.data or [])}
 
     # ── XP por usuário ────────────────────────────────────────────
     XP_SESSAO   = 10
@@ -336,10 +337,11 @@ async def obter_ranking(limite: int = 10):
                         break
 
         ranking_bruto.append({
-            "usuario_id":  uid,
-            "nome":        nomes.get(uid, "Usuário"),
-            "xp_total":    xp,
+            "usuario_id":   uid,
+            "nome":         nomes.get(uid, "Usuário"),
+            "xp_total":     xp,
             "streak_atual": streak,
+            "avatar_id":    avatares.get(uid),
         })
 
     # ── Ordenar e paginar ─────────────────────────────────────────
