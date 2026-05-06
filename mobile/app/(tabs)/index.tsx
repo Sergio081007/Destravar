@@ -271,11 +271,11 @@ export default function DesafiosTab() {
                 )}
 
                 <TouchableOpacity
-                  disabled={!canTap}
+                  disabled={!canTap || isCompleted}
                   activeOpacity={0.8}
                   onPress={() => router.push({
-                    pathname: isCompleted ? '/treinar' : '/desafio',
-                    params: { dificuldade: node.dif, ...(isCompleted && { replay: 'true' }) },
+                    pathname: '/desafio',
+                    params: { dificuldade: node.dif },
                   })}
                   style={{ transform: [{ translateX: node.offset }], alignItems: 'center' }}
                 >

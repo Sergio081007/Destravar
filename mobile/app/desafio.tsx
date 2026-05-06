@@ -17,12 +17,15 @@ const SCREEN_W = Dimensions.get('window').width;
 export default function Desafio() {
   const router = useRouter();
   const navigation = useNavigation();
-  const { dificuldade: rawDiff } = useLocalSearchParams<{ dificuldade: string }>();
+  const { dificuldade: rawDiff, startAt } = useLocalSearchParams<{ dificuldade: string, startAt?: string }>();
   const dificuldade = rawDiff || 'facil';
   const c1 = '#0061a2';
 
-  const [phase, setPhase] = useState<'breathing' | 'speech' | 'smoothing'>('breathing');
+  const [phase, setPhase] = useState<'breathing' | 'speech' | 'smoothing'>(
+    startAt === 'speech' ? 'speech' : 'breathing'
+  );
   const [showExitModal, setShowExitModal] = useState(false);
+  const [allowExit, setAllowExit] = useState(false);
   const pendingExitAction = useRef<any>(null);
 
   const { slideX, checkScale, completeAndAdvance } = useExerciseTransition();
@@ -30,12 +33,20 @@ export default function Desafio() {
   // Intercepta hardware back / gesto de swipe — o modal de saída fica aqui
   useEffect(() => {
     const unsubscribe = (navigation as any).addListener('beforeRemove', (e: any) => {
+      if (allowExit) return;
       e.preventDefault();
       pendingExitAction.current = e.data.action;
       setShowExitModal(true);
     });
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, allowExit]);
+
+  // Se o usuário entrou no modo Replay (startAt === 'speech'), desloca a tela inicial
+  useEffect(() => {
+    if (startAt === 'speech') {
+      slideX.value = -SCREEN_W;
+    }
+  }, [startAt]);
 
   // Slide: breathing vai para -SCREEN_W, speech entra de +SCREEN_W
   const breathStyle = useAnimatedStyle(() => ({
@@ -43,6 +54,9 @@ export default function Desafio() {
   }));
   const speechStyle = useAnimatedStyle(() => ({
     transform: [{ translateX: slideX.value + SCREEN_W }],
+  }));
+  const smoothingStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: slideX.value + SCREEN_W * 2 }],
   }));
 
   function handleBreathingComplete() {
@@ -89,11 +103,15 @@ export default function Desafio() {
           )}
         </Animated.View>
 
-        <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ translateX: slideX.value + SCREEN_W * 2 }] }]}>
+        <Animated.View style={[StyleSheet.absoluteFill, smoothingStyle]}>
           {phase === 'smoothing' && (
             <Exercicio3
               dificuldade={dificuldade}
               onExit={() => setShowExitModal(true)}
+              onFinalExit={() => {
+                setAllowExit(true);
+                setTimeout(() => router.replace('/(tabs)'), 0);
+              }}
             />
           )}
         </Animated.View>

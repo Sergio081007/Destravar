@@ -51,8 +51,6 @@ export default function HeartLostModal({ visible, heartsLeft, onClose, onExit }:
     }
   }, [visible]);
 
-  if (!visible) return null;
-
   const overlayStyle = useAnimatedStyle(() => ({ opacity: overlayOpacity.value }));
   const cardStyle = useAnimatedStyle(() => ({
     opacity: overlayOpacity.value,
@@ -65,6 +63,8 @@ export default function HeartLostModal({ visible, heartsLeft, onClose, onExit }:
     transform: [{ translateX: shakeAnim.value }]
   }));
 
+  if (!visible) return null;
+
   const outOfLives = heartsLeft <= 0;
 
   return (
@@ -73,7 +73,7 @@ export default function HeartLostModal({ visible, heartsLeft, onClose, onExit }:
         
         <View style={styles.iconRing}>
           <View style={styles.iconCircle}>
-            <Ionicons name="warning" size={40} color="#ea580c" />
+            <Ionicons name="warning" size={40} color="#ef4444" />
           </View>
         </View>
 
@@ -160,13 +160,13 @@ const styles = StyleSheet.create({
   },
   iconRing: {
     width: 90, height: 90, borderRadius: 45,
-    backgroundColor: '#ffedd5',
+    backgroundColor: '#fee2e2',
     justifyContent: 'center', alignItems: 'center',
     marginBottom: 20,
   },
   iconCircle: {
     width: 70, height: 70, borderRadius: 35,
-    backgroundColor: '#fdba74',
+    backgroundColor: '#fca5a5',
     justifyContent: 'center', alignItems: 'center',
   },
   title: {
@@ -209,8 +209,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   btnContinue: {
-    backgroundColor: '#ea580c',
-    shadowColor: '#ea580c',
+    backgroundColor: '#ef4444',
+    shadowColor: '#ef4444',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

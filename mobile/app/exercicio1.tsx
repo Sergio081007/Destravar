@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing } from 'reac
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import ConfirmExitModal from './components/ConfirmExitModal';
+import { Colors, Shadow } from './theme';
 
 // Fases: dur em ms, toRadius em px, colorIdx mapeia para PHASE_COLORS
 const PHASES = [
@@ -34,7 +35,6 @@ export default function BreathingExercise({ onComplete, isPanel }: Props) {
   const navigation = useNavigation();
   const { dificuldade: rawDiff } = useLocalSearchParams<{ dificuldade: string }>();
   const dificuldade = rawDiff || 'facil';
-  const c1 = '#0061a2';
 
   const [phaseIdx, setPhaseIdx]             = useState(-1);   // -1 = idle
   const [timeLeft, setTimeLeft]             = useState(4);
@@ -180,44 +180,7 @@ export default function BreathingExercise({ onComplete, isPanel }: Props) {
 
   return (
     <View style={styles.root}>
-
-      {/* Header e indicador de etapas — ocultados quando renderizado como painel */}
-      {!isPanel && (
-        <>
-          <View style={styles.header}>
-            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-              <Ionicons name="arrow-back" size={20} color={c1} />
-            </TouchableOpacity>
-            <View style={styles.headerMid}>
-              <Text style={styles.headerTitle}>Respiração Guiada</Text>
-              <Text style={[styles.headerSub, { color: c1 }]}>ETAPA 1 · {(LEVEL_LABELS[dificuldade] || 'Fácil').toUpperCase()}</Text>
-            </View>
-            {running ? (
-              <View style={[styles.cycleTag, { backgroundColor: c1 + '18' }]}>
-                <Text style={[styles.cycleTagText, { color: c1 }]}>Ciclo {cycle} / 3</Text>
-              </View>
-            ) : (
-              <View style={{ width: 60 }} />
-            )}
-          </View>
-
-          <View style={styles.stepRow}>
-            <View style={styles.stepItem}>
-              <View style={[styles.stepCircle, { backgroundColor: c1 }]}>
-                <Text style={styles.stepNum}>1</Text>
-              </View>
-              <Text style={[styles.stepLabel, { color: c1 }]}>Respiração</Text>
-            </View>
-            <View style={styles.stepLine} />
-            <View style={styles.stepItem}>
-              <View style={[styles.stepCircle, styles.stepInactive]}>
-                <Text style={[styles.stepNum, { color: '#9ca3af' }]}>2</Text>
-              </View>
-              <Text style={[styles.stepLabel, { color: '#9ca3af' }]}>Exercício</Text>
-            </View>
-          </View>
-        </>
-      )}
+      {/* Área central do círculo */}
 
       {/* Área central do círculo */}
       <View style={styles.circleArea}>
@@ -247,7 +210,7 @@ export default function BreathingExercise({ onComplete, isPanel }: Props) {
           <>
             <Text style={styles.phaseLabel}>{currentPhase.label}</Text>
             <Text style={styles.phaseSub}>{currentPhase.sub}</Text>
-            <Text style={[styles.countdown, { color: c1 }]}>{timeLeft}</Text>
+            <Text style={[styles.countdown, { color: Colors.primary }]}>{timeLeft}</Text>
           </>
         ) : done ? (
           <>
@@ -256,9 +219,9 @@ export default function BreathingExercise({ onComplete, isPanel }: Props) {
           </>
         ) : (
           <>
-            <Text style={styles.phaseLabel}>Primeiro, respire</Text>
-            <Text style={styles.phaseSub}>Relaxe os ombros e siga o ritmo do círculo.</Text>
-            <Text style={styles.suggestion}>Complete 3 respirações para avançar</Text>
+            <Text style={styles.phaseLabel}>Respiração Guiada</Text>
+            <Text style={styles.phaseSub}>Inspire quando o círculo crescer e expire quando ele diminuir.</Text>
+            <Text style={styles.suggestion}>Complete 3 ciclos para avançar</Text>
           </>
         )}
       </View>
@@ -266,11 +229,11 @@ export default function BreathingExercise({ onComplete, isPanel }: Props) {
       {/* Botões */}
       <View style={styles.actions}>
         {done ? (
-          <TouchableOpacity style={[styles.btnPrimary, { backgroundColor: c1, shadowColor: c1 }]} onPress={goToNextExercise} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.btnPrimary} onPress={goToNextExercise} activeOpacity={0.8}>
             <Text style={styles.btnPrimaryText}>Próximo exercício →</Text>
           </TouchableOpacity>
         ) : !running ? (
-          <TouchableOpacity style={[styles.btnPrimary, { backgroundColor: c1, shadowColor: c1 }]} onPress={handleStart} activeOpacity={0.8}>
+          <TouchableOpacity style={styles.btnPrimary} onPress={handleStart} activeOpacity={0.8}>
             <Text style={styles.btnPrimaryText}>Começar</Text>
           </TouchableOpacity>
         ) : (
@@ -299,49 +262,35 @@ export default function BreathingExercise({ onComplete, isPanel }: Props) {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#f7fafd',
+    backgroundColor: Colors.surface,
   },
 
-  // ── Header ────────────────────────────────────────────────────────
-  header: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingTop: 54, paddingBottom: 14, paddingHorizontal: 20,
-    backgroundColor: '#fff',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05, shadowRadius: 8, elevation: 3,
+  // ── Header Padronizado ──────────────────────────────────────────────
+  headerArea: {
+    alignItems: 'center',
+    marginTop: 20,
+    marginBottom: 10,
   },
-  backBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: '#f7fafd',
-    justifyContent: 'center', alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.07, shadowRadius: 4, elevation: 2,
+  superTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: Colors.gray,
+    letterSpacing: 1.5,
+    marginBottom: 8,
   },
-  headerMid: { flex: 1, alignItems: 'center', gap: 3 },
-  headerTitle: { fontSize: 15, fontWeight: '700', color: '#181c1e', letterSpacing: 0.2 },
-  headerSub:   { fontSize: 10, fontWeight: '800', color: '#0061a2', letterSpacing: 1.2 },
-  cycleTag: {
-    backgroundColor: '#eff6ff', borderRadius: 12,
-    paddingHorizontal: 10, paddingVertical: 4,
+  title: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: Colors.dark,
+    textAlign: 'center',
+    marginBottom: 8,
   },
-  cycleTagText: { fontSize: 11, fontWeight: '700', color: '#0061a2', letterSpacing: 0.5 },
-
-  // ── Indicador de etapas ────────────────────────────────────────────
-  stepRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    paddingVertical: 12, paddingHorizontal: 60,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1, borderBottomColor: '#f0f2f4',
+  subtitle: {
+    fontSize: 15,
+    color: Colors.outline,
+    textAlign: 'center',
+    lineHeight: 22,
   },
-  stepItem: { alignItems: 'center', gap: 4 },
-  stepCircle: {
-    width: 26, height: 26, borderRadius: 13,
-    justifyContent: 'center', alignItems: 'center',
-  },
-  stepInactive: { backgroundColor: '#e5e8eb' },
-  stepNum: { fontSize: 12, fontWeight: '800', color: '#fff' },
-  stepLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.4 },
-  stepLine: { flex: 1, height: 2, backgroundColor: '#e5e8eb', marginHorizontal: 10, marginBottom: 14 },
 
   // ── Círculo ────────────────────────────────────────────────────────
   circleArea: {
@@ -368,14 +317,14 @@ const styles = StyleSheet.create({
   phaseLabel: {
     fontSize: 36,
     fontWeight: '300',
-    color: '#181c1e',
+    color: Colors.dark,
     letterSpacing: 1,
     textAlign: 'center',
   },
   phaseSub: {
     fontSize: 14,
     fontWeight: '400',
-    color: '#404751',
+    color: Colors.onSurfaceVariant,
     textAlign: 'center',
     lineHeight: 20,
   },
@@ -388,7 +337,7 @@ const styles = StyleSheet.create({
   },
   suggestion: {
     fontSize: 12,
-    color: '#9ca3af',
+    color: Colors.gray,
     fontWeight: '500',
     marginTop: 4,
   },
@@ -399,35 +348,34 @@ const styles = StyleSheet.create({
     paddingBottom: 48,
   },
   btnPrimary: {
-    backgroundColor: '#0061a2',
-    paddingVertical: 16,
+    backgroundColor: Colors.primary,
+    paddingVertical: 18,
     borderRadius: 999,
     alignItems: 'center',
-    shadowColor: '#0061a2', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25, shadowRadius: 8, elevation: 4,
+    ...Shadow.md,
   },
   btnPrimaryText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '700',
+    color: Colors.white,
+    fontSize: 16,
+    fontWeight: '800',
     letterSpacing: 0.3,
   },
   btnComplete: {
-    paddingVertical: 16,
+    paddingVertical: 18,
     borderRadius: 999,
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#e5e8eb',
-    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: Colors.surfaceVariant,
+    backgroundColor: Colors.white,
   },
   btnCompleteActive: {
     backgroundColor: '#f0fdf4',
     borderColor: '#34d399',
   },
   btnCompleteText: {
-    color: '#9ca3af',
-    fontSize: 15,
-    fontWeight: '600',
+    color: Colors.gray,
+    fontSize: 16,
+    fontWeight: '800',
     letterSpacing: 0.3,
   },
   btnCompleteTextActive: {

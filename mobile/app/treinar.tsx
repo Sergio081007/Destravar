@@ -12,6 +12,7 @@ import { addXP, updateStreak, getLevelProgress, incrementLevelProgress, getUserI
 import { API_BASE_URL } from './config';
 import ConfirmExitModal from './components/ConfirmExitModal';
 import HeartLostModal from './components/HeartLostModal';
+import { Colors, Shadow } from './theme';
 
 
 
@@ -33,8 +34,6 @@ export default function Treinar({ isPanel, onExit, onComplete }: Props) {
   const { dificuldade: rawDiff, replay } = useLocalSearchParams<{ dificuldade: string; replay: string }>();
   const dificuldade = (rawDiff as string) || 'facil';
   const isReplay = replay === 'true';
-  const c1 = '#0061a2';
-  const c2 = '#4da9ff';
 
   const [permissionResponse, requestPermission] = Audio.usePermissions();
   const [isRecording, setIsRecording] = useState(false);
@@ -136,6 +135,15 @@ export default function Treinar({ isPanel, onExit, onComplete }: Props) {
     }
   }, [seconds]);
 
+  const FALLBACKS = [
+    "Como foi o seu dia hoje?",
+    "Qual é a sua comida favorita e por quê?",
+    "O que você gosta de fazer no tempo livre?",
+    "Conte sobre um lugar que você gostaria de visitar.",
+    "Qual foi o melhor filme ou série que você assistiu recentemente?",
+    "Se você pudesse ter um superpoder, qual seria?"
+  ];
+
   const fetchPergunta = async () => {
     setTextoTreino('Carregando pergunta...');
     setTranscriptionResult(null);
@@ -149,12 +157,15 @@ export default function Treinar({ isPanel, onExit, onComplete }: Props) {
       });
       if (res.ok) {
         const data = await res.json();
-        setTextoTreino(data.pergunta || data.conteudo || 'Como foi o seu dia?');
+        setTextoTreino(data.pergunta || data.conteudo || FALLBACKS[0]);
       } else {
         throw new Error(`HTTP ${res.status}`);
       }
     } catch {
-      setTextoTreino('Como foi o seu dia hoje?');
+      // Rotaciona as perguntas baseado no número de fases que já passou!
+      const progressObj = await getLevelProgress();
+      const progress = progressObj[dificuldade as keyof typeof progressObj] || 0;
+      setTextoTreino(FALLBACKS[progress % FALLBACKS.length]);
     }
   };
 
@@ -311,6 +322,11 @@ export default function Treinar({ isPanel, onExit, onComplete }: Props) {
     }
 
     if (consecutivePasses.current >= 2 || totalAttempts.current >= 5) {
+      if (sessionXpRef.current > 0) {
+        await addXP(sessionXpRef.current);
+        sessionXpRef.current = 0;
+      }
+
       if (onComplete) {
         onComplete();
       } else {
@@ -358,7 +374,11 @@ export default function Treinar({ isPanel, onExit, onComplete }: Props) {
 
   const evalResult = getPassed();
 
-  const handleExit = () => {
+  const handleExit = async () => {
+    if (sessionXpRef.current > 0) {
+      await addXP(sessionXpRef.current);
+      sessionXpRef.current = 0;
+    }
     if (isPanel && onExit) {
       onExit();
     } else {
@@ -369,48 +389,23 @@ export default function Treinar({ isPanel, onExit, onComplete }: Props) {
 
   return (
     <View style={styles.root}>
-      {/* Header e indicador de etapas — ocultados quando renderizado como painel */}
       {!isPanel && (
-        <>
-          <View style={styles.header}>
-            <TouchableOpacity
-              onPress={() => modo === 'praticar' ? fetchPergunta() : router.back()}
-              style={styles.backBtn}
-            >
-              <Ionicons name="arrow-back" size={22} color={c1} />
-            </TouchableOpacity>
-            <View style={styles.headerMid}>
-              <Text style={styles.headerTitle}>
-                {modo === 'pergunta' ? 'Resposta Livre' : 'Pratique a Frase'}
-              </Text>
-              <View style={[styles.levelBadge, { backgroundColor: c1 + '18' }]}>
-                <Text style={[styles.levelBadgeText, { color: c1 }]}>
-                  ETAPA 2 · {LEVEL_LABELS[dificuldade].toUpperCase()}
-                </Text>
-              </View>
-            </View>
-            <View style={{ width: 38 }} />
-          </View>
-
-          <View style={styles.stepRow}>
-            <View style={styles.stepItem}>
-              <View style={[styles.stepCircle, { backgroundColor: '#16a34a' }]}>
-                <Ionicons name="checkmark" size={13} color="#fff" />
-              </View>
-              <Text style={[styles.stepLabel, { color: '#16a34a' }]}>Respiração</Text>
-            </View>
-            <View style={styles.stepLine} />
-            <View style={styles.stepItem}>
-              <View style={[styles.stepCircle, { backgroundColor: c1 }]}>
-                <Text style={styles.stepNum}>2</Text>
-              </View>
-              <Text style={[styles.stepLabel, { color: c1 }]}>Exercício</Text>
-            </View>
-          </View>
-        </>
+        <View style={styles.standaloneHeader}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.standaloneBackBtn}>
+            <Ionicons name="arrow-back" size={24} color={Colors.primary} />
+          </TouchableOpacity>
+          <Text style={styles.standaloneTitle}>Treinamento Livre</Text>
+        </View>
       )}
 
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        
+        {/* Header Padronizado */}
+        <View style={styles.headerArea}>
+          <Text style={styles.superTitle}>DESAFIO DE RITMO</Text>
+          <Text style={styles.title}>Controle de Velocidade</Text>
+          <Text style={styles.subtitle}>Fale a resposta da pergunta de forma clara e rítmica.</Text>
+        </View>
         {!transcriptionResult && (
           <View style={styles.mascotPreCard}>
             <View style={[styles.mascotIconWrap, { backgroundColor: '#dd962b18' }]}>
@@ -430,8 +425,8 @@ export default function Treinar({ isPanel, onExit, onComplete }: Props) {
         {/* Pergunta / frase card */}
         <View style={styles.phraseCard}>
           <View style={styles.phraseCardTop}>
-            <View style={[styles.phraseBadge, { backgroundColor: c1 + '18' }]}>
-              <Text style={[styles.phraseBadgeText, { color: c1 }]}>
+            <View style={[styles.phraseBadge, { backgroundColor: Colors.primary + '18' }]}>
+              <Text style={[styles.phraseBadgeText, { color: Colors.primary }]}>
                 {modo === 'pergunta' ? 'PERGUNTA' : 'PARA REPETIR'}
               </Text>
             </View>
@@ -440,7 +435,7 @@ export default function Treinar({ isPanel, onExit, onComplete }: Props) {
             </Text>
           </View>
           <View style={styles.phraseBox}>
-            <Text style={[styles.phraseText, { color: c1 }]}>"{textoTreino}"</Text>
+            <Text style={[styles.phraseText, { color: Colors.primary }]}>"{textoTreino}"</Text>
           </View>
           <View style={styles.breathHint}>
             <Ionicons name={modo === 'pergunta' ? 'time-outline' : 'leaf-outline'} size={14} color="#845400" />
@@ -465,8 +460,8 @@ export default function Treinar({ isPanel, onExit, onComplete }: Props) {
             <View style={styles.recordingArea}>
               {!isRecording && !isTranscribing && (
                 <>
-                  <Animated.View style={[styles.ring2, { borderColor: c2 }, ring2Style]} />
-                  <Animated.View style={[styles.ring1, { borderColor: c1 }, ring1Style]} />
+                  <Animated.View style={[styles.ring2, { borderColor: Colors.primary + '60' }, ring2Style]} />
+                  <Animated.View style={[styles.ring1, { borderColor: Colors.primary }, ring1Style]} />
                 </>
               )}
 
@@ -474,7 +469,7 @@ export default function Treinar({ isPanel, onExit, onComplete }: Props) {
                 <TouchableOpacity
                   style={[
                     styles.micBtn,
-                    { backgroundColor: isRecording ? '#dc2626' : c1, shadowColor: isRecording ? '#dc2626' : c1 },
+                    { backgroundColor: isRecording ? '#dc2626' : Colors.primary, shadowColor: isRecording ? '#dc2626' : Colors.primary },
                   ]}
                   onPress={isRecording ? handleStopPress : handleRecordPress}
                   activeOpacity={0.85}
@@ -486,7 +481,7 @@ export default function Treinar({ isPanel, onExit, onComplete }: Props) {
             </View>
 
             {isTranscribing && (
-              <Text style={[styles.statusText, { color: c1 }]}>Analisando sua voz... ⏳</Text>
+              <Text style={[styles.statusText, { color: Colors.primary }]}>Analisando sua voz... ⏳</Text>
             )}
 
             {!isRecording && !isTranscribing && (
@@ -512,14 +507,14 @@ export default function Treinar({ isPanel, onExit, onComplete }: Props) {
               </View>
             )}
 
-            <View style={[styles.metricsRow, { backgroundColor: c1 + '12' }]}>
+            <View style={[styles.metricsRow, { backgroundColor: Colors.primary + '12' }]}>
               <View style={styles.metricItem}>
-                <Text style={[styles.metricValue, { color: c1 }]}>{transcriptionResult.wpm}</Text>
+                <Text style={[styles.metricValue, { color: Colors.primary }]}>{transcriptionResult.wpm}</Text>
                 <Text style={styles.metricLabel}>RITMO</Text>
               </View>
               <View style={styles.metricDivider} />
               <View style={styles.metricItem}>
-                <Text style={[styles.metricValue, { color: c1 }]}>
+                <Text style={[styles.metricValue, { color: Colors.primary }]}>
                   {modo === 'pergunta'
                     ? `${getTaxaFluencia().toFixed(0)}%`
                     : `${transcriptionResult.score !== undefined
@@ -532,7 +527,7 @@ export default function Treinar({ isPanel, onExit, onComplete }: Props) {
               </View>
               <View style={styles.metricDivider} />
               <View style={styles.metricItem}>
-                <Text style={[styles.metricValue, { color: c1 }]}>{transcriptionResult.duracao_segundos}s</Text>
+                <Text style={[styles.metricValue, { color: Colors.primary }]}>{transcriptionResult.duracao_segundos}s</Text>
                 <Text style={styles.metricLabel}>Duração</Text>
               </View>
             </View>
@@ -551,8 +546,8 @@ export default function Treinar({ isPanel, onExit, onComplete }: Props) {
 
             {/* Seção 1: O que você disse */}
             {transcriptionResult.analise_palavras?.length > 0 && (
-              <View style={[styles.transcriptionBox, { borderLeftColor: c1, backgroundColor: c1 + '0d' }]}>
-                <Text style={[styles.transcriptionTitle, { color: c1 }]}>
+              <View style={[styles.transcriptionBox, { borderLeftColor: Colors.primary, backgroundColor: Colors.primary + '0d' }]}>
+                <Text style={[styles.transcriptionTitle, { color: Colors.primary }]}>
                   {modo === 'pergunta' ? 'O que você disse' : 'Sua leitura'}
                 </Text>
                 <Text style={styles.transcriptionText}>
@@ -620,7 +615,7 @@ export default function Treinar({ isPanel, onExit, onComplete }: Props) {
             )}
 
             {evalResult?.passed ? (
-              <TouchableOpacity style={[styles.actionBtn, { backgroundColor: c1 }]} onPress={handleNext}>
+              <TouchableOpacity style={[styles.actionBtn, { backgroundColor: Colors.primary }]} onPress={handleNext}>
                 <Text style={styles.actionBtnText}>
                   {modo === 'praticar' ? 'Ótimo! Próxima Pergunta →' : 'Próxima Pergunta →'}
                 </Text>
@@ -631,7 +626,7 @@ export default function Treinar({ isPanel, onExit, onComplete }: Props) {
                 
                 {(heartsLeft === null || heartsLeft > 0) ? (
                   <TouchableOpacity style={styles.retryBtn} onPress={handleRetry}>
-                    <Ionicons name="refresh" size={16} color="#b45309" />
+                    <Ionicons name="refresh" size={16} color="#ef4444" />
                     <Text style={styles.retryBtnText}>Tentar Novamente</Text>
                   </TouchableOpacity>
                 ) : (
@@ -673,45 +668,52 @@ export default function Treinar({ isPanel, onExit, onComplete }: Props) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#f7fafd' },
-
-  header: {
+  root: { flex: 1, backgroundColor: Colors.surface },
+  
+  // ── Header Padronizado ──────────────────────────────────────────────
+  standaloneHeader: {
     flexDirection: 'row', alignItems: 'center',
-    paddingTop: 52, paddingBottom: 12, paddingHorizontal: 16,
-    backgroundColor: '#fff',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05, shadowRadius: 8, elevation: 3,
+    paddingTop: 54, paddingBottom: 14, paddingHorizontal: 20,
+    backgroundColor: Colors.white,
+    borderBottomWidth: 1, borderBottomColor: Colors.surfaceVariant,
   },
-  backBtn: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: '#f7fafd',
+  standaloneBackBtn: {
+    width: 40, height: 40, borderRadius: 20,
+    backgroundColor: Colors.surface,
     justifyContent: 'center', alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.07, shadowRadius: 4, elevation: 2,
   },
-  headerMid: { flex: 1, alignItems: 'center', gap: 5 },
-  headerTitle: { fontSize: 15, fontWeight: '700', color: '#181c1e' },
-  levelBadge: { borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 },
-  levelBadgeText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.8 },
+  standaloneTitle: {
+    marginLeft: 16, fontSize: 17, fontWeight: '700', color: Colors.dark,
+  },
 
-  stepRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    paddingVertical: 12, paddingHorizontal: 60,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1, borderBottomColor: '#f0f2f4',
+  headerArea: {
+    alignItems: 'center',
+    marginBottom: 20,
   },
-  stepItem: { alignItems: 'center', gap: 4 },
-  stepCircle: {
-    width: 26, height: 26, borderRadius: 13,
-    justifyContent: 'center', alignItems: 'center',
+  superTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: Colors.gray,
+    letterSpacing: 1.5,
+    marginBottom: 8,
   },
-  stepNum: { fontSize: 12, fontWeight: '800', color: '#fff' },
-  stepLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 0.4 },
-  stepLine: { flex: 1, height: 2, backgroundColor: '#e5e8eb', marginHorizontal: 10, marginBottom: 14 },
+  title: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: Colors.dark,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  subtitle: {
+    fontSize: 15,
+    color: Colors.outline,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
 
   container: {
     flexGrow: 1, alignItems: 'center',
-    paddingHorizontal: 20, paddingTop: 20, paddingBottom: 40,
+    paddingHorizontal: 20, paddingTop: 30, paddingBottom: 40,
   },
 
 
@@ -732,10 +734,9 @@ const styles = StyleSheet.create({
   mascotPreText: { fontSize: 13, color: '#404751', fontWeight: '500', lineHeight: 18 },
 
   phraseCard: {
-    width: '100%', backgroundColor: '#fff',
+    width: '100%', backgroundColor: Colors.white,
     borderRadius: 20, padding: 20, marginBottom: 20,
-    shadowColor: '#0061a2', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08, shadowRadius: 16, elevation: 4,
+    ...Shadow.md,
     gap: 10,
   },
   phraseCardTop: { gap: 6 },
@@ -743,8 +744,8 @@ const styles = StyleSheet.create({
   phraseBadgeText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.6 },
   phraseCardTitle: { fontSize: 14, fontWeight: '700', color: '#404751' },
   phraseBox: {
-    backgroundColor: '#f7fafd', borderRadius: 14, padding: 16,
-    borderWidth: 1, borderColor: '#e5e8eb',
+    backgroundColor: Colors.surface, borderRadius: 14, padding: 16,
+    borderWidth: 1, borderColor: Colors.surfaceVariant,
   },
   phraseText: {
     fontSize: 20, fontWeight: '700',
@@ -778,8 +779,7 @@ const styles = StyleSheet.create({
   micBtn: {
     width: 128, height: 128, borderRadius: 64,
     justifyContent: 'center', alignItems: 'center',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3, shadowRadius: 20, elevation: 12,
+    ...Shadow.lg,
     gap: 4,
   },
   micBtnLabel: { color: '#fff', fontWeight: '800', fontSize: 12, letterSpacing: 0.8 },
@@ -793,10 +793,9 @@ const styles = StyleSheet.create({
   },
 
   resultCard: {
-    width: '100%', backgroundColor: '#fff', borderRadius: 20,
+    width: '100%', backgroundColor: Colors.white, borderRadius: 20,
     padding: 20, marginTop: 8,
-    shadowColor: '#0061a2', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.10, shadowRadius: 16, elevation: 5,
+    ...Shadow.md,
   },
   resultTitle: { fontSize: 17, fontWeight: '800', color: '#181c1e', textAlign: 'center', marginBottom: 14 },
   xpBadge: {
@@ -851,11 +850,10 @@ const styles = StyleSheet.create({
   corrigidaText: { fontSize: 16, color: '#14532d', fontWeight: '600', lineHeight: 24, fontStyle: 'italic' },
   praticarBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 7, paddingVertical: 12, borderRadius: 12,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.10, shadowRadius: 4, elevation: 2,
+    gap: 7, paddingVertical: 14, borderRadius: 999,
+    ...Shadow.sm,
   },
-  praticarBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  praticarBtnText: { color: Colors.white, fontWeight: '700', fontSize: 14 },
 
   sinaisCard: {
     backgroundColor: '#fef3ee', borderRadius: 12, padding: 12,
@@ -864,11 +862,10 @@ const styles = StyleSheet.create({
   sinaisText: { fontSize: 13, color: '#9a3412', fontWeight: '600' },
 
   actionBtn: {
-    paddingVertical: 16, borderRadius: 14, alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12, shadowRadius: 6, elevation: 3,
+    paddingVertical: 18, borderRadius: 999, alignItems: 'center',
+    ...Shadow.md,
   },
-  actionBtnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
+  actionBtnText: { color: Colors.white, fontWeight: '800', fontSize: 16 },
   failBlock: { gap: 10 },
   failText: { color: '#ef4444', fontSize: 13, fontWeight: '700', textAlign: 'center' },
   heartLostContainer: {
@@ -879,11 +876,11 @@ const styles = StyleSheet.create({
   heartLostText: { color: '#dc2626', fontSize: 13, fontWeight: '700' },
   retryBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 8, paddingVertical: 14, borderRadius: 14,
-    backgroundColor: '#fffbeb',
-    borderWidth: 1.5, borderColor: '#f59e0b',
+    gap: 8, paddingVertical: 18, borderRadius: 999,
+    backgroundColor: '#fef2f2',
+    borderWidth: 2, borderColor: '#fca5a5',
   },
-  retryBtnText: { color: '#b45309', fontWeight: '700', fontSize: 15 },
+  retryBtnText: { color: '#ef4444', fontWeight: '700', fontSize: 15 },
 
 
 });
