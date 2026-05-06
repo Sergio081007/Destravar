@@ -19,6 +19,7 @@ CREATE TABLE usuarios (
     id        UUID PRIMARY KEY,
     nome      TEXT NOT NULL,
     email     TEXT UNIQUE,
+    xp        INTEGER DEFAULT 0,
     criado_em TIMESTAMPTZ DEFAULT NOW()
 );
 
