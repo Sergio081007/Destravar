@@ -6,6 +6,7 @@ import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import ChallengeHeader from './components/ChallengeHeader';
 import BreathingExercise from './exercicio1';
 import Treinar from './treinar';
+import Exercicio3 from './exercicio3';
 import ConfirmExitModal from './components/ConfirmExitModal';
 import { useExerciseTransition } from './hooks/useExerciseTransition';
 
@@ -20,11 +21,11 @@ export default function Desafio() {
   const dificuldade = rawDiff || 'facil';
   const c1 = '#0061a2';
 
-  const [phase, setPhase] = useState<'breathing' | 'speech'>('breathing');
+  const [phase, setPhase] = useState<'breathing' | 'speech' | 'smoothing'>('breathing');
   const [showExitModal, setShowExitModal] = useState(false);
   const pendingExitAction = useRef<any>(null);
 
-  const { slideX, checkScale, progressAnim, completeAndAdvance } = useExerciseTransition();
+  const { slideX, checkScale, completeAndAdvance } = useExerciseTransition();
 
   // Intercepta hardware back / gesto de swipe — o modal de saída fica aqui
   useEffect(() => {
@@ -45,7 +46,11 @@ export default function Desafio() {
   }));
 
   function handleBreathingComplete() {
-    completeAndAdvance(() => setPhase('speech'));
+    completeAndAdvance(() => setPhase('speech'), 1);
+  }
+
+  function handleSpeechComplete() {
+    completeAndAdvance(() => setPhase('smoothing'), 2);
   }
 
   function handleExit() {
@@ -60,7 +65,6 @@ export default function Desafio() {
         dificuldade={dificuldade}
         c1={c1}
         phase={phase}
-        progressAnim={progressAnim}
         checkScale={checkScale}
         onBack={() => setShowExitModal(true)}
       />
@@ -76,9 +80,19 @@ export default function Desafio() {
 
         <Animated.View style={[StyleSheet.absoluteFill, speechStyle]}>
           {/* Painel montado apenas após a transição para poupar memória */}
-          {phase === 'speech' && (
+          {(phase === 'speech' || phase === 'smoothing') && (
             <Treinar
               isPanel
+              onExit={() => setShowExitModal(true)}
+              onComplete={handleSpeechComplete}
+            />
+          )}
+        </Animated.View>
+
+        <Animated.View style={[StyleSheet.absoluteFill, { transform: [{ translateX: slideX.value + SCREEN_W * 2 }] }]}>
+          {phase === 'smoothing' && (
+            <Exercicio3
+              dificuldade={dificuldade}
               onExit={() => setShowExitModal(true)}
             />
           )}

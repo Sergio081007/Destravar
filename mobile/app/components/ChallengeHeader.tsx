@@ -10,14 +10,14 @@ const LEVEL_LABELS: Record<string, string> = {
 type Props = {
   dificuldade: string;
   c1: string;
-  phase: 'breathing' | 'speech';
-  progressAnim: SharedValue<number>;
+  phase: 'breathing' | 'speech' | 'smoothing';
   checkScale: SharedValue<number>;
   onBack: () => void;
 };
 
-export default function ChallengeHeader({ dificuldade, c1, phase, progressAnim, checkScale, onBack }: Props) {
-  const step1Done = phase === 'speech';
+export default function ChallengeHeader({ dificuldade, c1, phase, checkScale, onBack }: Props) {
+  const step1Done = phase === 'speech' || phase === 'smoothing';
+  const step2Done = phase === 'smoothing';
 
   return (
     <View style={styles.container}>
@@ -53,10 +53,22 @@ export default function ChallengeHeader({ dificuldade, c1, phase, progressAnim, 
 
         {/* Step 2 */}
         <View style={styles.stepItem}>
-          <View style={[styles.stepCircle, phase === 'speech' ? { backgroundColor: c1 } : styles.stepInactive]}>
-            <Text style={[styles.stepNum, phase !== 'speech' && { color: '#9ca3af' }]}>2</Text>
+          <View style={[styles.stepCircle, step2Done ? { backgroundColor: '#16a34a' } : (phase === 'speech' ? { backgroundColor: c1 } : styles.stepInactive)]}>
+            {step2Done
+              ? <Ionicons name="checkmark" size={13} color="#fff" />
+              : <Text style={[styles.stepNum, phase === 'breathing' && { color: '#9ca3af' }]}>2</Text>}
           </View>
-          <Text style={[styles.stepLabel, { color: phase === 'speech' ? c1 : '#9ca3af' }]}>Exercício</Text>
+          <Text style={[styles.stepLabel, { color: step2Done ? '#16a34a' : (phase === 'speech' ? c1 : '#9ca3af') }]}>Velocidade</Text>
+        </View>
+
+        <View style={[styles.stepLine, step2Done && { backgroundColor: '#16a34a' }]} />
+
+        {/* Step 3 */}
+        <View style={styles.stepItem}>
+          <View style={[styles.stepCircle, phase === 'smoothing' ? { backgroundColor: c1 } : styles.stepInactive]}>
+            <Text style={[styles.stepNum, phase !== 'smoothing' && { color: '#9ca3af' }]}>3</Text>
+          </View>
+          <Text style={[styles.stepLabel, { color: phase === 'smoothing' ? c1 : '#9ca3af' }]}>Suavização</Text>
         </View>
       </View>
     </View>
@@ -95,7 +107,7 @@ const styles = StyleSheet.create({
 
   stepRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    paddingVertical: 12, paddingHorizontal: 60,
+    paddingVertical: 12, paddingHorizontal: 20,
     borderTopWidth: 1, borderTopColor: '#f0f2f4',
   },
   stepItem: { alignItems: 'center', gap: 4 },
