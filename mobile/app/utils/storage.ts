@@ -12,6 +12,8 @@ export const STORAGE_KEYS = {
   CALIBRATION: '@destravar_calibration',
   DAILY_XP: '@destravar_daily_xp',
   DAILY_XP_DATE: '@destravar_daily_xp_date',
+  HEARTS: '@destravar_hearts',
+  HEARTS_TIMESTAMPS: '@destravar_hearts_timestamps',
 };
 
 type CalibrationData = {
@@ -228,5 +230,79 @@ export async function incrementLevelProgress(dificuldade: string) {
   } catch (error) {
     console.error("Erro ao incrementar progresso:", error);
     return null;
+  }
+}
+
+// ── Sistema de corações ─────────────────────────────────────────────────────
+
+const MAX_HEARTS = 5;
+const REGEN_INTERVAL_MS = 4 * 60 * 60 * 1000; // 4 horas
+
+export type HeartsState = {
+  hearts: number;
+  nextRegenMs: number | null; // ms até próxima regeneração, ou null se cheio
+};
+
+export async function getHeartsState(): Promise<HeartsState> {
+  try {
+    const now = Date.now();
+    const heartsStr = await AsyncStorage.getItem(STORAGE_KEYS.HEARTS);
+    const tsStr = await AsyncStorage.getItem(STORAGE_KEYS.HEARTS_TIMESTAMPS);
+
+    let hearts = heartsStr !== null ? parseInt(heartsStr, 10) : MAX_HEARTS;
+    let timestamps: number[] = tsStr ? JSON.parse(tsStr) : [];
+
+    // Remove timestamps em excesso (caso de dados corrompidos)
+    const maxMissing = MAX_HEARTS - hearts;
+    if (timestamps.length > maxMissing) timestamps = timestamps.slice(-maxMissing);
+
+    // Regenera corações cujo timer já expirou (timestamps = horário absoluto de regen)
+    let changed = false;
+    const remaining: number[] = [];
+    for (const ts of timestamps) {
+      if (hearts < MAX_HEARTS && now >= ts) {
+        hearts += 1;
+        changed = true;
+      } else {
+        remaining.push(ts);
+      }
+    }
+
+    if (changed) {
+      await AsyncStorage.setItem(STORAGE_KEYS.HEARTS, hearts.toString());
+      await AsyncStorage.setItem(STORAGE_KEYS.HEARTS_TIMESTAMPS, JSON.stringify(remaining));
+      timestamps = remaining;
+    }
+
+    // Próxima regeneração = tempo restante até o próximo timestamp
+    let nextRegenMs: number | null = null;
+    if (hearts < MAX_HEARTS && timestamps.length > 0) {
+      const earliest = Math.min(...timestamps);
+      nextRegenMs = Math.max(0, earliest - now);
+    }
+
+    return { hearts, nextRegenMs };
+  } catch {
+    return { hearts: MAX_HEARTS, nextRegenMs: null };
+  }
+}
+
+export async function loseHeart(): Promise<number> {
+  try {
+    const { hearts } = await getHeartsState();
+    if (hearts <= 0) return 0;
+
+    const newHearts = hearts - 1;
+    const tsStr = await AsyncStorage.getItem(STORAGE_KEYS.HEARTS_TIMESTAMPS);
+    const timestamps: number[] = tsStr ? JSON.parse(tsStr) : [];
+    // Fila: novo coração regenera 4h depois do último agendado (ou agora + 4h)
+    const lastScheduled = timestamps.length > 0 ? Math.max(...timestamps) : Date.now();
+    timestamps.push(Math.max(lastScheduled, Date.now()) + REGEN_INTERVAL_MS);
+
+    await AsyncStorage.setItem(STORAGE_KEYS.HEARTS, newHearts.toString());
+    await AsyncStorage.setItem(STORAGE_KEYS.HEARTS_TIMESTAMPS, JSON.stringify(timestamps));
+    return newHearts;
+  } catch {
+    return MAX_HEARTS;
   }
 }
