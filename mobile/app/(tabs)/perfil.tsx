@@ -7,6 +7,7 @@ import { getProfileData, getUserName, getLevelProgress, clearAllData, getUserCha
 import { supabase } from '../utils/supabase';
 import { calcularNivel } from '../utils/calcularXP';
 import AppHeader from '../components/AppHeader';
+import EditProfileModal from '../components/EditProfileModal';
 
 const CHARS = {
   1: require('../../assets/characters/char1.png'),
@@ -20,13 +21,13 @@ const LEVEL_TITLES = ['', 'Iniciante das Palavras', 'Explorador de Palavras', 'M
 const MOCK_XPS = [2890, 2450, 2100, 1950, 1740, 1600];
 
 const ACHIEVEMENTS = [
-  { id: 'voz',      xp: 1500,  icon: 'mic'        as const, title: 'Primeira Voz',  bg: '#eff6ff', color: '#2563eb' },
-  { id: 'conf',     xp: 3000,  icon: 'chatbubble'  as const, title: 'Confiante',     bg: '#f0fdf4', color: '#16a34a' },
-  { id: 'mestre',   xp: 5000,  icon: 'medal'       as const, title: 'Mestre',        bg: '#fffbeb', color: '#d97706' },
-  { id: 'orador',   xp: 7500,  icon: 'megaphone'   as const, title: 'Avançado',      bg: '#fdf4ff', color: '#9333ea' },
-  { id: 'elite',    xp: 10000, icon: 'star'        as const, title: 'Elite',         bg: '#fff7ed', color: '#ea580c' },
-  { id: 'campeao',  xp: 15000, icon: 'trophy'      as const, title: 'Campeão',       bg: '#fefce8', color: '#ca8a04' },
-  { id: 'lendario', xp: 20000, icon: 'flame'       as const, title: 'Lendário',      bg: '#fef2f2', color: '#dc2626' },
+  { id: 'voz',      xp: 250,   icon: 'mic'        as const, title: 'Primeira Voz',  bg: '#eff6ff', color: '#2563eb' },
+  { id: 'conf',     xp: 500,   icon: 'chatbubble'  as const, title: 'Confiante',     bg: '#f0fdf4', color: '#16a34a' },
+  { id: 'mestre',   xp: 750,   icon: 'medal'       as const, title: 'Mestre',        bg: '#fffbeb', color: '#d97706' },
+  { id: 'orador',   xp: 1000,  icon: 'megaphone'   as const, title: 'Avançado',      bg: '#fdf4ff', color: '#9333ea' },
+  { id: 'elite',    xp: 1250,  icon: 'star'        as const, title: 'Elite',         bg: '#fff7ed', color: '#ea580c' },
+  { id: 'campeao',  xp: 1500,  icon: 'trophy'      as const, title: 'Campeão',       bg: '#fefce8', color: '#ca8a04' },
+  { id: 'lendario', xp: 1750,  icon: 'flame'       as const, title: 'Lendário',      bg: '#fef2f2', color: '#dc2626' },
 ];
 
 function getAchievementProgress(xp: number) {
@@ -47,6 +48,7 @@ export default function PerfilTab() {
   const [name, setName]               = useState('Aprendiz');
   const [charIdx, setCharIdx]  = useState<1|2|3|4|5>(1);
   const [showSignOutModal, setShowSignOutModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
   const [progress, setProgress] = useState({
     nivel1_completos: 0, nivel2_completos: 0, nivel3_completos: 0,
   });
@@ -133,7 +135,20 @@ export default function PerfilTab() {
           <Text style={styles.heroName}>{name}</Text>
           <Text style={styles.heroSubtitle}>{subtitle}</Text>
 
-          <TouchableOpacity activeOpacity={0.85} style={styles.editBtnWrap}>
+          {/* Barra de progresso do nível */}
+          <View style={styles.levelProgressWrap}>
+            <View style={styles.levelProgressBg}>
+              <View style={[
+                styles.levelProgressFill, 
+                { width: `${nivel === 5 ? 100 : Math.min(((xp - (nivel === 1 ? 0 : nivel === 2 ? 500 : nivel === 3 ? 1200 : nivel === 4 ? 2500 : 5000)) / ((nivel === 1 ? 500 : nivel === 2 ? 1200 : nivel === 3 ? 2500 : 5000) - (nivel === 1 ? 0 : nivel === 2 ? 500 : nivel === 3 ? 1200 : nivel === 4 ? 2500 : 5000))) * 100, 100)}%` as any }
+              ]} />
+            </View>
+            <Text style={styles.levelProgressText}>
+              {nivel === 5 ? 'Nível Máximo alcançado!' : `${xp} / ${nivel === 1 ? 500 : nivel === 2 ? 1200 : nivel === 3 ? 2500 : 5000} XP`}
+            </Text>
+          </View>
+
+          <TouchableOpacity activeOpacity={0.85} style={styles.editBtnWrap} onPress={() => setShowEditModal(true)}>
             <LinearGradient
               colors={['#0061a2', '#5e41d0']}
               start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
@@ -231,6 +246,18 @@ export default function PerfilTab() {
 
         <View style={{ height: 24 }} />
       </ScrollView>
+
+      <EditProfileModal
+        visible={showEditModal}
+        currentName={name}
+        currentChar={charIdx}
+        onClose={() => setShowEditModal(false)}
+        onSave={(newName, newChar) => {
+          setName(newName);
+          setCharIdx(newChar);
+          setShowEditModal(false);
+        }}
+      />
     </View>
   );
 }
@@ -298,7 +325,12 @@ const styles = StyleSheet.create({
   levelBadgeText: { fontSize: 11, fontWeight: '800', color: '#845400', letterSpacing: 0.5 },
 
   heroName: { fontSize: 22, fontWeight: '800', color: '#181c1e', textAlign: 'center', marginBottom: 4 },
-  heroSubtitle: { fontSize: 14, color: '#707883', textAlign: 'center', marginBottom: 20 },
+  heroSubtitle: { fontSize: 14, color: '#707883', textAlign: 'center', marginBottom: 12 },
+
+  levelProgressWrap: { width: '85%', alignItems: 'center', marginBottom: 20 },
+  levelProgressBg: { width: '100%', height: 8, backgroundColor: '#ebeef1', borderRadius: 4, overflow: 'hidden', marginBottom: 6 },
+  levelProgressFill: { height: '100%', backgroundColor: '#f59e0b', borderRadius: 4 },
+  levelProgressText: { fontSize: 11, fontWeight: '700', color: '#9ca3af' },
 
   editBtnWrap: { borderRadius: 999, overflow: 'hidden', width: '100%' },
   editBtn: { paddingVertical: 14, alignItems: 'center', borderRadius: 999 },
