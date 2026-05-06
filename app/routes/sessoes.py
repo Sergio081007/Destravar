@@ -76,7 +76,7 @@ async def completar_sessao(payload: SessaoCompletar):
 async def registrar_progresso(payload: ProgressoExercicio):
     supabase = get_connection()
 
-    xp_ganho = payload.xp if payload.xp > 0 else round(payload.score * 100)
+    xp_ganho = payload.xp
 
     user_resp = (
         supabase.table("usuarios")

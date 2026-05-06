@@ -3,8 +3,10 @@ import { View, StyleSheet, TouchableOpacity, Text, ScrollView } from 'react-nati
 import Animated, { FadeIn, FadeInDown, SlideInDown, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { addXP, incrementLevelProgress, getLevelProgress } from './utils/storage';
+import { addXP, incrementLevelProgress, getLevelProgress, getUserId } from './utils/storage';
 import { Colors, Shadow } from './theme';
+import { API_BASE_URL } from './config';
+import { supabase } from './utils/supabase';
 
 type Props = {
   dificuldade: string;
@@ -112,12 +114,21 @@ export default function Exercicio3({ dificuldade, onExit, onFinalExit }: Props) 
   };
 
   const finishSession = async () => {
-    // 1. Salvar XP (valor fixo de 50XP pela conclusão da fase inteira)
+    // 1. Salvar XP localmente e sincronizar com o servidor
     await addXP(50);
+    const userId = await getUserId();
+    if (userId) {
+      fetch(`${API_BASE_URL}/progresso/exercicio`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
+        body: JSON.stringify({ usuario_id: userId, dificuldade, score: 1, wpm: 0, xp: 50 }),
+      }).catch(() => {});
+    }
     
-    // 2. Progredir de nível
+    // 2. Progredir de nível e persistir no Supabase Auth
     await incrementLevelProgress(dificuldade);
     const newProgress = await getLevelProgress();
+    supabase.auth.updateUser({ data: { progress: newProgress } }).catch(() => {});
     
     const levelComplete = isLevelComplete(newProgress, dificuldade);
     const nextLevel = getNextLevel(dificuldade);
@@ -274,7 +285,7 @@ export default function Exercicio3({ dificuldade, onExit, onFinalExit }: Props) 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: Colors.surface },
   content: {
-    flex: 1,
+    flexGrow: 1,
     padding: 24,
     justifyContent: 'space-between',
   },

@@ -38,6 +38,14 @@ export async function getCalibration(): Promise<CalibrationData | null> {
   }
 }
 
+export async function setTotalXP(amount: number) {
+  await AsyncStorage.setItem(STORAGE_KEYS.TOTAL_XP, amount.toString());
+}
+
+export async function setLevelProgress(data: object) {
+  await AsyncStorage.setItem(STORAGE_KEYS.PROGRESS, JSON.stringify(data));
+}
+
 export async function addXP(amount: number) {
   try {
     const currentXPStr = await AsyncStorage.getItem(STORAGE_KEYS.TOTAL_XP);

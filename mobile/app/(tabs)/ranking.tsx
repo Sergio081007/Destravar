@@ -125,6 +125,17 @@ export default function RankingTab() {
           const myInits = myName.trim().slice(0, 2).toUpperCase() || 'EU';
           setMyInitials(myInits);
 
+          // Sincroniza XP local → servidor (local é a fonte de verdade)
+          if (userId && myXp > 0) {
+            try {
+              await fetch(`${API_BASE_URL}/usuarios`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
+                body: JSON.stringify({ id: userId, nome: myName, xp: myXp }),
+              });
+            } catch {}
+          }
+
           // Começa com os mocks como base
           let combined: Player[] = [...MOCK_PLAYERS];
 
@@ -135,14 +146,16 @@ export default function RankingTab() {
             });
             if (res.ok) {
               const json = await res.json();
-              const entries: Array<{ usuario_id: string; nome: string; xp: number }> =
+              const entries: Array<{ usuario_id: string; nome: string; xp: number; avatar_id?: number }> =
                 json.ranking ?? json;
               const real: Player[] = entries.map((u, i) => ({
                 name:     u.nome,
                 initials: u.nome.trim().slice(0, 2).toUpperCase() || '??',
                 xp:       u.xp ?? 0,
                 color:    PLAYER_COLORS[i % PLAYER_COLORS.length],
-                char:     !!userId && u.usuario_id === userId ? resolvedMyChar : charFromId(u.usuario_id),
+                char:     !!userId && u.usuario_id === userId
+                  ? resolvedMyChar
+                  : ((u.avatar_id ?? charFromId(u.usuario_id)) as 1|2|3|4|5),
                 isMe:     !!userId && u.usuario_id === userId,
               }));
               // Adiciona reais; remove mock com mesmo nome se conflitar

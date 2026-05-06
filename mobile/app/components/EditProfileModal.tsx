@@ -4,6 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { setUserName, setUserChar } from '../utils/storage';
 import { API_BASE_URL } from '../config';
 import { getUserId } from '../utils/storage';
+import { supabase } from '../utils/supabase';
 
 const CHARS = {
   1: require('../../assets/characters/char1.png'),
@@ -36,24 +37,26 @@ export default function EditProfileModal({ visible, currentName, currentChar, on
   const handleSave = async () => {
     if (!name.trim()) return;
     setSaving(true);
+    const savedName = name.trim();
+    const savedChar = charIdx;
     try {
-      await setUserName(name.trim());
-      await setUserChar(charIdx);
-      
+      await setUserName(savedName);
+      await setUserChar(savedChar);
+
       const userId = await getUserId();
       if (userId) {
-        // Tenta atualizar no backend, mas se falhar não impede o salvamento local
         fetch(`${API_BASE_URL}/usuarios`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
-          body: JSON.stringify({ id: userId, nome: name.trim() })
+          body: JSON.stringify({ id: userId, nome: savedName, avatar_id: savedChar })
         }).catch(() => {});
       }
-      
-      onSave(name.trim(), charIdx);
+      // Persiste char no Supabase Auth para sobreviver ao logout/login
+      supabase.auth.updateUser({ data: { char: savedChar, nome: savedName } }).catch(() => {});
     } finally {
       setSaving(false);
     }
+    onSave(savedName, savedChar);
   };
 
   if (!visible) return null;

@@ -7,7 +7,7 @@ import Svg, { Path, Defs, LinearGradient as SvgLinearGradient, Stop } from 'reac
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { getProfileData, getLevelProgress, getUserName, getUserChar, getHeartsState, loseHeart, addHeart } from '../utils/storage';
+import { getProfileData, getLevelProgress, getUserName, getUserChar, getHeartsState } from '../utils/storage';
 import AppHeader from '../components/AppHeader';
 
 const CHARS = {
@@ -27,6 +27,8 @@ function buildSvgPath(): string {
     x: cx + n.offset,
     y: SVG_PATH_TOP + i * NODE_ROW_H + NODE_ROW_H / 2,
   }));
+  // Ponto extra: centro do card "em breve", sempre ao centro
+  pts.push({ x: cx, y: SVG_PATH_TOP + ACTIVITY_NODES.length * NODE_ROW_H + 72 });
 
   let d = `M ${pts[0].x} ${pts[0].y}`;
   for (let i = 0; i < pts.length - 1; i++) {
@@ -51,7 +53,7 @@ const ACTIVITY_NODES = [
   { id: 'd3', title: 'Mestre Final',        dif: 'dificil', lvl: 2, step: 2, offset:   0, label: undefined },
 ] as const;
 
-type NodeType = 'completed' | 'active' | 'locked' | 'special';
+type NodeType = 'completed' | 'active' | 'locked';
 
 const NODE_ROW_H = 155;
 const SVG_PATH_TOP = 20;
@@ -154,14 +156,14 @@ export default function DesafiosTab() {
   const nodes = ACTIVITY_NODES.map((node, idx): typeof node & { type: NodeType } => {
     const prevDone = node.lvl === 0 ? 3 : counts[node.lvl - 1];
     if (prevDone < 3) {
-      return { ...node, type: idx === ACTIVITY_NODES.length - 1 ? 'special' : 'locked' };
+      return { ...node, type: 'locked' };
     }
     if (node.step < counts[node.lvl]) return { ...node, type: 'completed' };
     if (!activeAssigned) { activeAssigned = true; return { ...node, type: 'active' }; }
     return { ...node, type: 'locked' };
   });
   const svgPath  = buildSvgPath();
-  const svgH     = ACTIVITY_NODES.length * NODE_ROW_H + NODE_ROW_H;
+  const svgH     = ACTIVITY_NODES.length * NODE_ROW_H + NODE_ROW_H + 100;
 
   return (
     <ExpoLinearGradient
@@ -258,7 +260,6 @@ export default function DesafiosTab() {
           {nodes.map((node) => {
             const isActive    = node.type === 'active';
             const isCompleted = node.type === 'completed';
-            const isSpecial   = node.type === 'special';
             const noLives     = isActive && hearts === 0;
             const canTap      = (isActive && hearts > 0) || isCompleted;
 
@@ -279,11 +280,7 @@ export default function DesafiosTab() {
                   })}
                   style={{ transform: [{ translateX: node.offset }], alignItems: 'center' }}
                 >
-                  {isSpecial ? (
-                    <View style={styles.nodeSpecial}>
-                      <Ionicons name="gift-outline" size={32} color="rgba(64,71,81,0.4)" />
-                    </View>
-                  ) : isCompleted ? (
+                  {isCompleted ? (
                     <View style={styles.nodeCompleted}>
                       <Ionicons name="star" size={28} color="#fff" />
                     </View>
@@ -317,6 +314,20 @@ export default function DesafiosTab() {
               </View>
             );
           })}
+        </View>
+
+        {/* Em breve — card ao final do mapa */}
+        <View style={styles.comingSoonCard}>
+          <View style={styles.comingSoonIconWrap}>
+            <Ionicons name="rocket-outline" size={28} color="#5e41d0" />
+          </View>
+          <View style={styles.comingSoonPill}>
+            <Text style={styles.comingSoonPillText}>Em breve</Text>
+          </View>
+          <Text style={styles.comingSoonTitle}>Novas fases chegando!</Text>
+          <Text style={styles.comingSoonSub}>
+            Continue praticando — muito mais está por vir.
+          </Text>
         </View>
 
         <View style={{ height: 110 }} />
@@ -355,32 +366,6 @@ export default function DesafiosTab() {
         </View>
       </View>
 
-      {/* DEBUG: remover em produção */}
-      <View style={styles.debugRow}>
-        <TouchableOpacity
-          style={styles.debugBtn}
-          onPress={async () => {
-            await loseHeart();
-            const h = await getHeartsState();
-            setHearts(h.hearts);
-            setNextRegenAt(h.nextRegenMs !== null ? Date.now() + h.nextRegenMs : null);
-          }}
-        >
-          <Text style={styles.debugBtnText}>−❤️</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.debugBtn, { backgroundColor: '#16a34a' }]}
-          onPress={async () => {
-            await addHeart();
-            const h = await getHeartsState();
-            setHearts(h.hearts);
-            setNextRegenAt(h.nextRegenMs !== null ? Date.now() + h.nextRegenMs : null);
-          }}
-        >
-          <Text style={styles.debugBtnText}>+❤️</Text>
-        </TouchableOpacity>
-      </View>
     </ExpoLinearGradient>
   );
 }
@@ -491,14 +476,6 @@ const styles = StyleSheet.create({
     borderWidth: 4, borderColor: 'rgba(192,199,211,0.6)',
   },
 
-  nodeSpecial: {
-    width: 96, height: 96, borderRadius: 48,
-    backgroundColor: '#f1f4f7',
-    justifyContent: 'center', alignItems: 'center',
-    borderWidth: 4, borderColor: '#c0c7d3',
-    borderStyle: 'dashed',
-  },
-
   statsCard: {
     position: 'absolute',
     left: 20,
@@ -548,16 +525,39 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3, shadowRadius: 14, elevation: 8,
   },
 
-  // DEBUG: remover em produção
-  debugRow: {
-    position: 'absolute', bottom: 110, right: 16,
-    flexDirection: 'row', gap: 8, zIndex: 999, elevation: 20,
+  comingSoonCard: {
+    marginHorizontal: 32,
+    marginTop: 16,
+    padding: 24,
+    borderRadius: 24,
+    backgroundColor: '#ede9ff',
+    borderWidth: 2,
+    borderColor: '#7c5ef0',
+    borderStyle: 'dashed',
+    alignItems: 'center',
+    gap: 8,
+    zIndex: 10,
   },
-  debugBtn: {
-    backgroundColor: '#ba1a1a', borderRadius: 20,
-    paddingHorizontal: 14, paddingVertical: 10,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2, shadowRadius: 8,
+  comingSoonIconWrap: {
+    width: 56, height: 56, borderRadius: 28,
+    backgroundColor: 'rgba(94,65,208,0.1)',
+    justifyContent: 'center', alignItems: 'center',
+    marginBottom: 4,
   },
-  debugBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  comingSoonPill: {
+    backgroundColor: 'rgba(94,65,208,0.12)',
+    borderRadius: 999,
+    paddingHorizontal: 12, paddingVertical: 4,
+  },
+  comingSoonPillText: {
+    fontSize: 11, fontWeight: '700',
+    color: '#5e41d0', textTransform: 'uppercase', letterSpacing: 0.8,
+  },
+  comingSoonTitle: {
+    fontSize: 17, fontWeight: '800', color: '#181c1e', textAlign: 'center',
+  },
+  comingSoonSub: {
+    fontSize: 13, color: '#707883', textAlign: 'center', lineHeight: 19,
+  },
+
 });
