@@ -17,16 +17,6 @@ type Props = {
 };
 
 export default function ChallengeHeader({ dificuldade, c1, phase, progressAnim, checkScale, onBack }: Props) {
-  const progressStyle = useAnimatedStyle(() => ({
-    width: `${interpolate(progressAnim.value, [0, 1], [0, 100])}%`,
-  }));
-
-  // Check pulsante aparece sobre o círculo do step 1 antes do slide
-  const checkStyle = useAnimatedStyle(() => ({
-    opacity: checkScale.value,
-    transform: [{ scale: checkScale.value }],
-  }));
-
   const step1Done = phase === 'speech';
 
   return (
@@ -47,11 +37,6 @@ export default function ChallengeHeader({ dificuldade, c1, phase, progressAnim, 
         <View style={{ width: 36 }} />
       </View>
 
-      {/* Barra de progresso animada — anima de 50% → 100% na conclusão da respiração */}
-      <View style={styles.progressTrack}>
-        <Animated.View style={[styles.progressFill, { backgroundColor: c1 }, progressStyle]} />
-      </View>
-
       {/* Indicador de etapas */}
       <View style={styles.stepRow}>
         {/* Step 1 */}
@@ -62,11 +47,6 @@ export default function ChallengeHeader({ dificuldade, c1, phase, progressAnim, 
               : <Text style={styles.stepNum}>1</Text>}
           </View>
           <Text style={[styles.stepLabel, { color: step1Done ? '#16a34a' : c1 }]}>Respiração</Text>
-
-          {/* Ícone de check que pulsa quando o breathing conclui */}
-          <Animated.View style={[styles.checkBubble, checkStyle]}>
-            <Ionicons name="checkmark-circle" size={22} color="#16a34a" />
-          </Animated.View>
         </View>
 
         <View style={[styles.stepLine, step1Done && { backgroundColor: '#16a34a' }]} />

@@ -11,16 +11,14 @@ import { useExerciseTransition } from './hooks/useExerciseTransition';
 
 const SCREEN_W = Dimensions.get('window').width;
 
-const LEVEL_COLORS: Record<string, string> = {
-  facil: '#0061a2', medio: '#10b981', dificil: '#5e41d0',
-};
+
 
 export default function Desafio() {
   const router = useRouter();
   const navigation = useNavigation();
   const { dificuldade: rawDiff } = useLocalSearchParams<{ dificuldade: string }>();
   const dificuldade = rawDiff || 'facil';
-  const c1 = LEVEL_COLORS[dificuldade] || '#0061a2';
+  const c1 = '#0061a2';
 
   const [phase, setPhase] = useState<'breathing' | 'speech'>('breathing');
   const [showExitModal, setShowExitModal] = useState(false);

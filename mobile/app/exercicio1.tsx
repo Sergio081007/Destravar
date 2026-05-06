@@ -22,9 +22,7 @@ const LEVEL_LABELS: Record<string, string> = {
   facil: 'Fácil', medio: 'Médio', dificil: 'Difícil',
 };
 
-const LEVEL_COLORS: Record<string, string> = {
-  facil: '#0061a2', medio: '#10b981', dificil: '#5e41d0',
-};
+
 
 type Props = {
   onComplete?: () => void;
@@ -36,7 +34,7 @@ export default function BreathingExercise({ onComplete, isPanel }: Props) {
   const navigation = useNavigation();
   const { dificuldade: rawDiff } = useLocalSearchParams<{ dificuldade: string }>();
   const dificuldade = rawDiff || 'facil';
-  const c1 = LEVEL_COLORS[dificuldade] || '#0061a2';
+  const c1 = '#0061a2';
 
   const [phaseIdx, setPhaseIdx]             = useState(-1);   // -1 = idle
   const [timeLeft, setTimeLeft]             = useState(4);
@@ -168,11 +166,14 @@ export default function BreathingExercise({ onComplete, isPanel }: Props) {
     }).start();
     setRunning(false);
     setDone(true);
-    if (onComplete) onComplete();
   }
 
   function goToNextExercise() {
-    router.replace({ pathname: '/treinar', params: { dificuldade } });
+    if (onComplete) {
+      onComplete();
+    } else {
+      router.replace({ pathname: '/treinar', params: { dificuldade } });
+    }
   }
 
   const currentPhase = phaseIdx >= 0 ? PHASES[phaseIdx] : null;

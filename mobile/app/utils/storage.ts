@@ -306,3 +306,24 @@ export async function loseHeart(): Promise<number> {
     return MAX_HEARTS;
   }
 }
+
+export async function addHeart(): Promise<number> {
+  try {
+    const { hearts } = await getHeartsState();
+    if (hearts >= MAX_HEARTS) return MAX_HEARTS;
+
+    const newHearts = hearts + 1;
+    await AsyncStorage.setItem(STORAGE_KEYS.HEARTS, newHearts.toString());
+    
+    const tsStr = await AsyncStorage.getItem(STORAGE_KEYS.HEARTS_TIMESTAMPS);
+    let timestamps: number[] = tsStr ? JSON.parse(tsStr) : [];
+    if (timestamps.length > 0) {
+      timestamps.shift();
+      await AsyncStorage.setItem(STORAGE_KEYS.HEARTS_TIMESTAMPS, JSON.stringify(timestamps));
+    }
+    
+    return newHearts;
+  } catch {
+    return MAX_HEARTS;
+  }
+}

@@ -7,7 +7,7 @@ import Svg, { Path, Defs, LinearGradient as SvgLinearGradient, Stop } from 'reac
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { getProfileData, getLevelProgress, getUserName, getUserChar, getHeartsState, loseHeart } from '../utils/storage';
+import { getProfileData, getLevelProgress, getUserName, getUserChar, getHeartsState, loseHeart, addHeart } from '../utils/storage';
 import AppHeader from '../components/AppHeader';
 
 const CHARS = {
@@ -356,17 +356,31 @@ export default function DesafiosTab() {
       </View>
 
       {/* DEBUG: remover em produção */}
-      <TouchableOpacity
-        style={styles.debugBtn}
-        onPress={async () => {
-          await loseHeart();
-          const h = await getHeartsState();
-          setHearts(h.hearts);
-          setNextRegenAt(h.nextRegenMs !== null ? Date.now() + h.nextRegenMs : null);
-        }}
-      >
-        <Text style={styles.debugBtnText}>−❤️ Erro (teste)</Text>
-      </TouchableOpacity>
+      <View style={styles.debugRow}>
+        <TouchableOpacity
+          style={styles.debugBtn}
+          onPress={async () => {
+            await loseHeart();
+            const h = await getHeartsState();
+            setHearts(h.hearts);
+            setNextRegenAt(h.nextRegenMs !== null ? Date.now() + h.nextRegenMs : null);
+          }}
+        >
+          <Text style={styles.debugBtnText}>−❤️</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.debugBtn, { backgroundColor: '#16a34a' }]}
+          onPress={async () => {
+            await addHeart();
+            const h = await getHeartsState();
+            setHearts(h.hearts);
+            setNextRegenAt(h.nextRegenMs !== null ? Date.now() + h.nextRegenMs : null);
+          }}
+        >
+          <Text style={styles.debugBtnText}>+❤️</Text>
+        </TouchableOpacity>
+      </View>
     </ExpoLinearGradient>
   );
 }
@@ -535,13 +549,15 @@ const styles = StyleSheet.create({
   },
 
   // DEBUG: remover em produção
-  debugBtn: {
+  debugRow: {
     position: 'absolute', bottom: 110, right: 16,
+    flexDirection: 'row', gap: 8, zIndex: 999, elevation: 20,
+  },
+  debugBtn: {
     backgroundColor: '#ba1a1a', borderRadius: 20,
     paddingHorizontal: 14, paddingVertical: 10,
-    zIndex: 999, elevation: 20,
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2, shadowRadius: 8,
   },
-  debugBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
+  debugBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 });

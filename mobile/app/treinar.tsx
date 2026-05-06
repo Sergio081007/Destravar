@@ -8,15 +8,12 @@ import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { calcularXP } from './utils/calcularXP';
-import { addXP, updateStreak, getLevelProgress, incrementLevelProgress, getUserId, getCalibration, loseHeart } from './utils/storage';
+import { addXP, updateStreak, getLevelProgress, incrementLevelProgress, getUserId, getCalibration, loseHeart, getHeartsState } from './utils/storage';
 import { API_BASE_URL } from './config';
 import ConfirmExitModal from './components/ConfirmExitModal';
+import HeartLostModal from './components/HeartLostModal';
 
-const LEVEL_COLORS: Record<string, readonly [string, string]> = {
-  facil:   ['#0061a2', '#4da9ff'],
-  medio:   ['#10b981', '#34d399'],
-  dificil: ['#5e41d0', '#8b5cf6'],
-};
+
 
 const LEVEL_LABELS: Record<string, string> = {
   facil: 'Fácil', medio: 'Médio', dificil: 'Difícil',
@@ -35,7 +32,8 @@ export default function Treinar({ isPanel, onExit }: Props) {
   const { dificuldade: rawDiff, replay } = useLocalSearchParams<{ dificuldade: string; replay: string }>();
   const dificuldade = (rawDiff as string) || 'facil';
   const isReplay = replay === 'true';
-  const [c1, c2] = LEVEL_COLORS[dificuldade] || LEVEL_COLORS.facil;
+  const c1 = '#0061a2';
+  const c2 = '#4da9ff';
 
   const [permissionResponse, requestPermission] = Audio.usePermissions();
   const [isRecording, setIsRecording] = useState(false);
@@ -55,6 +53,8 @@ export default function Treinar({ isPanel, onExit }: Props) {
   const [userId, setUserId] = useState<string | null>(null);
   const [calibration, setCalibration] = useState<any>(null);
   const [showExitModal, setShowExitModal] = useState(false);
+  const [heartsLeft, setHeartsLeft] = useState<number | null>(null);
+  const [showHeartLost, setShowHeartLost] = useState(false);
   const pendingExitAction = useRef<any>(null);
   const skipExitGuard    = useRef(false);
   const questionsAnswered = useRef(0);
@@ -107,6 +107,7 @@ export default function Treinar({ isPanel, onExit }: Props) {
     getLevelProgress().then(setLevelProgress);
     getUserId().then(setUserId);
     getCalibration().then(setCalibration);
+    getHeartsState().then(s => setHeartsLeft(s.hearts));
     fetchPergunta();
     requestPermission();
   }, []);
@@ -255,7 +256,13 @@ export default function Treinar({ isPanel, onExit }: Props) {
           await updateStreak();
         }
 
-        if (modo === 'pergunta' && !passed) await loseHeart();
+        if (modo === 'pergunta' && !passed) {
+          const remHearts = await loseHeart();
+          setHeartsLeft(remHearts);
+          setShowHeartLost(true);
+        } else {
+          setShowHeartLost(false);
+        }
 
         setTranscriptionResult(data);
       } else {
@@ -637,10 +644,18 @@ export default function Treinar({ isPanel, onExit }: Props) {
             ) : (
               <View style={styles.failBlock}>
                 <Text style={styles.failText}>⚠️ {evalResult?.msg}</Text>
-                <TouchableOpacity style={styles.retryBtn} onPress={handleRetry}>
-                  <Ionicons name="refresh" size={16} color="#b45309" />
-                  <Text style={styles.retryBtnText}>Tentar Novamente</Text>
-                </TouchableOpacity>
+                
+                {(heartsLeft === null || heartsLeft > 0) ? (
+                  <TouchableOpacity style={styles.retryBtn} onPress={handleRetry}>
+                    <Ionicons name="refresh" size={16} color="#b45309" />
+                    <Text style={styles.retryBtnText}>Tentar Novamente</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <TouchableOpacity style={[styles.retryBtn, { backgroundColor: '#f3f4f6', borderColor: '#d1d5db' }]} onPress={handleExit}>
+                    <Ionicons name="exit-outline" size={16} color="#6b7280" />
+                    <Text style={[styles.retryBtnText, { color: '#6b7280' }]}>Sair (Sem vidas)</Text>
+                  </TouchableOpacity>
+                )}
               </View>
             )}
           </View>
@@ -707,6 +722,15 @@ export default function Treinar({ isPanel, onExit }: Props) {
             </TouchableOpacity>
           </Animated.View>
         </Animated.View>
+      )}
+
+      {heartsLeft !== null && (
+        <HeartLostModal
+          visible={showHeartLost}
+          heartsLeft={heartsLeft}
+          onClose={() => setShowHeartLost(false)}
+          onExit={handleExit}
+        />
       )}
     </View>
   );
@@ -911,6 +935,12 @@ const styles = StyleSheet.create({
   actionBtnText: { color: '#fff', fontWeight: '800', fontSize: 16 },
   failBlock: { gap: 10 },
   failText: { color: '#ef4444', fontSize: 13, fontWeight: '700', textAlign: 'center' },
+  heartLostContainer: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 6, backgroundColor: '#fef2f2', paddingVertical: 10, borderRadius: 12,
+    borderWidth: 1, borderColor: '#fecaca', marginBottom: 2,
+  },
+  heartLostText: { color: '#dc2626', fontSize: 13, fontWeight: '700' },
   retryBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     gap: 8, paddingVertical: 14, borderRadius: 14,
