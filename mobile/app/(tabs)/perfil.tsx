@@ -16,23 +16,28 @@ const CHARS = {
   5: require('../../assets/characters/char5.png'),
 } as const;
 
-const XP_THRESHOLDS = [500, 1200, 2500, 5000];
-
-function getXpProgress(xp: number, nivel: number) {
-  const prev = nivel > 1 ? XP_THRESHOLDS[nivel - 2] : 0;
-  const next = XP_THRESHOLDS[nivel - 1] ?? XP_THRESHOLDS[XP_THRESHOLDS.length - 1];
-  return { current: xp - prev, needed: next - prev };
-}
-
 const LEVEL_TITLES = ['', 'Iniciante das Palavras', 'Explorador de Palavras', 'Mestre das Palavras', 'Elite das Palavras', 'Lendário das Palavras'];
 const MOCK_XPS = [2890, 2450, 2100, 1950, 1740, 1600];
 
 const ACHIEVEMENTS = [
-  { id: 'leitora', icon: 'book'      as const, title: 'Leitora',  bg: '#fff7ed', color: '#ea580c', check: (p: any) => p.totalActivities >= 1 },
-  { id: 'oradora', icon: 'megaphone' as const, title: 'Oradora',  bg: '#eff6ff', color: '#2563eb', check: (p: any) => p.streak >= 3 },
-  { id: 'mestre',  icon: 'medal'     as const, title: 'Mestre',   bg: '#f0fdf4', color: '#16a34a', check: (p: any) => p.nivel1 >= 3 },
-  { id: 'elite',   icon: 'star'      as const, title: 'Elite',    bg: '#fdf4ff', color: '#9333ea', check: (p: any) => p.xp >= 500 },
+  { id: 'voz',      xp: 1500,  icon: 'mic'        as const, title: 'Primeira Voz',  bg: '#eff6ff', color: '#2563eb' },
+  { id: 'conf',     xp: 3000,  icon: 'chatbubble'  as const, title: 'Confiante',     bg: '#f0fdf4', color: '#16a34a' },
+  { id: 'mestre',   xp: 5000,  icon: 'medal'       as const, title: 'Mestre',        bg: '#fffbeb', color: '#d97706' },
+  { id: 'orador',   xp: 7500,  icon: 'megaphone'   as const, title: 'Avançado',      bg: '#fdf4ff', color: '#9333ea' },
+  { id: 'elite',    xp: 10000, icon: 'star'        as const, title: 'Elite',         bg: '#fff7ed', color: '#ea580c' },
+  { id: 'campeao',  xp: 15000, icon: 'trophy'      as const, title: 'Campeão',       bg: '#fefce8', color: '#ca8a04' },
+  { id: 'lendario', xp: 20000, icon: 'flame'       as const, title: 'Lendário',      bg: '#fef2f2', color: '#dc2626' },
 ];
+
+function getAchievementProgress(xp: number) {
+  const milestones = ACHIEVEMENTS.map(a => a.xp);
+  const nextMilestone = milestones.find(m => xp < m);
+  if (!nextMilestone) return { pct: 100, filled: xp, segment: milestones[milestones.length - 1], allDone: true };
+  const prevMilestone = [...milestones].reverse().find(m => xp >= m) ?? 0;
+  const filled = xp - prevMilestone;
+  const segment = nextMilestone - prevMilestone;
+  return { pct: Math.min((filled / segment) * 100, 100), filled, segment, nextMilestone, allDone: false };
+}
 
 export default function PerfilTab() {
   const router = useRouter();
@@ -62,14 +67,12 @@ export default function PerfilTab() {
     }, [])
   );
 
-  const { current, needed } = getXpProgress(xp, nivel);
-  const progressPct     = Math.min((current / needed) * 100, 100);
+  const achProgress     = getAchievementProgress(xp);
   const initials        = name.trim().slice(0, 2).toUpperCase() || 'AP';
   const subtitle        = LEVEL_TITLES[Math.min(nivel, 5)] || 'Explorador de Palavras';
   const myRank          = [...MOCK_XPS, xp].sort((a, b) => b - a).indexOf(xp) + 1;
   const xpDisplay       = xp >= 1000 ? `${(xp / 1000).toFixed(1)}k` : String(xp);
-  const totalActivities = progress.nivel1_completos + progress.nivel2_completos + progress.nivel3_completos;
-  const achieveData     = { xp, streak, totalActivities, nivel1: progress.nivel1_completos, nivel2: progress.nivel2_completos, nivel3: progress.nivel3_completos };
+  const unlockedCount   = ACHIEVEMENTS.filter(a => xp >= a.xp).length;
 
   async function confirmSignOut() {
     setShowSignOutModal(false);
@@ -160,17 +163,18 @@ export default function PerfilTab() {
           </View>
         </View>
 
-        {/* Achievements */}
+        {/* Achievements + progress bar — mesma seção */}
         <View style={styles.card}>
           <View style={styles.sectionRow}>
             <Text style={styles.sectionTitle}>Conquistas</Text>
-            <Text style={styles.sectionLink}>Ver Todas</Text>
+            <Text style={styles.sectionCount}>{unlockedCount} / {ACHIEVEMENTS.length}</Text>
           </View>
+
           <View style={styles.achieveGrid}>
             {ACHIEVEMENTS.map((a) => {
-              const unlocked = a.check(achieveData);
+              const unlocked = xp >= a.xp;
               return (
-                <View key={a.id} style={[styles.achieveItem, !unlocked && { opacity: 0.45 }]}>
+                <View key={a.id} style={[styles.achieveItem, !unlocked && { opacity: 0.38 }]}>
                   <View style={[
                     styles.achieveCircle,
                     unlocked ? { backgroundColor: a.bg } : styles.achieveCircleLocked,
@@ -180,22 +184,42 @@ export default function PerfilTab() {
                       : <Ionicons name="lock-closed" size={18} color="#c0c7d3" />
                     }
                   </View>
+                  {unlocked && (
+                    <View style={[styles.achieveXpPill, { borderColor: a.color + '55' }]}>
+                      <Text style={[styles.achieveXpText, { color: a.color }]}>
+                        {a.xp >= 1000 ? `${a.xp / 1000}k` : a.xp} XP
+                      </Text>
+                    </View>
+                  )}
                   <Text style={styles.achieveLabel}>{a.title}</Text>
                 </View>
               );
             })}
           </View>
-        </View>
 
-        {/* XP Progress */}
-        <View style={styles.card}>
-          <Text style={styles.progressTitle}>Caminho do Sucesso</Text>
-          <View style={styles.progressLabelRow}>
-            <Text style={styles.progressLabel}>Próximo nível</Text>
-            <Text style={styles.progressXpVal}>{current} / {needed} XP</Text>
-          </View>
-          <View style={styles.progressBg}>
-            <View style={[styles.progressFill, { width: `${progressPct}%` as any }]} />
+          {/* Caminho do Sucesso */}
+          <View style={styles.progressSection}>
+            <Text style={styles.progressTitle}>Caminho do Sucesso</Text>
+            <View style={styles.progressLabelRow}>
+              <Text style={styles.progressLabel}>
+                {achProgress.allDone ? 'Todas as conquistas desbloqueadas!' : 'Próxima conquista'}
+              </Text>
+              {!achProgress.allDone && (
+                <Text style={styles.progressXpVal}>
+                  {achProgress.filled} / {achProgress.segment} XP
+                </Text>
+              )}
+            </View>
+            <View style={styles.progressBg}>
+              <View style={[styles.progressFill, { width: `${achProgress.pct}%` as any }]} />
+            </View>
+            {!achProgress.allDone && (
+              <Text style={styles.progressNextLabel}>
+                Meta: {(achProgress.nextMilestone! >= 1000
+                  ? `${achProgress.nextMilestone! / 1000}k`
+                  : achProgress.nextMilestone)} XP
+              </Text>
+            )}
           </View>
         </View>
 
@@ -295,9 +319,12 @@ const styles = StyleSheet.create({
   // Achievements
   sectionRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, width: '100%' },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: '#181c1e' },
-  sectionLink: { fontSize: 13, fontWeight: '600', color: '#0061a2' },
-  achieveGrid: { flexDirection: 'row', justifyContent: 'space-between', width: '100%' },
-  achieveItem: { alignItems: 'center', gap: 6, flex: 1 },
+  sectionCount: { fontSize: 13, fontWeight: '700', color: '#0061a2', backgroundColor: '#eff6ff', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 999 },
+  achieveGrid: {
+    flexDirection: 'row', flexWrap: 'wrap',
+    justifyContent: 'center', gap: 14, width: '100%', marginBottom: 8,
+  },
+  achieveItem: { alignItems: 'center', gap: 4, width: '28%' },
   achieveCircle: {
     width: 56, height: 56, borderRadius: 28,
     justifyContent: 'center', alignItems: 'center',
@@ -306,10 +333,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#ebeef1',
     borderWidth: 2, borderColor: '#c0c7d3', borderStyle: 'dashed',
   },
+  achieveXpPill: {
+    borderWidth: 1, borderRadius: 999,
+    paddingHorizontal: 6, paddingVertical: 1,
+  },
+  achieveXpText: { fontSize: 9, fontWeight: '800' },
   achieveLabel: { fontSize: 10, fontWeight: '700', color: '#404751', textAlign: 'center' },
 
   // Progress
-  progressTitle: { fontSize: 16, fontWeight: '700', color: '#181c1e', marginBottom: 12, alignSelf: 'flex-start' },
+  progressSection: { width: '100%', marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#f0f2f4' },
+  progressTitle: { fontSize: 14, fontWeight: '800', color: '#181c1e', marginBottom: 10 },
   progressLabelRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8, width: '100%' },
   progressLabel: { fontSize: 12, fontWeight: '600', color: '#707883' },
   progressXpVal: { fontSize: 12, fontWeight: '700', color: '#0061a2' },
@@ -318,6 +351,7 @@ const styles = StyleSheet.create({
     height: '100%', backgroundColor: '#0061a2', borderRadius: 999,
     shadowColor: '#0061a2', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.3, shadowRadius: 6,
   },
+  progressNextLabel: { fontSize: 11, color: '#9ca3af', fontWeight: '600', marginTop: 6, textAlign: 'right' },
 
   // Sign out
   signOutBtn: {
