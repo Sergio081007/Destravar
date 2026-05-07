@@ -148,14 +148,8 @@ export default function PerfilTab() {
             </Text>
           </View>
 
-          <TouchableOpacity activeOpacity={0.85} style={styles.editBtnWrap} onPress={() => setShowEditModal(true)}>
-            <LinearGradient
-              colors={['#0061a2', '#5e41d0']}
-              start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}
-              style={styles.editBtn}
-            >
-              <Text style={styles.editBtnText}>Editar Perfil</Text>
-            </LinearGradient>
+          <TouchableOpacity activeOpacity={0.85} style={[styles.editBtnWrap, styles.editBtn]} onPress={() => setShowEditModal(true)}>
+            <Text style={styles.editBtnText}>Editar Perfil</Text>
           </TouchableOpacity>
         </View>
 
@@ -332,8 +326,8 @@ const styles = StyleSheet.create({
   levelProgressFill: { height: '100%', backgroundColor: '#f59e0b', borderRadius: 4 },
   levelProgressText: { fontSize: 11, fontWeight: '700', color: '#9ca3af' },
 
-  editBtnWrap: { borderRadius: 999, overflow: 'hidden', width: '100%' },
-  editBtn: { paddingVertical: 14, alignItems: 'center', borderRadius: 999 },
+  editBtnWrap: { borderRadius: 999, width: '100%' },
+  editBtn: { paddingVertical: 14, alignItems: 'center', borderRadius: 999, backgroundColor: '#0061a2' },
   editBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 
   // Stats

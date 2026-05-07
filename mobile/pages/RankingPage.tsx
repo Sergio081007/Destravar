@@ -1,8 +1,9 @@
 import { useCallback, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, ActivityIndicator,
-  ImageSourcePropType, Dimensions,
+  ImageSourcePropType, Dimensions, TouchableOpacity,
 } from 'react-native';
+import PlayerBottomSheet, { PlayerSheetData } from '../components/PlayerBottomSheet';
 
 // Jogadores base — ficam no ranking até usuários reais os superarem em XP
 const MOCK_PLAYERS = [
@@ -50,9 +51,10 @@ const PODIUM_CFG = {
   3: { color: '#CD7F32', shade: '#8B4513', blockH: 112, colW: COL23_W, tl: 0,    tr: 0.20, numLabel: 'III', numSize: 28 },
 } as const;
 
-function PodiumBlock({ player, cfg }: {
+function PodiumBlock({ player, cfg, onPress }: {
   player: Player & { rank: 1 | 2 | 3 };
   cfg: typeof PODIUM_CFG[1 | 2 | 3];
+  onPress?: () => void;
 }) {
   const isFirst = player.rank === 1;
   const W = cfg.colW;
@@ -64,7 +66,12 @@ function PodiumBlock({ player, cfg }: {
 
   return (
     <View style={[styles.podiumCol, { width: W, zIndex: isFirst ? 20 : 10 }]}>
-      <View style={[styles.podiumAvatarWrap, { marginBottom: isFirst ? 10 : 6 }]}>
+      <TouchableOpacity
+        style={[styles.podiumAvatarWrap, { marginBottom: isFirst ? 10 : 6 }]}
+        onPress={onPress}
+        activeOpacity={onPress ? 0.75 : 1}
+        disabled={!onPress}
+      >
         <Avatar
           initials={player.initials}
           color={player.color}
@@ -81,7 +88,7 @@ function PodiumBlock({ player, cfg }: {
         <Text style={[styles.podiumXp, { color: cfg.shade, fontSize: isFirst ? 13 : 11 }]}>
           {player.xp.toLocaleString()} XP
         </Text>
-      </View>
+      </TouchableOpacity>
 
       <View style={{ width: W, height: H }}>
         <Svg width={W} height={H} style={StyleSheet.absoluteFill}>
@@ -108,6 +115,12 @@ export default function RankingTab() {
   const [myInitials, setMyInitials] = useState('EU');
   const [myChar, setMyChar]         = useState<1|2|3|4|5>(1);
   const [loading, setLoading]       = useState(true);
+  const [selectedPlayer, setSelectedPlayer] = useState<PlayerSheetData | null>(null);
+
+  const openSheet = (p: Player & { rank: number }) => {
+    if (p.isMe) return;
+    setSelectedPlayer({ name: p.name, xp: p.xp, char: p.char, color: p.color, initials: p.initials, rank: p.rank });
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -247,6 +260,7 @@ export default function RankingTab() {
                   key={`${p.name}-${p.rank}`}
                   player={p as Player & { rank: 1 | 2 | 3 }}
                   cfg={PODIUM_CFG[p.rank as 1 | 2 | 3]}
+                  onPress={!p.isMe ? () => openSheet(p) : undefined}
                 />
               ))}
             </View>
@@ -275,7 +289,12 @@ export default function RankingTab() {
                   </Text>
                 </View>
               ) : (
-                <View key={`${p.name}-${p.rank}`} style={styles.rowRegular}>
+                <TouchableOpacity
+                  key={`${p.name}-${p.rank}`}
+                  style={styles.rowRegular}
+                  onPress={() => openSheet(p)}
+                  activeOpacity={0.75}
+                >
                   <Text style={styles.rankNum}>{p.rank}</Text>
                   <Avatar
                     initials={p.initials}
@@ -290,7 +309,7 @@ export default function RankingTab() {
                   <Text style={styles.xpText}>
                     {p.xp.toLocaleString()}<Text style={styles.xpUnit}> XP</Text>
                   </Text>
-                </View>
+                </TouchableOpacity>
               )
             )}
           </View>
@@ -298,6 +317,11 @@ export default function RankingTab() {
           <View style={{ height: 24 }} />
         </ScrollView>
       )}
+
+      <PlayerBottomSheet
+        player={selectedPlayer}
+        onClose={() => setSelectedPlayer(null)}
+      />
     </View>
   );
 }
