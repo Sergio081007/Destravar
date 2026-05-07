@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text, ScrollView } from 'react-native';
 import Animated, { FadeIn, FadeInDown, SlideInDown, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
@@ -7,9 +7,12 @@ import { addXP, incrementLevelProgress, getLevelProgress, getUserId } from '../u
 import { Colors, Shadow } from '../constants/theme';
 import { API_BASE_URL } from '../constants/config';
 import { supabase } from '../utils/supabase';
+import { startSession, completeSession } from '../services/api';
+import { useLocalSearchParams } from 'expo-router';
 
 type Props = {
   dificuldade: string;
+  fase?: number;
   onExit: () => void;
   onFinalExit: () => void;
 };
@@ -69,9 +72,14 @@ const EXERCISE_DATA = {
   ]
 };
 
-export default function Exercicio3({ dificuldade, onExit, onFinalExit }: Props) {
+export default function Exercicio3({ dificuldade: propDificuldade, fase: propFase, onExit, onFinalExit }: Props) {
+  const { dificuldade: rawDiff, fase: rawFase } = useLocalSearchParams<{ dificuldade: string, fase: string }>();
+  const dificuldade = propDificuldade || rawDiff || 'facil';
+  const fase = propFase ?? parseInt(rawFase || '1', 10);
+
   const [stepIdx, setStepIdx] = useState(0);
   const [sessionIdx, setSessionIdx] = useState(0);
+  const sessionIdRef = useRef<string | null>(null);
   const [phaseComplete, setPhaseComplete] = useState<{
     levelNum: number; sessionNum: number; levelComplete: boolean; allDone: boolean;
   } | null>(null);
@@ -84,7 +92,15 @@ export default function Exercicio3({ dificuldade, onExit, onFinalExit }: Props) 
       if (dificuldade === 'dificil') count = prog.nivel3_completos;
       setSessionIdx(count % 3);
     });
-  }, [dificuldade]);
+
+    getUserId().then(uid => {
+      if (uid) {
+        startSession({ usuario_id: uid, fase, exercicio: 3, tipo: 'exercicio_3' })
+          .then(res => sessionIdRef.current = res.sessao_id)
+          .catch(console.warn);
+      }
+    });
+  }, [dificuldade, fase]);
 
   const difficultyData = EXERCISE_DATA[dificuldade as keyof typeof EXERCISE_DATA] || EXERCISE_DATA.facil;
   const steps = difficultyData[sessionIdx] || difficultyData[0];
@@ -116,13 +132,12 @@ export default function Exercicio3({ dificuldade, onExit, onFinalExit }: Props) 
   const finishSession = async () => {
     // 1. Salvar XP localmente e sincronizar com o servidor
     await addXP(50);
-    const userId = await getUserId();
-    if (userId) {
-      fetch(`${API_BASE_URL}/progresso/exercicio`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
-        body: JSON.stringify({ usuario_id: userId, dificuldade, score: 1, wpm: 0, xp: 50 }),
-      }).catch(() => {});
+    if (sessionIdRef.current) {
+      await completeSession({
+        sessao_id: sessionIdRef.current,
+        aprovado: true,
+        score: 1.0
+      }).catch(console.warn);
     }
     
     // 2. Progredir de nível e persistir no Supabase Auth

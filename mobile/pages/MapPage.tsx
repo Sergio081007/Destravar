@@ -126,7 +126,7 @@ export default function MapPage() {
               label={'label' in node ? node.label : undefined}
               noLives={node.type === 'active' && hearts === 0}
               bounceAnim={bounceAnim}
-              onPress={() => router.push({ pathname: '/exercicio2', params: { dificuldade: node.dif } })}
+              onPress={() => router.push({ pathname: '/exercicio2', params: { dificuldade: node.dif, fase: node.lvl + 1, exercicio: node.step + 1 } })}
             />
           ))}
         </View>

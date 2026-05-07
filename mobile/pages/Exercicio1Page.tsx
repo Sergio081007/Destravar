@@ -4,6 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import ConfirmExitModal from '../components/ConfirmExitModal';
 import { Colors, Shadow } from '../constants/theme';
+import { startSession, completeSession } from '../services/api';
+import { getUserId } from '../utils/storage';
 
 // Fases: dur em ms, toRadius em px, colorIdx mapeia para PHASE_COLORS
 const PHASES = [
@@ -26,15 +28,17 @@ const LEVEL_LABELS: Record<string, string> = {
 
 
 type Props = {
+  fase?: number;
   onComplete?: () => void;
   isPanel?: boolean;  // quando true: sem header próprio, sem beforeRemove listener
 };
 
-export default function BreathingExercise({ onComplete, isPanel }: Props) {
+export default function BreathingExercise({ fase: propFase, onComplete, isPanel }: Props) {
   const router = useRouter();
   const navigation = useNavigation();
-  const { dificuldade: rawDiff } = useLocalSearchParams<{ dificuldade: string }>();
+  const { dificuldade: rawDiff, fase: rawFase } = useLocalSearchParams<{ dificuldade: string, fase: string }>();
   const dificuldade = rawDiff || 'facil';
+  const fase = propFase ?? parseInt(rawFase || '1', 10);
 
   const [phaseIdx, setPhaseIdx]             = useState(-1);   // -1 = idle
   const [timeLeft, setTimeLeft]             = useState(4);
@@ -49,6 +53,7 @@ export default function BreathingExercise({ onComplete, isPanel }: Props) {
   const phaseTimerRef  = useRef<ReturnType<typeof setTimeout> | null>(null);
   const countdownRef   = useRef<ReturnType<typeof setInterval> | null>(null);
   const completedRef   = useRef(0);
+  const sessionIdRef   = useRef<string | null>(null);
 
   // Animações — React Native Animated (sem Reanimated)
   const circleRadius = useRef(new Animated.Value(80)).current;
@@ -147,7 +152,7 @@ export default function BreathingExercise({ onComplete, isPanel }: Props) {
     }, phase.dur);
   }
 
-  function handleStart() {
+  async function handleStart() {
     clearTimers();
     circleRadius.setValue(80);
     colorPhase.setValue(0);
@@ -156,9 +161,17 @@ export default function BreathingExercise({ onComplete, isPanel }: Props) {
     setRunning(true);
     setDone(false);
     startPhase(0, 1);
+
+    const uid = await getUserId();
+    if (uid) {
+      try {
+        const session = await startSession({ usuario_id: uid, fase, exercicio: 1, tipo: 'exercicio_1' });
+        sessionIdRef.current = session.sessao_id;
+      } catch (e) { console.warn(e); }
+    }
   }
 
-  function handleComplete() {
+  async function handleComplete() {
     clearTimers();
     Animated.timing(circleRadius, {
       toValue: 80, duration: 800,
@@ -166,6 +179,14 @@ export default function BreathingExercise({ onComplete, isPanel }: Props) {
     }).start();
     setRunning(false);
     setDone(true);
+    
+    if (sessionIdRef.current) {
+      await completeSession({
+        sessao_id: sessionIdRef.current,
+        aprovado: true,
+        score: 1.0
+      }).catch(console.warn);
+    }
   }
 
   function goToNextExercise() {

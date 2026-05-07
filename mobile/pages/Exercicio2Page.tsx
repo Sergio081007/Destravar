@@ -17,8 +17,10 @@ const SCREEN_W = Dimensions.get('window').width;
 export default function Desafio() {
   const router = useRouter();
   const navigation = useNavigation();
-  const { dificuldade: rawDiff, startAt } = useLocalSearchParams<{ dificuldade: string, startAt?: string }>();
+  const { dificuldade: rawDiff, startAt, fase: rawFase, exercicio: rawEx } = useLocalSearchParams<{ dificuldade: string, startAt?: string, fase?: string, exercicio?: string }>();
   const dificuldade = rawDiff || 'facil';
+  const fase = parseInt(rawFase || '1', 10);
+  const exercicio = parseInt(rawEx || '1', 10);
   const c1 = '#0061a2';
 
   const [phase, setPhase] = useState<'breathing' | 'speech' | 'smoothing'>(
@@ -88,6 +90,7 @@ export default function Desafio() {
         <Animated.View style={[StyleSheet.absoluteFill, breathStyle]}>
           <BreathingExercise
             isPanel
+            fase={fase}
             onComplete={handleBreathingComplete}
           />
         </Animated.View>
@@ -97,6 +100,7 @@ export default function Desafio() {
           {(phase === 'speech' || phase === 'smoothing') && (
             <Treinar
               isPanel
+              fase={fase}
               onExit={() => setShowExitModal(true)}
               onComplete={handleSpeechComplete}
             />

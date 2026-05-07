@@ -1,7 +1,8 @@
 # Guia de Integração — API Destravar (Frontend)
 
 > Referência de endpoints HTTP para o time de **Front-End / Mobile**.  
-> Base URL padrão (desenvolvimento): `http://localhost:8000`
+> Base URL (desenvolvimento): `http://localhost:8000`  
+> Base URL (produção): a definir após deploy
 
 ---
 
@@ -14,7 +15,7 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
-**2. Criar o arquivo `.env` na raiz do projeto**
+**2. Criar o arquivo `.env` na raiz do projeto** (use `.env.example` como referência)
 ```
 SUPABASE_URL=https://xxxxxxxx.supabase.co
 SUPABASE_KEY=sua_service_role_key
@@ -32,22 +33,20 @@ uvicorn app.main:app --reload
 
 | Método | Rota | Descrição |
 |--------|------|-----------|
-| `POST` | `/usuarios` | Cria um novo usuário |
-| `GET` | `/texto-calibracao` | Retorna o texto padrão de calibração |
+| `POST` | `/usuarios` | Cria ou atualiza um usuário |
+| `GET`  | `/texto-calibracao` | Retorna o texto padrão de calibração |
 | `POST` | `/calibrar` | Realiza calibração de voz (3 áudios) |
-| `GET` | `/calibracao` | Retorna calibração mais recente do usuário |
-| `GET` | `/textos/aleatorio` | Retorna texto aleatório por dificuldade |
-| `GET` | `/texto/{fase}` | Retorna texto de uma fase específica |
-| `GET` | `/pergunta/aleatoria` | Retorna pergunta aberta aleatória (Exercício 2) |
-| `GET` | `/trava-lingua/{id}` | Retorna trava-língua por ID |
+| `GET`  | `/calibracao` | Retorna calibração mais recente do usuário |
+| `GET`  | `/textos/aleatorio` | Retorna texto aleatório por dificuldade |
+| `GET`  | `/texto/{fase}` | Retorna pergunta e dica de uma fase específica |
+| `GET`  | `/trava-lingua/{id}` | Retorna trava-língua por ID |
 | `POST` | `/transcrever` | Transcreve áudio e analisa fluência |
 | `POST` | `/comparar-texto` | Compara texto referência com transcrição |
 | `POST` | `/sessao/iniciar` | Inicia uma sessão de exercício |
 | `POST` | `/sessao/completar` | Marca uma sessão como concluída |
-| `POST` | `/progresso/exercicio` | Registra progresso de exercício |
-| `GET` | `/mapa/{usuario_id}` | Retorna o mapa completo de fases |
-| `GET` | `/streak/{usuario_id}` | Retorna streak e XP do usuário |
-| `GET` | `/ranking` | Retorna o ranking global (Mural dos Heróis) |
+| `GET`  | `/mapa/{usuario_id}` | Retorna o mapa completo de fases |
+| `GET`  | `/streak/{usuario_id}` | Retorna streak e XP do usuário |
+| `GET`  | `/ranking` | Retorna o ranking global (Mural dos Heróis) |
 
 ---
 
@@ -55,11 +54,16 @@ uvicorn app.main:app --reload
 
 ### `POST /usuarios`
 
-Cria um novo usuário. Chamar uma única vez no cadastro.
+Cria um novo usuário ou atualiza se o `id` já existir (upsert). Chamar no cadastro.
 
 **Body (JSON)**
 ```json
 { "nome": "Ana Souza" }
+```
+
+Opcionalmente, passe `id` para usar um UUID externo (ex: Supabase Auth):
+```json
+{ "id": "uuid-do-auth", "nome": "Ana Souza" }
 ```
 
 **Resposta**
@@ -83,9 +87,13 @@ Retorna o texto que o usuário deve ler durante a calibração.
 **Resposta**
 ```json
 {
-  "id": "cal_001",
-  "conteudo": "O Pedro foi ao parque com a sua cachorra...",
-  "titulo": "Texto de calibração"
+  "id": "texto_calibracao",
+  "titulo": "Texto de calibração",
+  "conteudo": "Hoje o céu estava azul e sem nuvens...",
+  "palavras": 35,
+  "instrucao_rapido": "Leia esse texto da forma mais rápida que conseguir.",
+  "instrucao_devagar": "Agora leia esse mesmo texto de forma bem lenta.",
+  "instrucao_confortavel": "E por último, leia esse texto de forma confortável para você."
 }
 ```
 
@@ -93,17 +101,17 @@ Retorna o texto que o usuário deve ler durante a calibração.
 
 ### `POST /calibrar`
 
-Recebe 3 áudios (rápido, devagar, confortável) e salva o perfil de velocidade do usuário.
+Recebe 3 áudios e o texto lido. Calcula WPM e salva o perfil de velocidade do usuário.
 
 **Body (multipart/form-data)**
 
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| `usuario_id` | string | ID do usuário |
-| `audio_rapido` | file | Áudio lendo o mais rápido possível |
-| `audio_devagar` | file | Áudio lendo bem devagar |
-| `audio_confortavel` | file | Áudio lendo em ritmo natural |
-| `texto_referencia` | string | Texto que foi lido (opcional — busca do banco se omitido) |
+| Campo | Tipo | Obrigatório | Descrição |
+|-------|------|-------------|-----------|
+| `usuario_id` | string | ✅ | ID do usuário |
+| `audio_rapido` | file | ✅ | Áudio lendo o mais rápido possível |
+| `audio_devagar` | file | ✅ | Áudio lendo bem devagar |
+| `audio_confortavel` | file | ✅ | Áudio lendo em ritmo natural |
+| `texto_referencia` | string | ❌ | Texto lido (busca do banco se omitido) |
 
 **Formatos de áudio aceitos:** `.flac`, `.mp3`, `.mp4`, `.mpeg`, `.mpga`, `.m4a`, `.ogg`, `.opus`, `.wav`, `.webm`
 
@@ -122,7 +130,7 @@ Recebe 3 áudios (rápido, devagar, confortável) e salva o perfil de velocidade
     "limite_superior":   156.0,
     "margem_percentual": 0.20
   },
-  "texto_referencia": "O Pedro foi ao parque..."
+  "texto_referencia": "Hoje o céu estava azul..."
 }
 ```
 
@@ -131,12 +139,6 @@ Recebe 3 áudios (rápido, devagar, confortável) e salva o perfil de velocidade
 ### `GET /calibracao?usuario_id={id}`
 
 Retorna o perfil de calibração mais recente do usuário.
-
-**Query params**
-
-| Parâmetro | Tipo | Obrigatório |
-|-----------|------|-------------|
-| `usuario_id` | string | ✅ |
 
 **Resposta**
 ```json
@@ -157,13 +159,13 @@ Retorna o perfil de calibração mais recente do usuário.
 
 ## Exercícios — Visão Geral
 
-O app tem **3 exercícios por fase**. Abaixo o comportamento e os endpoints de cada um.
+O app tem **3 exercícios por fase**.
 
 ### Exercício 1 — Respiração
 
 **100% local. Nenhuma chamada de API.**
 
-A tela anima as fases inspire / segure / expire / relaxe por 3 ciclos. Ao concluir, registre via `POST /progresso/exercicio`.
+A tela anima as fases inspire / segure / expire / relaxe por 3 ciclos. Ao concluir, registre via `POST /sessao/iniciar` e `POST /sessao/completar`.
 
 **Critério de conclusão:** 1 aprovação.
 
@@ -174,8 +176,8 @@ A tela anima as fases inspire / segure / expire / relaxe por 3 ciclos. Ao conclu
 Fluxo completo com API:
 
 ```
-1. GET /pergunta/aleatoria
-      └─ exibe a pergunta aberta pro usuário
+1. GET /textos/aleatorio
+      └─ usa ex2_pergunta e ex2_dica para exibir a pergunta aberta
 
 2. Usuário grava a resposta
 
@@ -191,10 +193,9 @@ Fluxo completo com API:
 6. Usuário grava novamente
 
 7. POST /transcrever  (modo_livre=false, texto_referencia = transcricao_corrigida)
-      └─ compara a nova gravação com a frase corrigida
       └─ retorna score, analise_palavras, aprovado, status_feedback
 
-8. Ao aprovar → POST /progresso/exercicio
+8. POST /sessao/iniciar + POST /sessao/completar
 ```
 
 **Critério de conclusão:** 2 aprovações consecutivas.
@@ -209,7 +210,7 @@ A tela exibe instrução com som-alvo e referências de palavras/frases (campos 
 
 Ao fim, dois botões: **"Consegui"** ou **"Precisei forçar"**.
 
-**Critério de conclusão:** 3 marcações "Consegui" consecutivas → `POST /progresso/exercicio`.
+**Critério de conclusão:** 3 marcações "Consegui" consecutivas → `POST /sessao/iniciar` + `POST /sessao/completar`.
 
 ---
 
@@ -235,17 +236,13 @@ Retorna um texto ou trava-língua aleatório de acordo com a dificuldade.
 **Resposta (categoria `texto`)**
 ```json
 {
-  "id": "txt_004",
-  "fase": 2,
-  "dificuldade": "facil",
-  "titulo": "O dia a dia",
-  "conteudo": "Hoje eu acordei cedo. Tomei café com pão.",
-  "palavras": 9,
-  "ex2_wpm_min": 100,
-  "ex2_wpm_max": 140,
-  "ex2_dica": "Respire antes de cada frase.",
-  "ex3_som_alvo": "o",
-  "ex3_instrucao": "Fale o som O bem aberto.",
+  "id":                  "txt_004",
+  "fase":                2,
+  "dificuldade":         "facil",
+  "ex2_pergunta":        "Qual é a sua cor favorita e por quê?",
+  "ex2_dica":            "Que sentimento essa cor traz?",
+  "ex3_som_alvo":        "o",
+  "ex3_instrucao":       "Fale o som O bem aberto.",
   "ex3_exemplo_palavra": "Hoje",
   "ex3_trava_lingua_id": null
 }
@@ -255,44 +252,18 @@ Retorna um texto ou trava-língua aleatório de acordo com a dificuldade.
 
 ### `GET /texto/{fase}`
 
-Retorna um texto para a fase informada. Retorna apenas `conteudo`, `dica` e limites de WPM.
+Retorna a pergunta e dica de fala espontânea para a fase informada.
 
 **Path param:** `fase` — inteiro (1–10)
 
 **Resposta**
 ```json
 {
-  "id": "txt_004",
-  "conteudo": "Hoje eu acordei cedo. Tomei café com pão.",
-  "dica": "Respire antes de cada frase.",
-  "wpm_min": 100,
-  "wpm_max": 140
+  "id":      "txt_004",
+  "pergunta": "Qual é a sua cor favorita e por quê?",
+  "dica":     "Que sentimento essa cor traz?"
 }
 ```
-
----
-
-### `GET /pergunta/aleatoria?ultimo_id={id}`
-
-Retorna uma pergunta aberta aleatória para o Exercício 2. Passe `ultimo_id` para evitar repetir a mesma pergunta.
-
-**Query params**
-
-| Parâmetro | Tipo | Obrigatório | Descrição |
-|-----------|------|-------------|-----------|
-| `ultimo_id` | string | ❌ | ID da última pergunta exibida (evita repetição) |
-
-**Resposta**
-```json
-{
-  "id": "uuid",
-  "conteudo": "Como foi seu dia?",
-  "dica": "Fale sobre algo que aconteceu hoje.",
-  "duracao_max": 30
-}
-```
-
-> `duracao_max` está em segundos — use para limitar o tempo de gravação na UI.
 
 ---
 
@@ -305,12 +276,12 @@ Retorna uma trava-língua pelo ID. Usar quando `ex3_trava_lingua_id` do texto n�
 **Resposta**
 ```json
 {
-  "id": "tl_008",
-  "titulo": "A dona da dor",
-  "conteudo": "Dona Dora dorme e desperta...",
-  "sons_alvo": ["d"],
-  "dica": "O D não pode virar pausa. Mantenha o fluxo.",
-  "repeticoes": 3,
+  "id":          "tl_008",
+  "titulo":      "A dona da dor",
+  "conteudo":    "Dona Dora dorme e desperta...",
+  "sons_alvo":   ["d"],
+  "dica":        "O D não pode virar pausa. Mantenha o fluxo.",
+  "repeticoes":  3,
   "fase_minima": 8,
   "dificuldade": "facil"
 }
@@ -322,7 +293,7 @@ Retorna uma trava-língua pelo ID. Usar quando `ex3_trava_lingua_id` do texto n�
 
 ### `POST /transcrever`
 
-Endpoint principal de análise de fala. Usado em dois modos: **livre** (fala espontânea, Exercício 2 — 1ª gravação) e **leitura** (comparação com texto de referência, Exercício 2 — "Tentar repetir").
+Endpoint principal de análise de fala. Usado em dois modos: **livre** (fala espontânea, 1ª gravação do Ex. 2) e **leitura** (comparação com texto de referência, "Tentar repetir").
 
 **Body (multipart/form-data)**
 
@@ -330,10 +301,10 @@ Endpoint principal de análise de fala. Usado em dois modos: **livre** (fala esp
 |-------|------|-------------|-----------|
 | `file` | file | ✅ | Áudio gravado pelo usuário |
 | `usuario_id` | string | ❌ | ID do usuário (necessário para análise de oscilação) |
-| `modo_livre` | boolean | ❌ | `true` na 1ª gravação do Ex. 2 (fala espontânea); omita ou `false` no "Tentar repetir" |
-| `texto_referencia` | string | ❌ | Omita no modo livre; preencha com a `transcricao_corrigida` no "Tentar repetir" |
-| `wpm_min` | float | ❌ | WPM mínimo esperado (campo `ex2_wpm_min` do texto) |
-| `wpm_max` | float | ❌ | WPM máximo esperado (campo `ex2_wpm_max` do texto) |
+| `modo_livre` | boolean | ❌ | `true` na 1ª gravação do Ex. 2; omita ou `false` no "Tentar repetir" |
+| `texto_referencia` | string | ❌ | Omita no modo livre; preencha com `transcricao_corrigida` no "Tentar repetir" |
+| `wpm_min` | float | ❌ | WPM mínimo esperado |
+| `wpm_max` | float | ❌ | WPM máximo esperado |
 
 ---
 
@@ -341,7 +312,7 @@ Endpoint principal de análise de fala. Usado em dois modos: **livre** (fala esp
 
 ```json
 {
-  "modo_livre": true,
+  "modo_livre":            true,
   "transcricao":           "eu eu fui ao ao mercado comprar leite",
   "transcricao_corrigida": "eu fui ao mercado comprar leite",
 
@@ -354,7 +325,7 @@ Endpoint principal de análise de fala. Usado em dois modos: **livre** (fala esp
     { "word": "leite",   "categoria": "correta"    }
   ],
 
-  "aprovado": false,
+  "aprovado":       false,
   "status_feedback": {
     "status":     "diretivo",
     "subtipo":    "precisao",
@@ -377,10 +348,10 @@ Endpoint principal de análise de fala. Usado em dois modos: **livre** (fala esp
   "taxa_repeticao":        0.18,
   "bloqueios_silenciosos": 1,
   "muletas_detectadas":    0,
-  "blocos_gaguejo":        [...],
-  "blocos_silabicos":      [...],
-  "prolongamentos":        [...],
-  "hesitacoes":            [...],
+  "blocos_gaguejo":        [],
+  "blocos_silabicos":      [],
+  "prolongamentos":        [],
+  "hesitacoes":            [],
   "oscilacoes":            1,
   "taxa_oscilacao":        0.08,
   "wpm_base":              130.0,
@@ -390,7 +361,7 @@ Endpoint principal de análise de fala. Usado em dois modos: **livre** (fala esp
 
 > **`transcricao_corrigida`** — guarde este valor no estado local. Ele será usado como `texto_referencia` no `POST /transcrever` do "Tentar repetir".
 
-> **`analise_corrigida`** — lista das palavras da versão **corrigida** já com a categoria herdada da versão bruta. Use para colorir a frase corrigida na tela (ver tabela de categorias abaixo).
+> **`analise_corrigida`** — lista das palavras da versão corrigida com categoria herdada da versão bruta. Use para colorir a frase na tela (ver tabela de categorias abaixo).
 
 ---
 
@@ -408,21 +379,21 @@ Mesmos campos acima, mais:
 
   "analise_palavras": [
     {
-      "word":            "eu",
-      "start":           0.12,
-      "end":             0.38,
-      "probability":     0.98,
-      "duration":        0.26,
-      "silence_before":  0.0,
-      "is_stutter":      false,
-      "is_filler":       false,
-      "is_prolongation": false,
-      "wpm_local":       128.0,
-      "oscilacao":       "normal",
-      "status_diff":     "acerto",
-      "categoria":       "correta",
+      "word":             "eu",
+      "start":            0.12,
+      "end":              0.38,
+      "probability":      0.98,
+      "duration":         0.26,
+      "silence_before":   0.0,
+      "is_stutter":       false,
+      "is_filler":        false,
+      "is_prolongation":  false,
+      "wpm_local":        128.0,
+      "oscilacao":        "normal",
+      "status_diff":      "acerto",
+      "categoria":        "correta",
       "repeticao_direta": false,
-      "bloco_silabico":  false
+      "bloco_silabico":   false
     }
   ],
 
@@ -476,7 +447,7 @@ Compara um texto de referência com um texto transcrito. Útil para re-análise 
 }
 ```
 
-Se `texto_transcrito` for omitido, usa a última transcrição processada no servidor.
+> Sempre envie `texto_transcrito`. O fallback interno não é confiável em produção.
 
 **Resposta**
 ```json
@@ -503,13 +474,14 @@ Registra o início de uma sessão de exercício.
 |-------|------|-----------|
 | `usuario_id` | string | ID do usuário |
 | `fase` | int | Fase atual |
+| `exercicio` | int | Número do exercício (1, 2 ou 3) |
 | `tipo` | string | Tipo da sessão (ex: `"exercicio_1"`, `"exercicio_2"`, `"exercicio_3"`) |
 
 **Resposta**
 ```json
 {
   "sessao_id": "uuid-da-sessao",
-  "status": "iniciada"
+  "status":    "iniciada"
 }
 ```
 
@@ -526,32 +498,15 @@ Marca a sessão como concluída e registra os resultados.
 | Campo | Tipo | Obrigatório | Descrição |
 |-------|------|-------------|-----------|
 | `sessao_id` | string | ✅ | ID retornado pelo `/sessao/iniciar` |
-| `wpm` | float | ❌ | WPM obtido na sessão |
+| `aprovado` | boolean | ❌ | Se a sessão foi aprovada |
+| `wpm_obtido` | float | ❌ | WPM obtido na sessão |
 | `score` | float | ❌ | Score de fluência (0.0–1.0) |
+| `score_fluencia` | float | ❌ | Score de fluência complementar |
+| `transcricao_corrigida` | string | ❌ | Transcrição corrigida da sessão |
 
 **Resposta**
 ```json
 { "status": "concluida" }
-```
-
----
-
-### `POST /progresso/exercicio`
-
-Registra o progresso de um exercício individual.
-
-**Body (JSON)**
-
-| Campo | Tipo | Descrição |
-|-------|------|-----------|
-| `usuario_id` | string | ID do usuário |
-| `dificuldade` | string | `"facil"`, `"medio"` ou `"dificil"` |
-| `score` | float | Score obtido (0.0–1.0) |
-| `wpm` | float | WPM obtido |
-
-**Resposta**
-```json
-{ "status": "registrado", "id": "uuid" }
 ```
 
 ---
@@ -583,7 +538,7 @@ Retorna o estado completo do mapa de fases do usuário.
         { "exercicio": 2, "aprovacoes_consecutivas": 2, "criterio": 2, "concluido": true },
         { "exercicio": 3, "aprovacoes_consecutivas": 3, "criterio": 3, "concluido": true }
       ],
-      "melhor_wpm": 142.5,
+      "melhor_wpm":    142.5,
       "ultima_sessao": "2024-08-15T10:00:00Z"
     },
     {
@@ -595,16 +550,8 @@ Retorna o estado completo do mapa de fases do usuário.
         { "exercicio": 2, "aprovacoes_consecutivas": 1, "criterio": 2, "concluido": false },
         { "exercicio": 3, "aprovacoes_consecutivas": 0, "criterio": 3, "concluido": false }
       ],
-      "melhor_wpm": 138.0,
+      "melhor_wpm":    138.0,
       "ultima_sessao": "2024-08-16T09:30:00Z"
-    },
-    {
-      "fase": 3,
-      "desbloqueada": false,
-      "fase_concluida": false,
-      "exercicios": [...],
-      "melhor_wpm": null,
-      "ultima_sessao": null
     }
   ]
 }
@@ -624,10 +571,10 @@ Retorna o streak atual e o XP acumulado do usuário.
 **Resposta**
 ```json
 {
-  "streak_atual":    5,
-  "streak_maximo":   12,
-  "xp_total":        390,
-  "xp_hoje":         25,
+  "streak_atual":     5,
+  "streak_maximo":    12,
+  "xp_total":         390,
+  "xp_hoje":          25,
   "ultimo_dia_ativo": "2024-08-16"
 }
 ```
@@ -651,8 +598,8 @@ Retorna o ranking global de usuários por XP (Mural dos Heróis).
 {
   "ranking": [
     { "posicao": 1, "usuario_id": "uuid-1", "nome": "Ana",    "xp_total": 520, "streak_atual": 10 },
-    { "posicao": 2, "usuario_id": "uuid-2", "nome": "Carlos", "xp_total": 390, "streak_atual": 5 },
-    { "posicao": 3, "usuario_id": "uuid-3", "nome": "Maria",  "xp_total": 210, "streak_atual": 2 }
+    { "posicao": 2, "usuario_id": "uuid-2", "nome": "Carlos", "xp_total": 390, "streak_atual": 5  },
+    { "posicao": 3, "usuario_id": "uuid-3", "nome": "Maria",  "xp_total": 210, "streak_atual": 2  }
   ],
   "total_usuarios": 47
 }
@@ -690,49 +637,46 @@ const texto = await res.json()
 
 ### Exercício 1 — Respiração (local)
 ```
-1. GET /mapa/{usuario_id}         → verifica se está desbloqueado
+1. GET /mapa/{usuario_id}     → verifica se está desbloqueado
 2. [animação local — sem API]
-3. POST /sessao/iniciar           → { fase, tipo: "exercicio_1" }
-4. POST /sessao/completar         → { sessao_id, score: 1.0 }
-5. POST /progresso/exercicio      → { dificuldade, score: 1.0, wpm: 0 }
-6. GET /mapa/{usuario_id}         → atualiza UI
+3. POST /sessao/iniciar       → { usuario_id, fase, exercicio: 1, tipo: "exercicio_1" }
+4. POST /sessao/completar     → { sessao_id, aprovado: true, score: 1.0 }
+5. GET /mapa/{usuario_id}     → atualiza UI
 ```
 
 ### Exercício 2 — Fala Espontânea
 ```
-1. GET /mapa/{usuario_id}         → verifica se está desbloqueado
-2. GET /pergunta/aleatoria        → exibe a pergunta
-3. POST /sessao/iniciar           → { fase, tipo: "exercicio_2" }
+1. GET /mapa/{usuario_id}          → verifica se está desbloqueado
+2. GET /textos/aleatorio           → usa ex2_pergunta e ex2_dica
+3. POST /sessao/iniciar            → { usuario_id, fase, exercicio: 2, tipo: "exercicio_2" }
 
 4. [1ª gravação]
    POST /transcrever  modo_livre=true
    → guarda transcricao_corrigida em estado local
-   → exibe transcricao_corrigida colorida via analise_corrigida
+   → exibe frase colorida via analise_corrigida
 
 5. [usuário clica "Tentar repetir"]
    POST /transcrever  modo_livre=false, texto_referencia=transcricao_corrigida
    → exibe score e feedback
 
-6. POST /sessao/completar         → { sessao_id, wpm, score }
-7. POST /progresso/exercicio      → { dificuldade, score, wpm }
-8. GET /mapa/{usuario_id}         → atualiza UI
+6. POST /sessao/completar     → { sessao_id, aprovado, wpm_obtido, score }
+7. GET /mapa/{usuario_id}     → atualiza UI
 ```
 
 ### Exercício 3 — Suavização Articulatória (local)
 ```
-1. GET /mapa/{usuario_id}         → verifica se está desbloqueado
-2. GET /textos/aleatorio          → usa campos ex3_* para instrução e som-alvo
+1. GET /mapa/{usuario_id}     → verifica se está desbloqueado
+2. GET /textos/aleatorio      → usa campos ex3_* para instrução e som-alvo
    (se ex3_trava_lingua_id != null → GET /trava-lingua/{id})
-3. POST /sessao/iniciar           → { fase, tipo: "exercicio_3" }
+3. POST /sessao/iniciar       → { usuario_id, fase, exercicio: 3, tipo: "exercicio_3" }
 4. [automonitoramento local — sem gravação]
 5. Usuário marca "Consegui" ou "Precisei forçar"
-6. POST /sessao/completar         → { sessao_id, score: 1.0 ou 0.0 }
-7. POST /progresso/exercicio      → { dificuldade, score, wpm: 0 }
-8. GET /mapa/{usuario_id}         → atualiza UI
+6. POST /sessao/completar     → { sessao_id, aprovado: true/false, score: 1.0 ou 0.0 }
+7. GET /mapa/{usuario_id}     → atualiza UI
 ```
 
 ---
 
 ## Dúvidas
 
-Fala com a **Luciana** para dúvidas sobre banco de dados
+Fala com a **Luciana** para dúvidas sobre banco de dados e API.

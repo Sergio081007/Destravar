@@ -1,13 +1,12 @@
 import { API_BASE_URL } from '../constants/config';
 
-export async function fetchRandomQuestion(): Promise<string> {
+export async function fetchRandomQuestion(): Promise<any> {
   try {
-    const res = await fetch(`${API_BASE_URL}/pergunta/aleatoria`, {
+    const res = await fetch(`${API_BASE_URL}/textos/aleatorio`, {
       headers: { 'Bypass-Tunnel-Reminder': 'true' },
     });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    return data.pergunta || data.conteudo;
+    return res.json();
   } catch (err) {
     throw err;
   }
@@ -34,16 +33,33 @@ export async function transcribeAudio(audioUri: string, isQuestionMode: boolean,
   return res.json();
 }
 
-export async function saveExerciseProgress(payload: {
+export async function startSession(payload: {
   usuario_id: string;
-  dificuldade: string;
-  score: number;
-  wpm: number;
-  xp: number;
-}): Promise<void> {
-  await fetch(`${API_BASE_URL}/progresso/exercicio`, {
+  fase: number;
+  exercicio: number;
+  tipo: string;
+}): Promise<{ sessao_id: string }> {
+  const res = await fetch(`${API_BASE_URL}/sessao/iniciar`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
     body: JSON.stringify(payload),
   });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+export async function completeSession(payload: {
+  sessao_id: string;
+  aprovado?: boolean;
+  wpm_obtido?: number;
+  score?: number;
+  score_fluencia?: number;
+  transcricao_corrigida?: string;
+}): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/sessao/completar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
 }

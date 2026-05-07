@@ -6,7 +6,7 @@ import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 // Hooks & Services
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { useUserStats } from '../hooks/useUserStats';
-import { fetchRandomQuestion, transcribeAudio, saveExerciseProgress } from '../services/api';
+import { fetchRandomQuestion, transcribeAudio, startSession, completeSession } from '../services/api';
 import { getUserId, getCalibration, loseHeart, addXP, updateStreak } from '../utils/storage';
 import { calcularXP } from '../utils/calcularXP';
 
@@ -27,15 +27,17 @@ type Modo = 'pergunta' | 'praticar';
 
 type Props = {
   isPanel?: boolean;
+  fase?: number;
   onExit?: () => void;
   onComplete?: () => void;
 };
 
-export default function TrainingPage({ isPanel, onExit, onComplete }: Props) {
+export default function TrainingPage({ isPanel, fase: propFase, onExit, onComplete }: Props) {
   const router = useRouter();
   const navigation = useNavigation();
-  const { dificuldade: rawDiff, replay } = useLocalSearchParams<{ dificuldade: string; replay: string }>();
+  const { dificuldade: rawDiff, replay, fase: rawFase } = useLocalSearchParams<{ dificuldade: string; replay: string; fase: string }>();
   const dificuldade = (rawDiff as string) || 'facil';
+  const fase = propFase ?? parseInt(rawFase || '1', 10);
   const isReplay = replay === 'true';
 
   const { isRecording, startRecording, stopRecording } = useAudioRecorder();
@@ -58,6 +60,7 @@ export default function TrainingPage({ isPanel, onExit, onComplete }: Props) {
   const consecutivePasses = useRef(0);
   const totalAttempts = useRef(0);
   const sessionXpRef = useRef(0);
+  const sessionIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     getUserId().then(setUserId);
@@ -98,7 +101,11 @@ export default function TrainingPage({ isPanel, onExit, onComplete }: Props) {
     setFraseParaPraticar(null);
     try {
       const q = await fetchRandomQuestion();
-      setTextoTreino(q);
+      setTextoTreino(q.pergunta || q.conteudo || q);
+      if (userId) {
+        const session = await startSession({ usuario_id: userId, fase, exercicio: 2, tipo: 'exercicio_2' });
+        sessionIdRef.current = session.sessao_id;
+      }
     } catch {
       setTextoTreino('Como foi o seu dia hoje?'); // Fallback
     }
@@ -171,13 +178,14 @@ export default function TrainingPage({ isPanel, onExit, onComplete }: Props) {
       return;
     }
 
-    if (userId && transcriptionResult) {
-      await saveExerciseProgress({
-        usuario_id: userId,
-        dificuldade,
+    if (userId && transcriptionResult && sessionIdRef.current) {
+      await completeSession({
+        sessao_id: sessionIdRef.current,
+        aprovado: getPassed()?.passed,
+        wpm_obtido: transcriptionResult.wpm ?? 0,
         score: transcriptionResult.score ?? 0,
-        wpm: transcriptionResult.wpm ?? 0,
-        xp: transcriptionResult.xpGanho ?? 0,
+        score_fluencia: transcriptionResult.score_fluencia,
+        transcricao_corrigida: transcriptionResult.transcricao_corrigida
       }).catch(console.warn);
     }
 

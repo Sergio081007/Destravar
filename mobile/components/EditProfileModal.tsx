@@ -1,17 +1,16 @@
 import { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Dimensions, TextInput, Modal, Image, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { setUserName, setUserChar } from '../utils/storage';
-import { API_BASE_URL } from '../config';
-import { getUserId } from '../utils/storage';
+import { setUserName, setUserChar, getUserId } from '../utils/storage';
+import { API_BASE_URL } from '../constants/config';
 import { supabase } from '../utils/supabase';
 
 const CHARS = {
-  1: require('../../assets/characters/char1.png'),
-  2: require('../../assets/characters/char2.png'),
-  3: require('../../assets/characters/char3.png'),
-  4: require('../../assets/characters/char4.png'),
-  5: require('../../assets/characters/char5.png'),
+  1: require('../assets/characters/char1.png'),
+  2: require('../assets/characters/char2.png'),
+  3: require('../assets/characters/char3.png'),
+  4: require('../assets/characters/char4.png'),
+  5: require('../assets/characters/char5.png'),
 } as const;
 
 type Props = {
