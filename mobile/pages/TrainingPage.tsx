@@ -7,9 +7,10 @@ import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { useUserStats } from '../hooks/useUserStats';
 import { fetchRandomQuestion, transcribeAudio, startSession, completeSession } from '../services/api';
-import { getUserId, loseHeart, addXP, updateStreak, getRawHeartsTimestamps } from '../utils/storage';
+import { getUserId, getUserName, loseHeart, addXP, updateStreak, getRawHeartsTimestamps } from '../utils/storage';
 import { supabase } from '../utils/supabase';
 import { calcularXP } from '../utils/calcularXP';
+import { API_BASE_URL } from '../constants/config';
 
 // Components
 import { ScreenLayout } from '../components/common/ScreenLayout';
@@ -145,6 +146,22 @@ export default function TrainingPage({ isPanel, fase: propFase, onExit, onComple
 
       const data = await transcribeAudio(audioUri, modoLivre, refText, userIdRef.current);
 
+      if (!modoLivre) {
+        if (!data.aprovado && (data.score || 0) >= 0.55) {
+          data.aprovado = true;
+        }
+        if (!data.aprovado && data.status_feedback) {
+          const pratMsgs: Record<string, string> = {
+            precisao: 'Sua fala ainda ficou um pouco fragmentada. Respire fundo e tente mais uma vez.',
+            lento: 'Você falou um pouco devagar. Tente manter um ritmo mais natural.',
+            rapido: 'Você falou rápido demais. Reduza o ritmo e fale com calma.',
+            combinado: 'A frase ficou um pouco travada. Respire antes de começar.',
+          };
+          const subtipo = data.status_feedback.subtipo || 'precisao';
+          data.status_feedback.mensagem = pratMsgs[subtipo] ?? 'Ainda não foi desta vez. Respire fundo e tente novamente.';
+        }
+      }
+
       let numFluencia = 40;
       if (data.fluencia === 'rapido') numFluencia = 100;
       else if (data.fluencia === 'normal') numFluencia = 85;
@@ -213,7 +230,12 @@ export default function TrainingPage({ isPanel, fase: propFase, onExit, onComple
       if (sessionXpRef.current > 0) {
         const newTotal = await addXP(sessionXpRef.current);
         if (uid) {
-          Promise.resolve(supabase.from('usuarios').update({ xp: newTotal }).eq('id', uid)).catch(() => {});
+          const name = await getUserName();
+          fetch(`${API_BASE_URL}/usuarios`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
+            body: JSON.stringify({ id: uid, nome: name, xp: newTotal }),
+          }).catch(() => {});
           supabase.auth.updateUser({ data: { xp: newTotal } }).catch(() => {});
         }
         sessionXpRef.current = 0;
@@ -230,7 +252,12 @@ export default function TrainingPage({ isPanel, fase: propFase, onExit, onComple
     if (sessionXpRef.current > 0) {
       const newTotal = await addXP(sessionXpRef.current);
       if (userId) {
-        Promise.resolve(supabase.from('usuarios').update({ xp: newTotal }).eq('id', userId)).catch(() => {});
+        const name = await getUserName();
+        fetch(`${API_BASE_URL}/usuarios`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
+          body: JSON.stringify({ id: userId, nome: name, xp: newTotal }),
+        }).catch(() => {});
         supabase.auth.updateUser({ data: { xp: newTotal } }).catch(() => {});
       }
       sessionXpRef.current = 0;
