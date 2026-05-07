@@ -4,10 +4,11 @@ import {
   KeyboardAvoidingView, Platform, Dimensions, ScrollView,
 } from 'react-native';
 import Animated, {
-  useSharedValue, useAnimatedStyle,
-  withRepeat, withSequence, withTiming,
+  useSharedValue, useAnimatedStyle, useAnimatedProps,
+  withRepeat, withSequence, withTiming, withDelay,
   FadeInRight, FadeOut,
 } from 'react-native-reanimated';
+import Svg, { Path, Circle, Line } from 'react-native-svg';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
@@ -18,6 +19,14 @@ import { API_BASE_URL } from '../constants/config';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 const HERO_H = Math.round(SCREEN_H * 0.40);
+
+const AnimatedLine = Animated.createAnimatedComponent(Line);
+
+const STEP1_COLORS = [
+  { num: '#004275', icon: '#004275' },
+  { num: '#5d4cbf', icon: '#5d4cbf' },
+  { num: '#006264', icon: '#00484a' },
+] as const;
 
 const CALIBRATION_TEXT =
   'Pedro foi à padaria comprar pão para o café da manhã. No caminho encontrou a sua vizinha Maria, que também ia ao mercado. Eles conversaram um pouco e seguiram cada um para o seu destino.';
@@ -43,10 +52,94 @@ function Hero({ colors, icon }: {
   );
 }
 
-function StepDots({ current }: { current: number }) {
+function WaveBars() {
+  const h1 = useSharedValue(8);
+  const h2 = useSharedValue(8);
+  const h3 = useSharedValue(8);
+  const h4 = useSharedValue(8);
+  const h5 = useSharedValue(8);
+
+  useEffect(() => {
+    const wave = (sv: { value: number }, delay: number) => {
+      sv.value = withDelay(
+        delay,
+        withRepeat(
+          withSequence(
+            withTiming(24, { duration: 500 }),
+            withTiming(8,  { duration: 500 }),
+          ),
+          -1,
+          false,
+        ),
+      );
+    };
+    wave(h1, 0);
+    wave(h2, 100);
+    wave(h3, 200);
+    wave(h4, 300);
+    wave(h5, 400);
+  }, []);
+
+  const s1 = useAnimatedStyle(() => ({ height: h1.value }));
+  const s2 = useAnimatedStyle(() => ({ height: h2.value }));
+  const s3 = useAnimatedStyle(() => ({ height: h3.value }));
+  const s4 = useAnimatedStyle(() => ({ height: h4.value }));
+  const s5 = useAnimatedStyle(() => ({ height: h5.value }));
+
+  return (
+    <View style={styles.wavesContainer}>
+      {([s1, s2, s3, s4, s5] as const).map((s, i) => (
+        <Animated.View key={i} style={[styles.waveBar, s]} />
+      ))}
+    </View>
+  );
+}
+
+function GaugeIcon() {
+  const needleAngle = useSharedValue(-45);
+
+  useEffect(() => {
+    needleAngle.value = withRepeat(
+      withSequence(
+        withTiming(45,  { duration: 1000 }),
+        withTiming(-45, { duration: 1000 }),
+      ),
+      -1,
+      false,
+    );
+  }, []);
+
+  const needleProps = useAnimatedProps(() => ({
+    rotation: needleAngle.value,
+  }));
+
+  return (
+    <Svg width={42} height={42} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M20 16c1.2-1.5 2-3.4 2-5.5a10 10 0 0 0-20 0c0 2.1.8 4 2 5.5"
+        stroke="rgba(255,255,255,0.9)"
+        strokeWidth={2}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <AnimatedLine
+        x1={12} y1={16} x2={12} y2={8}
+        stroke="rgba(255,255,255,0.95)"
+        strokeWidth={2}
+        strokeLinecap="round"
+        originX={12}
+        originY={16}
+        animatedProps={needleProps}
+      />
+      <Circle cx={12} cy={16} r={1.5} fill="rgba(255,255,255,0.95)" />
+    </Svg>
+  );
+}
+
+function StepDots({ current, total = 2 }: { current: number; total?: number }) {
   return (
     <View style={styles.stepDots}>
-      {[0, 1].map((i) => (
+      {Array.from({ length: total }, (_, i) => (
         <View
           key={i}
           style={[
@@ -227,50 +320,124 @@ export default function Onboarding() {
     }
   }
 
-  // ── Step 0: Introdução ────────────────────────────────────────
+  // ── Step 0: Boas-vindas ───────────────────────────────────────
   if (step === 0) {
     return (
-      <Screen key={0} stepKey={0} heroColors={['#0061a2', '#5e41d0']} heroIcon="mic" dots={0}>
-        <Text style={styles.greeting}>Olá! Sou o</Text>
-        <Text style={styles.brandName}>Destravar</Text>
-        <Text style={styles.subtitle}>
-          Sua ferramenta para distúrbios de fluência. Estou aqui para te ajudar a encontrar a sua voz ideal.
-        </Text>
-        <TouchableOpacity style={styles.btn} onPress={() => goToStep(1)} activeOpacity={0.85}>
-          <Text style={styles.btnText}>Vamos começar →</Text>
-        </TouchableOpacity>
-      </Screen>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <Animated.View
+          key={0}
+          entering={FadeInRight.duration(300).springify()}
+          exiting={FadeOut.duration(120)}
+          style={styles.root}
+        >
+          <LinearGradient
+            colors={['#4532a6', '#1261a3', '#004275']}
+            start={{ x: 0.2, y: 0.1 }}
+            end={{ x: 0.8, y: 1 }}
+            style={styles.welcomeHero}
+          >
+            <View style={styles.heroBlobTL} />
+            <View style={styles.heroBlobBR} />
+            <View style={styles.welcomeIconOuter}>
+              <View style={styles.welcomeIconInner}>
+                <WaveBars />
+              </View>
+            </View>
+          </LinearGradient>
+
+          <View style={styles.welcomeSheet}>
+            <StepDots current={0} total={3} />
+            <View style={styles.welcomeTextBlock}>
+              <Text style={styles.greeting}>Olá! Sou o</Text>
+              <Text style={styles.brandName}>Destravar</Text>
+              <Text style={styles.subtitle}>
+                Sua ferramenta para distúrbios de fluência. Estou aqui para te ajudar a encontrar a sua voz ideal.
+              </Text>
+            </View>
+            <View style={{ flex: 1 }} />
+            <TouchableOpacity style={styles.welcomeBtn} onPress={() => goToStep(1)} activeOpacity={0.85}>
+              <Text style={styles.btnText}>Vamos começar</Text>
+              <Ionicons name="arrow-forward" size={20} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.skipBtn}
+              onPress={async () => { await setOnboardingComplete(); router.replace('/(tabs)'); }}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.skipText}>PULAR INTRODUÇÃO</Text>
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+      </KeyboardAvoidingView>
     );
   }
 
   // ── Step 1: Introdução da calibração ─────────────────────────
   if (step === 1) {
     return (
-      <Screen key={1} stepKey={1} heroColors={['#0061a2', '#5e41d0']} heroIcon="analytics-outline" dots={1}>
-        <Text style={styles.cardTitle}>Vamos calibrar sua voz</Text>
-        <Text style={styles.subtitle}>
-          Você vai ler um texto 3 vezes: rápido, devagar e no seu ritmo natural.
-        </Text>
-        <View style={styles.calibRows}>
-          {calibSteps.map((c, i) => (
-            <View key={i} style={styles.calibRow}>
-              <View style={[styles.calibNum, { backgroundColor: c.color }]}>
-                <Text style={styles.calibNumText}>{i + 1}</Text>
-              </View>
-              <View style={[styles.calibIconWrap, { backgroundColor: c.color + '18' }]}>
-                <Ionicons name={c.icon} size={20} color={c.color} />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.calibLabel}>{c.label}</Text>
-                <Text style={styles.calibDesc}>{c.instruction}</Text>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <Animated.View
+          key={1}
+          entering={FadeInRight.duration(300).springify()}
+          exiting={FadeOut.duration(120)}
+          style={styles.root}
+        >
+          <LinearGradient
+            colors={['#004275', '#5d4cbf']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.welcomeHero}
+          >
+            <View style={styles.heroBlobTL} />
+            <View style={styles.heroBlobBR} />
+            <View style={styles.welcomeIconOuter}>
+              <View style={styles.welcomeIconInner}>
+                <GaugeIcon />
               </View>
             </View>
-          ))}
-        </View>
-        <TouchableOpacity style={styles.btn} onPress={() => goToStep(2)} activeOpacity={0.85}>
-          <Text style={styles.btnText}>Começar calibração →</Text>
-        </TouchableOpacity>
-      </Screen>
+          </LinearGradient>
+
+          <View style={[styles.welcomeSheet, { paddingBottom: 0 }]}>
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 48 }}
+            >
+              <StepDots current={1} total={3} />
+              <Text style={styles.calibTitle}>Vamos calibrar sua fluência.</Text>
+              <Text style={styles.calibSubtitle}>
+                Você vai ler o mesmo texto três vezes, cada uma num ritmo diferente para ajustarmos o Destravar ao seu perfil.
+              </Text>
+              <View style={styles.calibRows}>
+                {calibSteps.map((c, i) => {
+                  const col = STEP1_COLORS[i];
+                  return (
+                    <View key={i} style={styles.calibRow}>
+                      <View style={[styles.calibNum, { backgroundColor: col.num }]}>
+                        <Text style={styles.calibNumText}>{i + 1}</Text>
+                      </View>
+                      <View style={styles.calibIconBox}>
+                        <Ionicons name={c.icon} size={20} color={col.icon} />
+                      </View>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.calibLabel}>{c.label}</Text>
+                        <Text style={styles.calibDesc}>{c.instruction}</Text>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+              <TouchableOpacity
+                style={[styles.welcomeBtn, { marginTop: 8 }]}
+                onPress={() => goToStep(2)}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.btnText}>Pronto, vamos lá!</Text>
+                <Ionicons name="arrow-forward" size={20} color="#fff" />
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </Animated.View>
+      </KeyboardAvoidingView>
     );
   }
 
@@ -466,22 +633,32 @@ const styles = StyleSheet.create({
     lineHeight: 23, marginBottom: 28,
   },
 
-  calibRows: { gap: 10, marginBottom: 28 },
+  calibTitle: {
+    fontSize: 28, fontWeight: '900', color: '#004275',
+    letterSpacing: -0.5, marginBottom: 10,
+  },
+  calibSubtitle: {
+    fontSize: 15, color: '#414750', lineHeight: 23, marginBottom: 20,
+  },
+  calibRows: { gap: 10, marginBottom: 0 },
   calibRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#f7fafd', borderRadius: 16, padding: 14,
+    flexDirection: 'row', alignItems: 'center', gap: 16,
+    backgroundColor: '#f2f4f6', borderRadius: 16, padding: 12,
   },
   calibNum: {
-    width: 26, height: 26, borderRadius: 13,
+    width: 32, height: 32, borderRadius: 16,
     justifyContent: 'center', alignItems: 'center',
   },
-  calibNumText: { fontSize: 12, fontWeight: '800', color: '#fff' },
-  calibIconWrap: {
-    width: 40, height: 40, borderRadius: 12,
+  calibNumText: { fontSize: 13, fontWeight: '800', color: '#fff' },
+  calibIconBox: {
+    width: 40, height: 40, borderRadius: 10,
+    backgroundColor: '#fff',
     justifyContent: 'center', alignItems: 'center',
+    shadowColor: '#0061a2', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08, shadowRadius: 6, elevation: 3,
   },
-  calibLabel: { fontSize: 14, fontWeight: '700', color: '#181c1e', marginBottom: 2 },
-  calibDesc:  { fontSize: 12, color: '#707883', fontWeight: '500' },
+  calibLabel: { fontSize: 14, fontWeight: '700', color: '#191c1e', marginBottom: 2 },
+  calibDesc:  { fontSize: 12, color: '#414750', fontWeight: '500' },
 
   btn: {
     backgroundColor: '#0061a2', paddingVertical: 17,
@@ -544,4 +721,44 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3, shadowRadius: 14, elevation: 8,
   },
   recordHint: { fontSize: 13, color: '#707883', fontWeight: '600' },
+
+  welcomeHero: {
+    height: Math.round(SCREEN_H * 0.45),
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+  },
+  welcomeSheet: {
+    position: 'absolute',
+    bottom: 0, left: 0, right: 0,
+    height: Math.round(SCREEN_H * 0.60),
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 40, borderTopRightRadius: 40,
+    paddingTop: 40, paddingHorizontal: 28, paddingBottom: 48,
+    shadowColor: '#000', shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.06, shadowRadius: 12, elevation: 8,
+  },
+  welcomeIconOuter: {
+    width: 116, height: 116, borderRadius: 26,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 1, borderColor: 'rgba(255,255,255,0.25)',
+  },
+  welcomeIconInner: {
+    width: 84, height: 84, borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  welcomeTextBlock: { alignItems: 'center', marginBottom: 8 },
+  welcomeBtn: {
+    backgroundColor: '#005a9c', paddingVertical: 17,
+    borderRadius: 999, alignItems: 'center',
+    flexDirection: 'row', justifyContent: 'center', gap: 8,
+    shadowColor: '#0061a2', shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.28, shadowRadius: 14, elevation: 6,
+  },
+  skipBtn: { marginTop: 16, alignItems: 'center', paddingVertical: 8 },
+  skipText: { fontSize: 12, fontWeight: '800', color: '#727781', letterSpacing: 2 },
+  wavesContainer: { flexDirection: 'row', alignItems: 'center', gap: 3, height: 40 },
+  waveBar: { width: 4, backgroundColor: 'rgba(255,255,255,0.9)', borderRadius: 2 },
 });
