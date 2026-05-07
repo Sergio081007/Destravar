@@ -16,7 +16,7 @@ const MOCK_PLAYERS = [
 import Svg, { Polygon, Rect } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
-import { getProfileData, getUserName, getUserId, getUserChar } from '../utils/storage';
+import { getProfileData, getUserName, getUserId, getUserChar, setTotalXP } from '../utils/storage';
 import { API_BASE_URL } from '../constants/config';
 import Avatar from '../components/Avatar';
 import AppHeader from '../components/AppHeader';
@@ -125,14 +125,25 @@ export default function RankingTab() {
           const myInits = myName.trim().slice(0, 2).toUpperCase() || 'EU';
           setMyInitials(myInits);
 
-          // Sincroniza XP local → servidor (local é a fonte de verdade)
-          if (userId && myXp > 0) {
+          // Sincroniza avatar com o servidor; busca XP do servidor e usa o maior valor
+          if (userId) {
             try {
-              await fetch(`${API_BASE_URL}/usuarios`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
-                body: JSON.stringify({ id: userId, nome: myName, xp: myXp, avatar_id: resolvedMyChar }),
+              const res = await fetch(`${API_BASE_URL}/usuarios/${userId}`, {
+                headers: { 'Bypass-Tunnel-Reminder': 'true' },
               });
+              if (res.ok) {
+                const serverData = await res.json();
+                const serverXp = serverData.xp ?? 0;
+                if (serverXp > myXp) {
+                  await setTotalXP(serverXp);
+                } else if (myXp > serverXp) {
+                  fetch(`${API_BASE_URL}/usuarios`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
+                    body: JSON.stringify({ id: userId, nome: myName, xp: myXp, avatar_id: resolvedMyChar }),
+                  }).catch(() => {});
+                }
+              }
             } catch {}
           }
 

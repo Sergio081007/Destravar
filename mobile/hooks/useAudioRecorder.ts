@@ -12,10 +12,10 @@ export function useAudioRecorder() {
         const resp = await requestPermission();
         if (resp.status !== 'granted') return false;
       }
-      
+
       await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
       const { recording: rec } = await Audio.Recording.createAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
-      
+
       setRecording(rec);
       setIsRecording(true);
       return true;
@@ -40,9 +40,5 @@ export function useAudioRecorder() {
     }
   };
 
-  return {
-    isRecording,
-    startRecording,
-    stopRecording,
-  };
+  return { isRecording, startRecording, stopRecording };
 }

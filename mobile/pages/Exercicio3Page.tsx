@@ -11,10 +11,10 @@ import { startSession, completeSession } from '../services/api';
 import { useLocalSearchParams } from 'expo-router';
 
 type Props = {
-  dificuldade: string;
+  dificuldade?: string;
   fase?: number;
-  onExit: () => void;
-  onFinalExit: () => void;
+  onExit?: () => void;
+  onFinalExit?: () => void;
 };
 
 // MOCK DATA - Focado em Emojis Contextuais
@@ -73,6 +73,7 @@ const EXERCISE_DATA = {
 };
 
 export default function Exercicio3({ dificuldade: propDificuldade, fase: propFase, onExit, onFinalExit }: Props) {
+  const router = useRouter();
   const { dificuldade: rawDiff, fase: rawFase } = useLocalSearchParams<{ dificuldade: string, fase: string }>();
   const dificuldade = propDificuldade || rawDiff || 'facil';
   const fase = propFase ?? parseInt(rawFase || '1', 10);
@@ -165,7 +166,8 @@ export default function Exercicio3({ dificuldade: propDificuldade, fase: propFas
   };
 
   const handleFinalExit = () => {
-    onFinalExit();
+    if (onFinalExit) onFinalExit();
+    else router.replace('/(tabs)');
   };
 
   // Animação de entrada do conteúdo

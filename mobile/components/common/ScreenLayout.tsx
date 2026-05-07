@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, StyleSheet, ScrollView, ViewStyle, SafeAreaView } from 'react-native';
+import { View, StyleSheet, ScrollView, ViewStyle } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Colors } from '../../constants/theme';
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 
@@ -40,7 +41,7 @@ export function ScreenLayout({
 
   return (
     <Container {...(containerProps as any)}>
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={styles.safeArea} edges={[]}>
         {header}
         {content}
         {footer}
