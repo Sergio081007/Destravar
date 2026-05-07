@@ -10,11 +10,11 @@ import AppHeader from '../components/AppHeader';
 import EditProfileModal from '../components/EditProfileModal';
 
 const CHARS = {
-  1: require('../../assets/characters/char1.png'),
-  2: require('../../assets/characters/char2.png'),
-  3: require('../../assets/characters/char3.png'),
-  4: require('../../assets/characters/char4.png'),
-  5: require('../../assets/characters/char5.png'),
+  1: require('../assets/characters/char1.png'),
+  2: require('../assets/characters/char2.png'),
+  3: require('../assets/characters/char3.png'),
+  4: require('../assets/characters/char4.png'),
+  5: require('../assets/characters/char5.png'),
 } as const;
 
 const LEVEL_TITLES = ['', 'Iniciante das Palavras', 'Explorador de Palavras', 'Mestre das Palavras', 'Elite das Palavras', 'Lendário das Palavras'];

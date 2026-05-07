@@ -42,6 +42,10 @@ export async function setTotalXP(amount: number) {
   await AsyncStorage.setItem(STORAGE_KEYS.TOTAL_XP, amount.toString());
 }
 
+export async function setStreak(n: number) {
+  await AsyncStorage.setItem(STORAGE_KEYS.STREAK, n.toString());
+}
+
 export async function setLevelProgress(data: object) {
   await AsyncStorage.setItem(STORAGE_KEYS.PROGRESS, JSON.stringify(data));
 }

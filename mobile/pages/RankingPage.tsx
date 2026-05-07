@@ -27,11 +27,11 @@ const COL1_W  = Math.floor(CONTENT_W * 1.2 / 3.2);
 const COL23_W = Math.floor(CONTENT_W / 3.2);
 
 const CHARS: Record<number, ImageSourcePropType> = {
-  1: require('../../assets/characters/char1.png'),
-  2: require('../../assets/characters/char2.png'),
-  3: require('../../assets/characters/char3.png'),
-  4: require('../../assets/characters/char4.png'),
-  5: require('../../assets/characters/char5.png'),
+  1: require('../assets/characters/char1.png'),
+  2: require('../assets/characters/char2.png'),
+  3: require('../assets/characters/char3.png'),
+  4: require('../assets/characters/char4.png'),
+  5: require('../assets/characters/char5.png'),
 };
 
 const PLAYER_COLORS = [
@@ -131,7 +131,7 @@ export default function RankingTab() {
               await fetch(`${API_BASE_URL}/usuarios`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
-                body: JSON.stringify({ id: userId, nome: myName, xp: myXp }),
+                body: JSON.stringify({ id: userId, nome: myName, xp: myXp, avatar_id: resolvedMyChar }),
               });
             } catch {}
           }

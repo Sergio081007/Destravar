@@ -131,7 +131,9 @@ export default function Exercicio3({ dificuldade: propDificuldade, fase: propFas
 
   const finishSession = async () => {
     // 1. Salvar XP localmente e sincronizar com o servidor
-    await addXP(50);
+    const newTotal = await addXP(50);
+    const uid = await getUserId();
+    if (uid) Promise.resolve(supabase.from('usuarios').update({ xp: newTotal }).eq('id', uid)).catch(() => {});
     if (sessionIdRef.current) {
       await completeSession({
         sessao_id: sessionIdRef.current,

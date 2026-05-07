@@ -8,7 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { supabase } from '../utils/supabase';
-import { setUserName, setUserId, setUserChar, setTotalXP, setLevelProgress, getOnboardingComplete, clearAllData } from '../utils/storage';
+import { setUserName, setUserId, setUserChar, setTotalXP, setStreak, setLevelProgress, getOnboardingComplete, clearAllData } from '../utils/storage';
 import { API_BASE_URL } from '../constants/config';
 
 const { height: SCREEN_H } = Dimensions.get('window');
@@ -97,6 +97,7 @@ export default function Login() {
         // Restaura dados do Supabase Auth metadata
         const meta = data.user.user_metadata ?? {};
         if (meta.progress) await setLevelProgress(meta.progress);
+        if (meta.streak !== undefined) await setStreak(meta.streak);
 
         // Restaura XP do servidor
         try {

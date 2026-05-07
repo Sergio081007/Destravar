@@ -8,6 +8,7 @@ import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { useUserStats } from '../hooks/useUserStats';
 import { fetchRandomQuestion, transcribeAudio, startSession, completeSession } from '../services/api';
 import { getUserId, getCalibration, loseHeart, addXP, updateStreak } from '../utils/storage';
+import { supabase } from '../utils/supabase';
 import { calcularXP } from '../utils/calcularXP';
 
 // Components
@@ -61,11 +62,17 @@ export default function TrainingPage({ isPanel, fase: propFase, onExit, onComple
   const totalAttempts = useRef(0);
   const sessionXpRef = useRef(0);
   const sessionIdRef = useRef<string | null>(null);
+  const userIdRef = useRef<string | null>(null);
 
   useEffect(() => {
-    getUserId().then(setUserId);
-    getCalibration().then(setCalibration);
-    loadQuestion();
+    const init = async () => {
+      const [uid, cal] = await Promise.all([getUserId(), getCalibration()]);
+      userIdRef.current = uid;
+      setUserId(uid);
+      setCalibration(cal);
+      await loadQuestion();
+    };
+    init();
   }, []);
 
   useEffect(() => {
@@ -101,13 +108,14 @@ export default function TrainingPage({ isPanel, fase: propFase, onExit, onComple
     setFraseParaPraticar(null);
     try {
       const q = await fetchRandomQuestion();
-      setTextoTreino(q.pergunta || q.conteudo || q);
-      if (userId) {
-        const session = await startSession({ usuario_id: userId, fase, exercicio: 2, tipo: 'exercicio_2' });
+      setTextoTreino(q.ex2_pergunta || q.pergunta || q.conteudo || q);
+      const uid = userIdRef.current;
+      if (uid) {
+        const session = await startSession({ usuario_id: uid, fase, exercicio: 2, tipo: 'exercicio_2' });
         sessionIdRef.current = session.sessao_id;
       }
     } catch {
-      setTextoTreino('Como foi o seu dia hoje?'); // Fallback
+      setTextoTreino('Como foi o seu dia hoje?');
     }
   };
 
@@ -130,33 +138,34 @@ export default function TrainingPage({ isPanel, fase: propFase, onExit, onComple
   const processAudio = async (audioUri: string) => {
     setIsTranscribing(true);
     try {
-      const isQuestMode = modo === 'pergunta';
-      const refText = isQuestMode ? textoTreino : (fraseParaPraticar || textoTreino);
-      
-      const data = await transcribeAudio(audioUri, isQuestMode, refText, userId);
-      
+      const modoLivre = modo === 'pergunta';
+      const refText = modoLivre ? null : fraseParaPraticar;
+
+      const data = await transcribeAudio(audioUri, modoLivre, refText, userIdRef.current);
+
       let numFluencia = 40;
       if (data.fluencia === 'rapido') numFluencia = 100;
       else if (data.fluencia === 'normal') numFluencia = 85;
       else if (data.fluencia === 'lento') numFluencia = 65;
 
-      const palavras = data?.analise_palavras || [];
+      const palavras = data?.analise_palavras || data?.analise_corrigida || [];
       const taxaFluenciaNum = palavras.length > 0
         ? (palavras.filter((p: any) => p.categoria === 'correta').length / palavras.length) * 100
         : 0;
 
-      const taxaAcerto = isQuestMode ? taxaFluenciaNum : (data.score !== undefined ? data.score * 100 : (data.precisao_alvo || 0));
+      const taxaAcerto = modoLivre ? taxaFluenciaNum : (data.score !== undefined ? data.score * 100 : (data.precisao_alvo || 0));
       const minWpm = calibration?.limite_inferior ?? 80;
-      const passed = !isQuestMode || (data.wpm ?? 0) >= minWpm;
+      const passed = !modoLivre || (data.wpm ?? 0) >= minWpm;
 
       if (passed && !isReplay) {
         const finalXP = calcularXP({ fluencia: numFluencia, taxaAcerto, wpm: data.wpm, meta: { wpmMin: 130, wpmMax: 160 } });
         data.xpGanho = finalXP;
         sessionXpRef.current += finalXP;
-        await updateStreak();
+        const newStreak = await updateStreak();
+        supabase.auth.updateUser({ data: { streak: newStreak } }).catch(() => {});
       }
 
-      if (isQuestMode && !passed) {
+      if (modoLivre && !passed) {
         const remHearts = await loseHeart();
         setHearts(remHearts);
         setShowHeartLost(true);
@@ -173,20 +182,21 @@ export default function TrainingPage({ isPanel, fase: propFase, onExit, onComple
   };
 
   const handleNext = async () => {
-    if (modo === 'praticar' || isReplay) {
-      loadQuestion();
-      return;
-    }
-
-    if (userId && transcriptionResult && sessionIdRef.current) {
+    const uid = userIdRef.current;
+    if (uid && transcriptionResult && sessionIdRef.current) {
       await completeSession({
         sessao_id: sessionIdRef.current,
         aprovado: getPassed()?.passed,
         wpm_obtido: transcriptionResult.wpm ?? 0,
         score: transcriptionResult.score ?? 0,
         score_fluencia: transcriptionResult.score_fluencia,
-        transcricao_corrigida: transcriptionResult.transcricao_corrigida
+        transcricao_corrigida: transcriptionResult.transcricao_corrigida,
       }).catch(console.warn);
+    }
+
+    if (isReplay) {
+      loadQuestion();
+      return;
     }
 
     totalAttempts.current += 1;
@@ -198,7 +208,8 @@ export default function TrainingPage({ isPanel, fase: propFase, onExit, onComple
 
     if (consecutivePasses.current >= 2 || totalAttempts.current >= 5) {
       if (sessionXpRef.current > 0) {
-        await addXP(sessionXpRef.current);
+        const newTotal = await addXP(sessionXpRef.current);
+        if (uid) Promise.resolve(supabase.from('usuarios').update({ xp: newTotal }).eq('id', uid)).catch(() => {});
         sessionXpRef.current = 0;
       }
       if (onComplete) onComplete();
@@ -211,7 +222,8 @@ export default function TrainingPage({ isPanel, fase: propFase, onExit, onComple
 
   const handleExit = async () => {
     if (sessionXpRef.current > 0) {
-      await addXP(sessionXpRef.current);
+      const newTotal = await addXP(sessionXpRef.current);
+      if (userId) Promise.resolve(supabase.from('usuarios').update({ xp: newTotal }).eq('id', userId)).catch(() => {});
       sessionXpRef.current = 0;
     }
     if (isPanel && onExit) {

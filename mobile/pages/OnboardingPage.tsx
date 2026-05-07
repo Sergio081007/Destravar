@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import { useRouter } from 'expo-router';
 import { setOnboardingComplete, getUserName, getUserId, setCalibration } from '../utils/storage';
+import { supabase } from '../utils/supabase';
 import { API_BASE_URL } from '../constants/config';
 
 const { height: SCREEN_H } = Dimensions.get('window');
@@ -101,12 +102,28 @@ export default function Onboarding() {
   const [recorded, setRecorded]       = useState(false);
   const [recordingURIs, setRecordingURIs] = useState<string[]>([]);
   const [calibrating, setCalibrating] = useState(false);
+  const [calibText, setCalibText]     = useState(CALIBRATION_TEXT);
+  const [calibSteps, setCalibSteps]   = useState(CALIB);
   const [, requestPermission]         = Audio.usePermissions();
   const pulseAnim = useSharedValue(1);
   const router    = useRouter();
 
   useEffect(() => {
     getUserName().then(setName);
+    Promise.resolve(
+      supabase
+        .from('textos_calibracao')
+        .select('conteudo, instrucao_rapido, instrucao_devagar, instrucao_confortavel')
+        .single()
+    ).then(({ data }) => {
+      if (!data) return;
+      if (data.conteudo) setCalibText(data.conteudo);
+      setCalibSteps([
+        { instruction: data.instrucao_rapido      || CALIB[0].instruction, icon: 'rocket-outline'    as const, color: '#0061a2', label: 'Rápido'  },
+        { instruction: data.instrucao_devagar     || CALIB[1].instruction, icon: 'hourglass-outline' as const, color: '#5e41d0', label: 'Lento'   },
+        { instruction: data.instrucao_confortavel || CALIB[2].instruction, icon: 'heart-outline'     as const, color: '#0061a2', label: 'Natural' },
+      ]);
+    }).catch(() => {});
   }, []);
 
   function goToStep(n: number) {
@@ -178,7 +195,7 @@ export default function Onboarding() {
       if (userId && recordingURIs.length === 3) {
         const formData = new FormData();
         formData.append('usuario_id', userId);
-        formData.append('texto_referencia', CALIBRATION_TEXT);
+        formData.append('texto_referencia', calibText);
         const labels = ['audio_rapido', 'audio_devagar', 'audio_confortavel'] as const;
         labels.forEach((label, i) => {
           formData.append(label, {
@@ -235,7 +252,7 @@ export default function Onboarding() {
           Você vai ler um texto 3 vezes: rápido, devagar e no seu ritmo natural.
         </Text>
         <View style={styles.calibRows}>
-          {CALIB.map((c, i) => (
+          {calibSteps.map((c, i) => (
             <View key={i} style={styles.calibRow}>
               <View style={[styles.calibNum, { backgroundColor: c.color }]}>
                 <Text style={styles.calibNumText}>{i + 1}</Text>
@@ -260,7 +277,7 @@ export default function Onboarding() {
   // ── Steps 2–4: Gravação ───────────────────────────────────────
   if (step >= 2 && step <= 4) {
     const taskIdx = step - 2;
-    const task    = CALIB[taskIdx];
+    const task    = calibSteps[taskIdx];
     const isLast  = taskIdx === 2;
 
     return (
@@ -286,7 +303,7 @@ export default function Onboarding() {
             </View>
           </View>
           <View style={styles.progressBar}>
-            {CALIB.map((_, i) => (
+            {calibSteps.map((_, i) => (
               <View
                 key={i}
                 style={[styles.progressSeg, { backgroundColor: i <= taskIdx ? task.color : '#e0e3e6' }]}
@@ -306,7 +323,7 @@ export default function Onboarding() {
 
           <View style={styles.textCard}>
             <Text style={styles.textLabel}>TEXTO PARA LER</Text>
-            <Text style={styles.readingText}>{CALIBRATION_TEXT}</Text>
+            <Text style={styles.readingText}>{calibText}</Text>
           </View>
 
           <View style={styles.recordArea}>

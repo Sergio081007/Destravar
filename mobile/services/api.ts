@@ -12,13 +12,11 @@ export async function fetchRandomQuestion(): Promise<any> {
   }
 }
 
-export async function transcribeAudio(audioUri: string, isQuestionMode: boolean, referenceText: string, userId: string | null): Promise<any> {
+export async function transcribeAudio(audioUri: string, modoLivre: boolean, referenceText: string | null, userId: string | null): Promise<any> {
   const form = new FormData();
   form.append('file', { uri: audioUri, type: 'audio/m4a', name: 'rec.m4a' } as any);
-
-  if (isQuestionMode) {
-    form.append('pergunta', referenceText);
-  } else {
+  form.append('modo_livre', String(modoLivre));
+  if (!modoLivre && referenceText) {
     form.append('texto_referencia', referenceText);
   }
   if (userId) form.append('usuario_id', userId);

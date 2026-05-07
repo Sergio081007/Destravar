@@ -16,11 +16,11 @@ const NODE_ROW_H = 155;
 const SVG_PATH_TOP = 20;
 
 const CHARS = {
-  1: require('../../assets/characters/char1.png'),
-  2: require('../../assets/characters/char2.png'),
-  3: require('../../assets/characters/char3.png'),
-  4: require('../../assets/characters/char4.png'),
-  5: require('../../assets/characters/char5.png'),
+  1: require('../assets/characters/char1.png'),
+  2: require('../assets/characters/char2.png'),
+  3: require('../assets/characters/char3.png'),
+  4: require('../assets/characters/char4.png'),
+  5: require('../assets/characters/char5.png'),
 } as const;
 
 const ACTIVITY_NODES = [
