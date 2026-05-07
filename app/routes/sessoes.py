@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from app.db.connection import get_connection
@@ -71,5 +72,38 @@ async def completar_sessao(payload: SessaoCompletar):
 
     if not response.data:
         raise HTTPException(status_code=500, detail="Erro ao completar sessão.")
+
+    if payload.aprovado is not None:
+        sess = response.data[0]
+        usuario_id = sess.get("usuario_id")
+        fase       = sess.get("fase")
+        exercicio  = sess.get("exercicio")
+
+        if usuario_id and fase and exercicio:
+            now = datetime.now(timezone.utc).isoformat()
+            prog = (
+                supabase.table("progresso")
+                .select("id, aprovacoes_consecutivas")
+                .eq("usuario_id", usuario_id)
+                .eq("fase", fase)
+                .eq("exercicio", exercicio)
+                .execute()
+            )
+            if prog.data:
+                current = prog.data[0]["aprovacoes_consecutivas"]
+                new_val = (current + 1) if payload.aprovado else 0
+                supabase.table("progresso").update({
+                    "aprovacoes_consecutivas": new_val,
+                    "atualizado_em": now,
+                }).eq("id", prog.data[0]["id"]).execute()
+            else:
+                supabase.table("progresso").insert({
+                    "usuario_id":              usuario_id,
+                    "fase":                    fase,
+                    "exercicio":               exercicio,
+                    "aprovacoes_consecutivas": 1 if payload.aprovado else 0,
+                    "desbloqueado":            fase == 1,
+                    "atualizado_em":           now,
+                }).execute()
 
     return {"status": "concluida"}

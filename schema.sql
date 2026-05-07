@@ -20,6 +20,7 @@ CREATE TABLE usuarios (
     nome      TEXT NOT NULL,
     email     TEXT UNIQUE,
     xp        INTEGER DEFAULT 0,
+    avatar_id SMALLINT DEFAULT 1,
     criado_em TIMESTAMPTZ DEFAULT NOW()
 );
 
