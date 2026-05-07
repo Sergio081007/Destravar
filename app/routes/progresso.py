@@ -271,56 +271,33 @@ async def obter_ranking(limite: int = 10):
     )
     sessoes = sess_response.data or []
 
-    # Busca todo o progresso pra calcular fases concluídas
-    prog_response = (
-        supabase.table("progresso")
-        .select("usuario_id, fase, exercicio, aprovacoes_consecutivas")
-        .execute()
-    )
-    prog_rows = prog_response.data or []
-
-    # Busca nomes e avatares dos usuários
+    # Busca nomes, avatares e XP armazenado dos usuários
     usuarios_response = (
         supabase.table("usuarios")
-        .select("id, nome, avatar_id")
+        .select("id, nome, avatar_id, xp")
         .execute()
     )
     nomes    = {u["id"]: u["nome"]            for u in (usuarios_response.data or [])}
     avatares = {u["id"]: u.get("avatar_id")   for u in (usuarios_response.data or [])}
+    xp_store = {u["id"]: u.get("xp") or 0    for u in (usuarios_response.data or [])}
 
-    # ── XP por usuário ────────────────────────────────────────────
-    XP_SESSAO   = 10
-    XP_FASE     = 50
-    XP_STREAK   = 5
+    XP_STREAK = 5
 
-    sessoes_por_usuario:    dict = defaultdict(list)
+    sessoes_por_usuario: dict = defaultdict(list)
     for s in sessoes:
         sessoes_por_usuario[s["usuario_id"]].append(s["criado_em"][:10])
-
-    fases_por_usuario: dict = defaultdict(lambda: defaultdict(set))
-    for r in prog_rows:
-        if r["aprovacoes_consecutivas"] >= CRITERIO_APROVACAO.get(r["exercicio"], 1):
-            fases_por_usuario[r["usuario_id"]][r["fase"]].add(r["exercicio"])
 
     hoje = date.today()
     ranking_bruto = []
 
-    todos_usuarios = set(sessoes_por_usuario.keys()) | set(fases_por_usuario.keys())
+    # Inclui todos os usuários registrados (não só quem tem sessões)
+    todos_usuarios = set(nomes.keys())
 
     for uid in todos_usuarios:
         dias = sorted(set(sessoes_por_usuario[uid]))
-        total_sessoes = len(sessoes_por_usuario[uid])
 
-        fases_concluidas = sum(
-            1 for exs in fases_por_usuario[uid].values()
-            if exs >= {1, 2, 3}
-        )
-
-        xp = (
-            total_sessoes * XP_SESSAO
-            + fases_concluidas * XP_FASE
-            + len(dias) * XP_STREAK
-        )
+        # XP vem do valor armazenado pelo app; bônus de streak por dias únicos
+        xp = xp_store.get(uid, 0) + len(dias) * XP_STREAK
 
         # Streak atual
         streak = 0
