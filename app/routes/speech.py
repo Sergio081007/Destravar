@@ -421,6 +421,25 @@ async def transcrever(
             taxa_oscilacao = round(oscilacoes_detectadas / total_palavras, 4) if calibracao and total_palavras > 0 else 0.0
             analise_corrigida = _alinhar_analise_corrigida(analise_palavras, transcricao_corrigida)
 
+            aprovacao = calcular_aprovacao(
+                wpm=wpm,
+                score_penalizado=taxa_fluencia,
+                wpm_min=wpm_min,
+                wpm_max=wpm_max,
+                limite_inferior=calibracao["limite_inferior"] if calibracao else None,
+                limite_superior=calibracao["limite_superior"] if calibracao else None,
+            )
+
+            _MSGS_LIVRE = {
+                "precisao":  "Sua fala ficou muito fragmentada desta vez. Respire fundo e tente responder com mais naturalidade.",
+                "lento":     "Você falou bem devagar. Tente responder de forma mais fluida, sem se preocupar com erros.",
+                "rapido":    "Você falou muito rápido. Tente diminuir o ritmo e falar com mais calma.",
+                "combinado": "Sua resposta ficou um pouco travada. Respire antes de começar e deixe as palavras fluírem.",
+            }
+            if not aprovacao["aprovado"]:
+                subtipo_fb = aprovacao["status_feedback"].get("subtipo") or "precisao"
+                aprovacao["status_feedback"]["mensagem"] = _MSGS_LIVRE.get(subtipo_fb, _MSGS_LIVRE["precisao"])
+
             return {
                 "filename":              file.filename,
                 "modo_livre":            True,
@@ -453,14 +472,7 @@ async def transcrever(
                 "taxa_oscilacao":        taxa_oscilacao,
                 "wpm_base":              calibracao["wpm_base"] if calibracao else None,
                 "calibrado":             calibracao is not None,
-                **calcular_aprovacao(
-                    wpm=wpm,
-                    score_penalizado=taxa_fluencia,
-                    wpm_min=wpm_min,
-                    wpm_max=wpm_max,
-                    limite_inferior=calibracao["limite_inferior"] if calibracao else None,
-                    limite_superior=calibracao["limite_superior"] if calibracao else None,
-                ),
+                **aprovacao,
             }
 
         # ── Modo leitura: comparação com texto de referência (comportamento original) ──
