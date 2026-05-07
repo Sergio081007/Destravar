@@ -285,7 +285,7 @@ export default function TrainingPage({ isPanel, fase: propFase, onExit, onComple
         badgeText={modo === 'pergunta' ? 'PERGUNTA' : 'PARA REPETIR'}
         title={modo === 'pergunta' ? 'Responda em até 1 minuto:' : 'Repita em voz alta:'}
         phrase={textoTreino}
-        hintIcon={modo === 'pergunta' ? 'time-outline' : 'leaf-outline'}
+        hintIcon={modo === 'pergunta' ? 'bulb-outline' : 'leaf-outline'}
         hintText={modo === 'pergunta' ? (ex2Dica || 'Fale livremente, sem se preocupar com erros') : 'Respire antes de começar'}
       />
 
@@ -341,10 +341,14 @@ export default function TrainingPage({ isPanel, fase: propFase, onExit, onComple
           />
 
           {modo === 'pergunta' && transcriptionResult.transcricao_corrigida && !evalResult?.passed && (
+            <View style={styles.warnBanner}>
+              <Ionicons name="alert-circle-outline" size={16} color="#92400e" />
+              <Text style={styles.warnText}>{evalResult?.msg}</Text>
+            </View>
+          )}
+
+          {modo === 'pergunta' && transcriptionResult.transcricao_corrigida && !evalResult?.passed && (
             <View style={styles.corrigidaBox}>
-              {!evalResult?.passed && (
-                <Typography variant="body" color="#dc2626" style={{ marginBottom: 10 }}>⚠️ {evalResult?.msg}</Typography>
-              )}
               <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center', marginBottom: 6 }}>
                 <Ionicons name="checkmark-circle" size={15} color="#16a34a" />
                 <Typography variant="caption" color="#16a34a">Como ficaria</Typography>
@@ -393,6 +397,8 @@ const styles = StyleSheet.create({
   corrigidaBox: { backgroundColor: '#f0fdf4', padding: 16, borderRadius: 16, marginBottom: 16, borderWidth: 1, borderColor: '#bbf7d0' },
   corrigidaText: { fontSize: 16, fontStyle: 'italic', color: '#166534', marginBottom: 12 },
   failBlock: { backgroundColor: '#fef2f2', padding: 16, borderRadius: 16, marginTop: 16, borderWidth: 1, borderColor: '#fecaca' },
+  warnBanner: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, backgroundColor: '#fffbeb', borderRadius: 12, padding: 12, marginBottom: 10, borderWidth: 1, borderColor: '#fde68a' },
+  warnText: { flex: 1, fontSize: 13, color: '#92400e', fontWeight: '500', lineHeight: 18 },
   errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, width: '100%', backgroundColor: '#fef2f2', borderRadius: 12, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: '#fecaca' },
   errorText: { flex: 1, fontSize: 13, color: '#dc2626', fontWeight: '500' },
 });

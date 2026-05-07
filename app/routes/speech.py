@@ -372,10 +372,13 @@ async def transcrever(
             try:
                 prompt_correcao = (
                     f"Você recebeu a transcrição bruta de alguém com gagueira. "
-                    f"Reescreva apenas o que a pessoa quis dizer, removendo: repetições de palavras ou sílabas, "
-                    f"palavras incompletas, muletas de linguagem (ah, éé, hum, tipo, então, assim) e sons prolongados. "
+                    f"Sua tarefa é APENAS remover os artefatos de gagueira, mantendo exatamente as mesmas palavras e estrutura. "
+                    f"Remova somente: repetições de sílabas ou palavras (ex: 'eu eu fui' → 'eu fui'), "
+                    f"muletas de linguagem (ah, éé, hum, tipo, então, assim) e sons prolongados (ex: 'aaaaa casa' → 'a casa'). "
+                    f"NÃO reformule, NÃO adicione palavras, NÃO mude o significado, NÃO corrija gramática. "
+                    f"Se a frase já estiver limpa, retorne-a sem nenhuma alteração. "
                     f"Transcrição bruta: \"{texto}\". "
-                    f"Retorne apenas a frase corrigida, sem explicações."
+                    f"Retorne apenas a frase limpa, sem explicações."
                 )
                 resp_correcao = client.chat.completions.create(
                     messages=[{"role": "user", "content": prompt_correcao}],

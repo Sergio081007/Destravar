@@ -11,7 +11,7 @@ interface PhraseDisplayProps {
   hintText: string;
 }
 
-export function PhraseDisplay({ badgeText, title, phrase, hintIcon = 'time-outline', hintText }: PhraseDisplayProps) {
+export function PhraseDisplay({ badgeText, title, phrase, hintIcon = 'bulb-outline', hintText }: PhraseDisplayProps) {
   return (
     <View style={styles.phraseCard}>
       <View style={styles.phraseCardTop}>
@@ -55,9 +55,10 @@ const styles = StyleSheet.create({
     fontStyle: 'italic', lineHeight: 30, textAlign: 'center',
   },
   breathHint: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 7,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
     backgroundColor: '#f1f5f9', borderRadius: 10,
-    paddingHorizontal: 10, paddingVertical: 7, marginTop: 2,
+    paddingHorizontal: 12, paddingVertical: 8,
+    justifyContent: 'center',
   },
-  breathHintText: { flex: 1, fontSize: 12, color: '#64748b', fontWeight: '500', lineHeight: 17 },
+  breathHintText: { flex: 1, fontSize: 12, color: '#64748b', fontWeight: '500', lineHeight: 17, textAlign: 'center' },
 });

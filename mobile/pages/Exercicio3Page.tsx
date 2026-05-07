@@ -249,8 +249,8 @@ export default function Exercicio3({ dificuldade: propDificuldade, fase: propFas
           </TouchableOpacity>
 
           <TouchableOpacity style={[styles.btn, styles.btnFail]} onPress={handleForce} activeOpacity={0.85}>
-            <Ionicons name="alert-circle" size={24} color="#ef4444" />
-            <Text style={[styles.btnText, { color: '#ef4444' }]}>Precisei forçar</Text>
+            <Ionicons name="alert-circle" size={24} color="#fff" />
+            <Text style={styles.btnText}>Precisei forçar</Text>
           </TouchableOpacity>
         </View>
 
@@ -410,17 +410,20 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   btnSuccess: {
-    backgroundColor: '#10b981',
-    shadowColor: '#10b981',
+    backgroundColor: '#0061a2',
+    shadowColor: '#0061a2',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 4,
   },
   btnFail: {
-    backgroundColor: '#fffbeb',
-    borderWidth: 2,
-    borderColor: '#fcd34d',
+    backgroundColor: '#ef4444',
+    shadowColor: '#ef4444',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
   btnText: {
     color: '#fff',
