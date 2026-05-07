@@ -7,7 +7,7 @@ import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { useUserStats } from '../hooks/useUserStats';
 import { fetchRandomQuestion, transcribeAudio, startSession, completeSession } from '../services/api';
-import { getUserId, getCalibration, loseHeart, addXP, updateStreak, getRawHeartsTimestamps } from '../utils/storage';
+import { getUserId, loseHeart, addXP, updateStreak, getRawHeartsTimestamps } from '../utils/storage';
 import { supabase } from '../utils/supabase';
 import { calcularXP } from '../utils/calcularXP';
 
@@ -22,7 +22,7 @@ import { Card } from '../components/ui/Card';
 import { Typography } from '../components/ui/Typography';
 import ConfirmExitModal from '../components/ConfirmExitModal';
 import HeartLostModal from '../components/HeartLostModal';
-import { Colors, Shadow } from '../constants/theme';
+import { Colors } from '../constants/theme';
 
 type Modo = 'pergunta' | 'praticar';
 
@@ -36,8 +36,7 @@ type Props = {
 export default function TrainingPage({ isPanel, fase: propFase, onExit, onComplete }: Props) {
   const router = useRouter();
   const navigation = useNavigation();
-  const { dificuldade: rawDiff, replay, fase: rawFase } = useLocalSearchParams<{ dificuldade: string; replay: string; fase: string }>();
-  const dificuldade = (rawDiff as string) || 'facil';
+  const { replay, fase: rawFase } = useLocalSearchParams<{ replay: string; fase: string }>();
   const fase = propFase ?? parseInt(rawFase || '1', 10);
   const isReplay = replay === 'true';
 
@@ -51,11 +50,12 @@ export default function TrainingPage({ isPanel, fase: propFase, onExit, onComple
   const [textoTreino, setTextoTreino] = useState('Carregando...');
   const [modo, setModo] = useState<Modo>('pergunta');
   const [fraseParaPraticar, setFraseParaPraticar] = useState<string | null>(null);
+  const [ex2Dica, setEx2Dica] = useState<string>('');
 
   const [userId, setUserId] = useState<string | null>(null);
-  const [calibration, setCalibration] = useState<any>(null);
   const [showExitModal, setShowExitModal] = useState(false);
   const [showHeartLost, setShowHeartLost] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const skipExitGuard = useRef(false);
   const consecutivePasses = useRef(0);
@@ -66,10 +66,9 @@ export default function TrainingPage({ isPanel, fase: propFase, onExit, onComple
 
   useEffect(() => {
     const init = async () => {
-      const [uid, cal] = await Promise.all([getUserId(), getCalibration()]);
+      const uid = await getUserId();
       userIdRef.current = uid;
       setUserId(uid);
-      setCalibration(cal);
       await loadQuestion();
     };
     init();
@@ -106,14 +105,16 @@ export default function TrainingPage({ isPanel, fase: propFase, onExit, onComple
     setTranscriptionResult(null);
     setModo('pergunta');
     setFraseParaPraticar(null);
+    const uid = userIdRef.current;
+    if (uid) {
+      startSession({ usuario_id: uid, fase, exercicio: 2, tipo: 'exercicio_2' })
+        .then(s => { sessionIdRef.current = s.sessao_id; })
+        .catch(() => {});
+    }
     try {
       const q = await fetchRandomQuestion();
       setTextoTreino(q.ex2_pergunta || q.pergunta || q.conteudo || q);
-      const uid = userIdRef.current;
-      if (uid) {
-        const session = await startSession({ usuario_id: uid, fase, exercicio: 2, tipo: 'exercicio_2' });
-        sessionIdRef.current = session.sessao_id;
-      }
+      setEx2Dica(q.ex2_dica || q.dica || '');
     } catch {
       setTextoTreino('Como foi o seu dia hoje?');
     }
@@ -131,6 +132,7 @@ export default function TrainingPage({ isPanel, fase: propFase, onExit, onComple
       const uri = await stopRecording();
       if (uri) processAudio(uri);
     } else {
+      setErrorMsg(null);
       await startRecording();
     }
   };
@@ -154,8 +156,7 @@ export default function TrainingPage({ isPanel, fase: propFase, onExit, onComple
         : 0;
 
       const taxaAcerto = modoLivre ? taxaFluenciaNum : (data.score !== undefined ? data.score * 100 : (data.precisao_alvo || 0));
-      const minWpm = calibration?.limite_inferior ?? 80;
-      const passed = !modoLivre || (data.wpm ?? 0) >= minWpm;
+      const passed = data.aprovado === true;
 
       if (passed && !isReplay) {
         const finalXP = calcularXP({ fluencia: numFluencia, taxaAcerto, wpm: data.wpm, meta: { wpmMin: 130, wpmMax: 160 } });
@@ -165,7 +166,7 @@ export default function TrainingPage({ isPanel, fase: propFase, onExit, onComple
         supabase.auth.updateUser({ data: { streak: newStreak, last_practice_date: lastPracticeDate } }).catch(() => {});
       }
 
-      if (modoLivre && !passed) {
+      if (modoLivre && !passed && !data.silencio) {
         const remHearts = await loseHeart();
         setHearts(remHearts);
         const heartsTs = await getRawHeartsTimestamps();
@@ -177,7 +178,7 @@ export default function TrainingPage({ isPanel, fase: propFase, onExit, onComple
 
       setTranscriptionResult(data);
     } catch (err) {
-      alert('Falha ao comunicar com o servidor.');
+      setErrorMsg('Sem conexão com o servidor. Verifique sua internet e tente novamente.');
     } finally {
       setIsTranscribing(false);
     }
@@ -211,7 +212,10 @@ export default function TrainingPage({ isPanel, fase: propFase, onExit, onComple
     if (consecutivePasses.current >= 2 || totalAttempts.current >= 5) {
       if (sessionXpRef.current > 0) {
         const newTotal = await addXP(sessionXpRef.current);
-        if (uid) Promise.resolve(supabase.from('usuarios').update({ xp: newTotal }).eq('id', uid)).catch(() => {});
+        if (uid) {
+          Promise.resolve(supabase.from('usuarios').update({ xp: newTotal }).eq('id', uid)).catch(() => {});
+          supabase.auth.updateUser({ data: { xp: newTotal } }).catch(() => {});
+        }
         sessionXpRef.current = 0;
       }
       if (onComplete) onComplete();
@@ -225,7 +229,10 @@ export default function TrainingPage({ isPanel, fase: propFase, onExit, onComple
   const handleExit = async () => {
     if (sessionXpRef.current > 0) {
       const newTotal = await addXP(sessionXpRef.current);
-      if (userId) Promise.resolve(supabase.from('usuarios').update({ xp: newTotal }).eq('id', userId)).catch(() => {});
+      if (userId) {
+        Promise.resolve(supabase.from('usuarios').update({ xp: newTotal }).eq('id', userId)).catch(() => {});
+        supabase.auth.updateUser({ data: { xp: newTotal } }).catch(() => {});
+      }
       sessionXpRef.current = 0;
     }
     if (isPanel && onExit) {
@@ -237,7 +244,7 @@ export default function TrainingPage({ isPanel, fase: propFase, onExit, onComple
   };
 
   const getTaxaFluencia = () => {
-    const p = transcriptionResult?.analise_palavras || [];
+    const p = transcriptionResult?.analise_palavras || transcriptionResult?.analise_corrigida || [];
     if (p.length === 0) return 0;
     return (p.filter((x: any) => x.categoria === 'correta').length / p.length) * 100;
   };
@@ -250,11 +257,9 @@ export default function TrainingPage({ isPanel, fase: propFase, onExit, onComple
 
   const getPassed = () => {
     if (!transcriptionResult) return null;
-    if (modo === 'praticar') return { passed: true, msg: '' };
-    const wpm = transcriptionResult.wpm ?? 0;
-    const minWpm = calibration?.limite_inferior ?? 80;
-    if (wpm >= minWpm) return { passed: true, msg: '' };
-    return { passed: false, msg: 'Seu ritmo ficou um pouquinho abaixo do ideal. Respire fundo e tente fluir as palavras mais naturalmente.' };
+    if (transcriptionResult.aprovado === true) return { passed: true, msg: '' };
+    const msg = transcriptionResult.status_feedback?.mensagem || 'Seu ritmo ficou um pouquinho abaixo do ideal. Respire fundo e tente fluir as palavras mais naturalmente.';
+    return { passed: false, msg };
   };
 
   const evalResult = getPassed();
@@ -276,25 +281,23 @@ export default function TrainingPage({ isPanel, fase: propFase, onExit, onComple
         <Typography variant="subtitle" align="center">Fale a resposta da pergunta de forma clara e rítmica.</Typography>
       </View>
 
-      {!transcriptionResult && (
-        <View style={styles.mascotPreCard}>
-          <View style={[styles.mascotIconWrap, { backgroundColor: '#dd962b18' }]}><Ionicons name="lock-open-outline" size={18} color="#845400" /></View>
-          <View style={{ flex: 1 }}>
-            <Typography variant="caption" color="#845400">DESTRAVAR DIZ:</Typography>
-            <Typography variant="body" color="#404751" weight="500">
-              {modo === 'pergunta' ? 'Fale no seu tempo, estou aqui com você!' : 'Tente repetir a frase corrigida com calma!'}
-            </Typography>
-          </View>
-        </View>
-      )}
-
-      <PhraseDisplay 
+      <PhraseDisplay
         badgeText={modo === 'pergunta' ? 'PERGUNTA' : 'PARA REPETIR'}
         title={modo === 'pergunta' ? 'Responda em até 1 minuto:' : 'Repita em voz alta:'}
         phrase={textoTreino}
         hintIcon={modo === 'pergunta' ? 'time-outline' : 'leaf-outline'}
-        hintText={modo === 'pergunta' ? 'Fale livremente, sem se preocupar com erros' : 'Respire antes de começar'}
+        hintText={modo === 'pergunta' ? (ex2Dica || 'Fale livremente, sem se preocupar com erros') : 'Respire antes de começar'}
       />
+
+      {errorMsg && (
+        <View style={styles.errorBanner}>
+          <Ionicons name="wifi-outline" size={18} color="#dc2626" />
+          <Text style={styles.errorText}>{errorMsg}</Text>
+          <TouchableOpacity onPress={() => setErrorMsg(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <Ionicons name="close" size={18} color="#dc2626" />
+          </TouchableOpacity>
+        </View>
+      )}
 
       {!transcriptionResult && (
         <>
@@ -330,43 +333,44 @@ export default function TrainingPage({ isPanel, fase: propFase, onExit, onComple
             accuracyLabel={modo === 'pergunta' ? 'Fluência' : 'Precisão'}
           />
 
-          {transcriptionResult.feedback_fono && (
-            <View style={styles.mascotCard}>
-              <View style={styles.mascotIcon}><Ionicons name="chatbubble-ellipses" size={16} color="#845400" /></View>
-              <View style={{ flex: 1 }}>
-                <Typography variant="caption" color="#845400">DESTRAVAR DIZ:</Typography>
-                <Typography variant="body" color="#404751">{transcriptionResult.feedback_fono}</Typography>
-              </View>
-            </View>
-          )}
-
-          <TranscriptionAnalysis 
+          <TranscriptionAnalysis
             title={modo === 'pergunta' ? 'O que você disse' : 'Sua leitura'}
-            words={transcriptionResult.analise_palavras}
+            words={modo === 'pergunta'
+              ? (transcriptionResult.analise_corrigida || transcriptionResult.analise_palavras)
+              : transcriptionResult.analise_palavras}
           />
 
-          {modo === 'pergunta' && transcriptionResult.transcricao_corrigida && (
+          {modo === 'pergunta' && transcriptionResult.transcricao_corrigida && !evalResult?.passed && (
             <View style={styles.corrigidaBox}>
+              {!evalResult?.passed && (
+                <Typography variant="body" color="#dc2626" style={{ marginBottom: 10 }}>⚠️ {evalResult?.msg}</Typography>
+              )}
               <View style={{ flexDirection: 'row', gap: 6, alignItems: 'center', marginBottom: 6 }}>
                 <Ionicons name="checkmark-circle" size={15} color="#16a34a" />
                 <Typography variant="caption" color="#16a34a">Como ficaria</Typography>
               </View>
               <Text style={styles.corrigidaText}>"{transcriptionResult.transcricao_corrigida}"</Text>
-              <Button title="Praticar essa frase" icon="mic" onPress={() => handlePraticarFrase(transcriptionResult.transcricao_corrigida)} />
+              {(hearts === null || hearts > 0) ? (
+                <Button title="Tentar repetir" icon="refresh" onPress={() => handlePraticarFrase(transcriptionResult.transcricao_corrigida)} />
+              ) : (
+                <Button title="Sair (Sem vidas)" variant="secondary" icon="exit-outline" onPress={handleExit} />
+              )}
             </View>
           )}
 
           {evalResult?.passed ? (
             <Button title={modo === 'praticar' ? 'Ótimo! Próxima Pergunta →' : 'Próxima Pergunta →'} onPress={handleNext} style={{ marginTop: 16 }} />
           ) : (
-            <View style={styles.failBlock}>
-              <Typography variant="body" color="#dc2626" style={{ marginBottom: 16 }}>⚠️ {evalResult?.msg}</Typography>
-              {(hearts === null || hearts > 0) ? (
-                <Button title="Tentar Novamente" variant="danger" icon="refresh" onPress={() => setTranscriptionResult(null)} />
-              ) : (
-                <Button title="Sair (Sem vidas)" variant="secondary" icon="exit-outline" onPress={handleExit} />
-              )}
-            </View>
+            !transcriptionResult.transcricao_corrigida && (
+              <View style={styles.failBlock}>
+                <Typography variant="body" color="#dc2626" style={{ marginBottom: 16 }}>⚠️ {evalResult?.msg}</Typography>
+                {(hearts === null || hearts > 0) ? (
+                  <Button title="Tentar Novamente" variant="danger" icon="refresh" onPress={() => setTranscriptionResult(null)} />
+                ) : (
+                  <Button title="Sair (Sem vidas)" variant="secondary" icon="exit-outline" onPress={handleExit} />
+                )}
+              </View>
+            )
           )}
         </Card>
       )}
@@ -381,16 +385,14 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', paddingTop: 34, paddingBottom: 14, paddingHorizontal: 20, backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.surfaceVariant },
   backBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: Colors.surface, justifyContent: 'center', alignItems: 'center' },
   titlesArea: { alignItems: 'center', marginBottom: 20 },
-  mascotPreCard: { flexDirection: 'row', alignItems: 'center', gap: 12, width: '100%', backgroundColor: '#fffbeb', borderRadius: 16, padding: 14, marginBottom: 14, borderLeftWidth: 3, borderLeftColor: '#dd962b', ...Shadow.sm },
-  mascotIconWrap: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
   timerRow: { flexDirection: 'row', alignItems: 'baseline', gap: 6, marginBottom: 8 },
   timer: { fontSize: 44, fontWeight: '300', color: '#181c1e', fontFamily: 'monospace', letterSpacing: 2 },
   timerLimit: { fontSize: 18, color: '#9ca3af', fontWeight: '400', fontFamily: 'monospace' },
   xpBadge: { alignSelf: 'center', backgroundColor: '#fef3c7', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 999, marginBottom: 16, borderWidth: 1, borderColor: '#fde68a' },
   xpText: { color: '#d97706', fontWeight: '800', fontSize: 12 },
-  mascotCard: { flexDirection: 'row', gap: 12, backgroundColor: '#fffbeb', padding: 14, borderRadius: 16, marginBottom: 16, borderLeftWidth: 3, borderLeftColor: '#dd962b' },
-  mascotIcon: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#fde68a', justifyContent: 'center', alignItems: 'center' },
   corrigidaBox: { backgroundColor: '#f0fdf4', padding: 16, borderRadius: 16, marginBottom: 16, borderWidth: 1, borderColor: '#bbf7d0' },
   corrigidaText: { fontSize: 16, fontStyle: 'italic', color: '#166534', marginBottom: 12 },
   failBlock: { backgroundColor: '#fef2f2', padding: 16, borderRadius: 16, marginTop: 16, borderWidth: 1, borderColor: '#fecaca' },
+  errorBanner: { flexDirection: 'row', alignItems: 'center', gap: 10, width: '100%', backgroundColor: '#fef2f2', borderRadius: 12, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: '#fecaca' },
+  errorText: { flex: 1, fontSize: 13, color: '#dc2626', fontWeight: '500' },
 });
