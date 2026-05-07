@@ -3,10 +3,10 @@ import { View, StyleSheet, TouchableOpacity, Text, ScrollView } from 'react-nati
 import Animated, { FadeIn, FadeInDown, SlideInDown, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { addXP, incrementLevelProgress, getLevelProgress, getUserId } from './utils/storage';
+import { addXP, incrementLevelProgress, getLevelProgress, getUserId } from '../utils/storage';
 import { Colors, Shadow } from './theme';
-import { API_BASE_URL } from './config';
-import { supabase } from './utils/supabase';
+import { API_BASE_URL } from '../components/config';
+import { supabase } from '../utils/supabase';
 
 type Props = {
   dificuldade: string;

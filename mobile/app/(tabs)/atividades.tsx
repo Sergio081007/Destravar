@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { getLevelProgress } from '../utils/storage';
+import { getLevelProgress } from '../../utils/storage';
 
 const ACTIVITIES = [
   { id: 1, title: 'Trava-língua: Sibilantes', meta: '+40 XP · 2 min', icon: '🗣️', level: 'facil', step: 0, thumbGrad: ['#4CAF6E', '#3D9659'] as const },

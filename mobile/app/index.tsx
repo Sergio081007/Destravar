@@ -1,8 +1,8 @@
 import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
-import { supabase } from './utils/supabase';
-import { getOnboardingComplete } from './utils/storage';
+import { supabase } from '../utils/supabase';
+import { getOnboardingComplete } from '../utils/storage';
 
 export default function Root() {
   const [ready, setReady]           = useState(false);

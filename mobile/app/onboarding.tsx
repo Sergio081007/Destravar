@@ -12,8 +12,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Audio } from 'expo-av';
 import { useRouter } from 'expo-router';
-import { setOnboardingComplete, getUserName, getUserId, setCalibration } from './utils/storage';
-import { API_BASE_URL } from './config';
+import { setOnboardingComplete, getUserName, getUserId, setCalibration } from '../utils/storage';
+import { API_BASE_URL } from '../components/config';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 const HERO_H = Math.round(SCREEN_H * 0.40);

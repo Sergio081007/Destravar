@@ -7,9 +7,9 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { supabase } from './utils/supabase';
-import { setUserName, setUserId, setUserChar, setTotalXP, setLevelProgress, getOnboardingComplete, clearAllData } from './utils/storage';
-import { API_BASE_URL } from './config';
+import { supabase } from '../utils/supabase';
+import { setUserName, setUserId, setUserChar, setTotalXP, setLevelProgress, getOnboardingComplete, clearAllData } from '../utils/storage';
+import { API_BASE_URL } from '../components/config';
 
 const { height: SCREEN_H } = Dimensions.get('window');
 const HERO_H         = Math.round(SCREEN_H * 0.30);

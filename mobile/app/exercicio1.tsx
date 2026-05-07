@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
-import ConfirmExitModal from './components/ConfirmExitModal';
+import ConfirmExitModal from '../components/ConfirmExitModal';
 import { Colors, Shadow } from './theme';
 
 // Fases: dur em ms, toRadius em px, colorIdx mapeia para PHASE_COLORS

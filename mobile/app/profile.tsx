@@ -3,8 +3,8 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-nati
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { getProfileData, getUserName } from './utils/storage';
-import { calcularNivel } from './utils/calcularXP';
+import { getProfileData, getUserName } from '../utils/storage';
+import { calcularNivel } from '../utils/calcularXP';
 
 const XP_THRESHOLDS = [500, 1200, 2500, 5000];
 

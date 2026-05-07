@@ -7,8 +7,8 @@ import Svg, { Path, Defs, LinearGradient as SvgLinearGradient, Stop } from 'reac
 import { LinearGradient as ExpoLinearGradient } from 'expo-linear-gradient';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouter, useFocusEffect } from 'expo-router';
-import { getProfileData, getLevelProgress, getUserName, getUserChar, getHeartsState } from '../utils/storage';
-import AppHeader from '../components/AppHeader';
+import { getProfileData, getLevelProgress, getUserName, getUserChar, getHeartsState } from '../../utils/storage';
+import AppHeader from '../../components/AppHeader';
 
 const CHARS = {
   1: require('../../assets/characters/char1.png'),

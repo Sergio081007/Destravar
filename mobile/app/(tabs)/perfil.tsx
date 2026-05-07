@@ -3,11 +3,11 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Modal } fr
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { getProfileData, getUserName, getLevelProgress, clearAllData, getUserChar } from '../utils/storage';
-import { supabase } from '../utils/supabase';
-import { calcularNivel } from '../utils/calcularXP';
-import AppHeader from '../components/AppHeader';
-import EditProfileModal from '../components/EditProfileModal';
+import { getProfileData, getUserName, getLevelProgress, clearAllData, getUserChar } from '../../utils/storage';
+import { supabase } from '../../utils/supabase';
+import { calcularNivel } from '../../utils/calcularXP';
+import AppHeader from '../../components/AppHeader';
+import EditProfileModal from '../../components/EditProfileModal';
 
 const CHARS = {
   1: require('../../assets/characters/char1.png'),

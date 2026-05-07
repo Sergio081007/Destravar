@@ -3,12 +3,12 @@ import { View, StyleSheet, Dimensions } from 'react-native';
 import Animated, { useAnimatedStyle } from 'react-native-reanimated';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 
-import ChallengeHeader from './components/ChallengeHeader';
+import ChallengeHeader from '../components/ChallengeHeader';
 import BreathingExercise from './exercicio1';
 import Treinar from './treinar';
 import Exercicio3 from './exercicio3';
-import ConfirmExitModal from './components/ConfirmExitModal';
-import { useExerciseTransition } from './hooks/useExerciseTransition';
+import ConfirmExitModal from '../components/ConfirmExitModal';
+import { useExerciseTransition } from '../hooks/useExerciseTransition';
 
 const SCREEN_W = Dimensions.get('window').width;
 

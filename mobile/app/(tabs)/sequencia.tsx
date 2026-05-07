@@ -2,7 +2,7 @@ import { useCallback, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect } from 'expo-router';
-import { getProfileData, getLevelProgress } from '../utils/storage';
+import { getProfileData, getLevelProgress } from '../../utils/storage';
 
 const DAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
 

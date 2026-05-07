@@ -16,10 +16,10 @@ const MOCK_PLAYERS = [
 import Svg, { Polygon, Rect } from 'react-native-svg';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from 'expo-router';
-import { getProfileData, getUserName, getUserId, getUserChar } from '../utils/storage';
-import { API_BASE_URL } from '../config';
-import Avatar from '../components/Avatar';
-import AppHeader from '../components/AppHeader';
+import { getProfileData, getUserName, getUserId, getUserChar } from '../../utils/storage';
+import { API_BASE_URL } from '../../components/config';
+import Avatar from '../../components/Avatar';
+import AppHeader from '../../components/AppHeader';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 const CONTENT_W = SCREEN_W - 40;

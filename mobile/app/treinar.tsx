@@ -7,11 +7,11 @@ import Animated, {
 import { Audio } from 'expo-av';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
-import { calcularXP } from './utils/calcularXP';
-import { addXP, updateStreak, getLevelProgress, incrementLevelProgress, getUserId, getCalibration, loseHeart, getHeartsState } from './utils/storage';
-import { API_BASE_URL } from './config';
-import ConfirmExitModal from './components/ConfirmExitModal';
-import HeartLostModal from './components/HeartLostModal';
+import { calcularXP } from '../utils/calcularXP';
+import { addXP, updateStreak, getLevelProgress, incrementLevelProgress, getUserId, getCalibration, loseHeart, getHeartsState } from '../utils/storage';
+import { API_BASE_URL } from '../components/config';
+import ConfirmExitModal from '../components/ConfirmExitModal';
+import HeartLostModal from '../components/HeartLostModal';
 import { Colors, Shadow } from './theme';
 
 
