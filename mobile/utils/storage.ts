@@ -46,6 +46,10 @@ export async function setStreak(n: number) {
   await AsyncStorage.setItem(STORAGE_KEYS.STREAK, n.toString());
 }
 
+export async function setLastPracticeDate(dateStr: string) {
+  await AsyncStorage.setItem(STORAGE_KEYS.LAST_PRACTICE_DATE, dateStr);
+}
+
 export async function setLevelProgress(data: object) {
   await AsyncStorage.setItem(STORAGE_KEYS.PROGRESS, JSON.stringify(data));
 }
@@ -114,10 +118,10 @@ export async function updateStreak() {
     await AsyncStorage.setItem(STORAGE_KEYS.STREAK, currentStreak.toString());
     await AsyncStorage.setItem(STORAGE_KEYS.LAST_PRACTICE_DATE, todayStr);
 
-    return currentStreak;
+    return { streak: currentStreak, lastPracticeDate: todayStr };
   } catch (error) {
     console.error("Erro ao atualizar streak:", error);
-    return 0;
+    return { streak: 0, lastPracticeDate: new Date().toISOString() };
   }
 }
 
@@ -326,16 +330,30 @@ export async function addHeart(): Promise<number> {
 
     const newHearts = hearts + 1;
     await AsyncStorage.setItem(STORAGE_KEYS.HEARTS, newHearts.toString());
-    
+
     const tsStr = await AsyncStorage.getItem(STORAGE_KEYS.HEARTS_TIMESTAMPS);
     let timestamps: number[] = tsStr ? JSON.parse(tsStr) : [];
     if (timestamps.length > 0) {
       timestamps.shift();
       await AsyncStorage.setItem(STORAGE_KEYS.HEARTS_TIMESTAMPS, JSON.stringify(timestamps));
     }
-    
+
     return newHearts;
   } catch {
     return MAX_HEARTS;
+  }
+}
+
+export async function setHeartsState(hearts: number, timestamps: number[]): Promise<void> {
+  await AsyncStorage.setItem(STORAGE_KEYS.HEARTS, Math.min(hearts, MAX_HEARTS).toString());
+  await AsyncStorage.setItem(STORAGE_KEYS.HEARTS_TIMESTAMPS, JSON.stringify(timestamps));
+}
+
+export async function getRawHeartsTimestamps(): Promise<number[]> {
+  try {
+    const tsStr = await AsyncStorage.getItem(STORAGE_KEYS.HEARTS_TIMESTAMPS);
+    return tsStr ? JSON.parse(tsStr) : [];
+  } catch {
+    return [];
   }
 }

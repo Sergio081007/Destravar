@@ -209,20 +209,23 @@ export default function Onboarding() {
         });
         if (res.ok) {
           const data = await res.json();
-          await setCalibration({
+          const calibData = {
             wpm_base:        data.perfil.wpm_base,
             limite_inferior: data.perfil.limite_inferior,
             limite_superior: data.perfil.limite_superior,
             wpm_rapido:      data.leituras.rapido.wpm,
             wpm_devagar:     data.leituras.devagar.wpm,
             wpm_confortavel: data.leituras.confortavel.wpm,
-          });
+          };
+          await setCalibration(calibData);
+          supabase.auth.updateUser({ data: { calibration: calibData } }).catch(() => {});
         }
       }
     } catch (e) {
       console.warn('Calibração não enviada:', e);
     } finally {
       await setOnboardingComplete();
+      supabase.auth.updateUser({ data: { onboarding_complete: true } }).catch(() => {});
       router.replace('/(tabs)');
     }
   }

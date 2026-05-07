@@ -8,7 +8,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { supabase } from '../utils/supabase';
-import { setUserName, setUserId, setUserChar, setTotalXP, setStreak, setLevelProgress, getOnboardingComplete, clearAllData } from '../utils/storage';
+import { setUserName, setUserId, setUserChar, setTotalXP, setStreak, setLastPracticeDate, setLevelProgress, setCalibration, setHeartsState, setOnboardingComplete, getOnboardingComplete, clearAllData } from '../utils/storage';
 import { API_BASE_URL } from '../constants/config';
 
 const { height: SCREEN_H } = Dimensions.get('window');
@@ -98,6 +98,10 @@ export default function Login() {
         const meta = data.user.user_metadata ?? {};
         if (meta.progress) await setLevelProgress(meta.progress);
         if (meta.streak !== undefined) await setStreak(meta.streak);
+        if (meta.last_practice_date) await setLastPracticeDate(meta.last_practice_date);
+        if (meta.hearts !== undefined) await setHeartsState(meta.hearts, meta.hearts_ts || []);
+        if (meta.calibration) await setCalibration(meta.calibration);
+        if (meta.onboarding_complete) await setOnboardingComplete();
 
         // Restaura XP do servidor
         try {
@@ -110,7 +114,7 @@ export default function Login() {
           }
         } catch {}
 
-        const onboarded = await getOnboardingComplete();
+        const onboarded = meta.onboarding_complete || (await getOnboardingComplete());
         router.replace(onboarded ? '/(tabs)' : '/onboarding');
       }
     } catch {

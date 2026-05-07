@@ -7,7 +7,7 @@ import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import { useAudioRecorder } from '../hooks/useAudioRecorder';
 import { useUserStats } from '../hooks/useUserStats';
 import { fetchRandomQuestion, transcribeAudio, startSession, completeSession } from '../services/api';
-import { getUserId, getCalibration, loseHeart, addXP, updateStreak } from '../utils/storage';
+import { getUserId, getCalibration, loseHeart, addXP, updateStreak, getRawHeartsTimestamps } from '../utils/storage';
 import { supabase } from '../utils/supabase';
 import { calcularXP } from '../utils/calcularXP';
 
@@ -86,7 +86,7 @@ export default function TrainingPage({ isPanel, fase: propFase, onExit, onComple
   }, [navigation, isPanel]);
 
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null;
+    let interval: ReturnType<typeof setInterval> | null = null;
     if (isRecording) {
       interval = setInterval(() => setSeconds(s => s + 1), 1000);
     } else {
@@ -161,13 +161,15 @@ export default function TrainingPage({ isPanel, fase: propFase, onExit, onComple
         const finalXP = calcularXP({ fluencia: numFluencia, taxaAcerto, wpm: data.wpm, meta: { wpmMin: 130, wpmMax: 160 } });
         data.xpGanho = finalXP;
         sessionXpRef.current += finalXP;
-        const newStreak = await updateStreak();
-        supabase.auth.updateUser({ data: { streak: newStreak } }).catch(() => {});
+        const { streak: newStreak, lastPracticeDate } = await updateStreak();
+        supabase.auth.updateUser({ data: { streak: newStreak, last_practice_date: lastPracticeDate } }).catch(() => {});
       }
 
       if (modoLivre && !passed) {
         const remHearts = await loseHeart();
         setHearts(remHearts);
+        const heartsTs = await getRawHeartsTimestamps();
+        supabase.auth.updateUser({ data: { hearts: remHearts, hearts_ts: heartsTs } }).catch(() => {});
         setShowHeartLost(true);
       } else {
         setShowHeartLost(false);

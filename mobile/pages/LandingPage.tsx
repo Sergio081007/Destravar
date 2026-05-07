@@ -2,7 +2,7 @@ import { Redirect } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 import { supabase } from '../utils/supabase';
-import { getOnboardingComplete } from '../utils/storage';
+import { getOnboardingComplete, setOnboardingComplete } from '../utils/storage';
 
 export default function Root() {
   const [ready, setReady]           = useState(false);
@@ -14,8 +14,12 @@ export default function Root() {
       if (!session) {
         setDestination('/login');
       } else {
-        const onboarded = await getOnboardingComplete();
-        setDestination(onboarded ? '/(tabs)' : '/onboarding');
+        const localOnboarded = await getOnboardingComplete();
+        const serverOnboarded = session.user.user_metadata?.onboarding_complete === true;
+        if (!localOnboarded && serverOnboarded) {
+          await setOnboardingComplete();
+        }
+        setDestination(localOnboarded || serverOnboarded ? '/(tabs)' : '/onboarding');
       }
       setReady(true);
     })();
