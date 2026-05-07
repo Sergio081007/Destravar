@@ -211,6 +211,35 @@ async def transcrever(
 
         wpm = (total_palavras / (duracao_total / 60)) if duracao_total > 0 else 0
 
+        # Detecta silêncio ou alucinação do Whisper
+        no_speech_prob_medio = (
+            sum(s.get("no_speech_prob", 0) for s in segmentos) / len(segmentos)
+            if segmentos else 1.0
+        )
+        is_silencio = (
+            total_palavras == 0
+            or no_speech_prob_medio > 0.80
+            or (total_palavras <= 2 and wpm < 15)
+        )
+        if is_silencio:
+            return {
+                "aprovado": False,
+                "silencio": True,
+                "status_feedback": {
+                    "mensagem": "Não detectamos sua voz. Fale mais perto do microfone e tente novamente."
+                },
+                "transcricao": texto,
+                "transcricao_corrigida": None,
+                "analise_corrigida": [],
+                "analise_palavras": [],
+                "wpm": 0,
+                "duracao_segundos": round(duracao_total, 2),
+                "total_palavras": 0,
+                "score": 0.0,
+                "fluencia": "lento",
+                "modo_livre": modo_livre,
+            }
+
         repeticoes = sum(
             1 for i in range(len(palavras_lista) - 1)
             if palavras_lista[i] == palavras_lista[i + 1]

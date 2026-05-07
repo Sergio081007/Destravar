@@ -103,16 +103,21 @@ export default function Login() {
         if (meta.calibration) await setCalibration(meta.calibration);
         if (meta.onboarding_complete) await setOnboardingComplete();
 
-        // Restaura XP do servidor
-        try {
-          const xpRes = await fetch(`${API_BASE_URL}/usuarios/${data.user.id}`, {
-            headers: { 'Bypass-Tunnel-Reminder': 'true' },
-          });
-          if (xpRes.ok) {
-            const userData = await xpRes.json();
-            if (userData.xp > 0) await setTotalXP(userData.xp);
-          }
-        } catch {}
+        // Restaura XP — usa user_metadata como fonte primária (sempre disponível),
+        // e o backend como fallback para contas antigas sem xp no metadata
+        if (meta.xp > 0) {
+          await setTotalXP(meta.xp);
+        } else {
+          try {
+            const xpRes = await fetch(`${API_BASE_URL}/usuarios/${data.user.id}`, {
+              headers: { 'Bypass-Tunnel-Reminder': 'true' },
+            });
+            if (xpRes.ok) {
+              const userData = await xpRes.json();
+              if (userData.xp > 0) await setTotalXP(userData.xp);
+            }
+          } catch {}
+        }
 
         const onboarded = meta.onboarding_complete || (await getOnboardingComplete());
         router.replace(onboarded ? '/(tabs)' : '/onboarding');

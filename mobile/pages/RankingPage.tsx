@@ -120,12 +120,12 @@ export default function RankingTab() {
           const resolvedMyChar = (char >= 1 && char <= 5 ? char : 1) as 1|2|3|4|5;
           setMyChar(resolvedMyChar);
 
-          const myXp   = profile?.xp ?? 0;
+          let myXp     = profile?.xp ?? 0;
           const myName = name || 'Você';
           const myInits = myName.trim().slice(0, 2).toUpperCase() || 'EU';
           setMyInitials(myInits);
 
-          // Sincroniza avatar com o servidor; busca XP do servidor e usa o maior valor
+          // Sincroniza XP com o servidor e resolve o valor definitivo
           if (userId) {
             try {
               const res = await fetch(`${API_BASE_URL}/usuarios/${userId}`, {
@@ -136,8 +136,9 @@ export default function RankingTab() {
                 const serverXp = serverData.xp ?? 0;
                 if (serverXp > myXp) {
                   await setTotalXP(serverXp);
+                  myXp = serverXp;
                 } else if (myXp > serverXp) {
-                  fetch(`${API_BASE_URL}/usuarios`, {
+                  await fetch(`${API_BASE_URL}/usuarios`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
                     body: JSON.stringify({ id: userId, nome: myName, xp: myXp, avatar_id: resolvedMyChar }),
@@ -178,6 +179,11 @@ export default function RankingTab() {
             }
           } catch {
             // Servidor indisponível — mantém só os mocks
+          }
+
+          // Garante que o XP exibido do usuário é sempre o valor já resolvido
+          if (userId) {
+            combined = combined.map(p => p.isMe ? { ...p, xp: myXp } : p);
           }
 
           // Garante que o usuário local aparece (com flag isMe)

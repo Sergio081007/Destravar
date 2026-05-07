@@ -28,7 +28,7 @@ export function PhraseDisplay({ badgeText, title, phrase, hintIcon = 'time-outli
       </View>
       
       <View style={styles.breathHint}>
-        <Ionicons name={hintIcon} size={14} color="#845400" />
+        <Ionicons name={hintIcon} size={13} color="#64748b" />
         <Text style={styles.breathHintText}>{hintText}</Text>
       </View>
     </View>
@@ -54,6 +54,10 @@ const styles = StyleSheet.create({
     fontSize: 20, fontWeight: '700',
     fontStyle: 'italic', lineHeight: 30, textAlign: 'center',
   },
-  breathHint: { flexDirection: 'row', alignItems: 'center', gap: 6, justifyContent: 'center' },
-  breathHintText: { fontSize: 12, color: '#845400', fontWeight: '600', fontStyle: 'italic' },
+  breathHint: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 7,
+    backgroundColor: '#f1f5f9', borderRadius: 10,
+    paddingHorizontal: 10, paddingVertical: 7, marginTop: 2,
+  },
+  breathHintText: { flex: 1, fontSize: 12, color: '#64748b', fontWeight: '500', lineHeight: 17 },
 });
