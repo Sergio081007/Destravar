@@ -371,22 +371,25 @@ async def transcrever(
             transcricao_corrigida = texto
             try:
                 prompt_correcao = (
-                    f"Você recebeu a transcrição bruta de alguém com gagueira. "
-                    f"Sua tarefa é APENAS remover os artefatos de gagueira, mantendo exatamente as mesmas palavras e estrutura. "
-                    f"Remova somente: repetições de sílabas ou palavras (ex: 'eu eu fui' → 'eu fui'), "
-                    f"muletas de linguagem (ah, éé, hum, tipo, então, assim) e sons prolongados (ex: 'aaaaa casa' → 'a casa'). "
-                    f"NÃO reformule, NÃO adicione palavras, NÃO mude o significado, NÃO corrija gramática. "
-                    f"Se a frase já estiver limpa, retorne-a sem nenhuma alteração. "
-                    f"Transcrição bruta: \"{texto}\". "
-                    f"Retorne apenas a frase limpa, sem explicações."
+                    f"Limpe esta transcrição de fala com gagueira removendo apenas: "
+                    f"repetições ('eu eu fui' → 'eu fui', 'd-d-deixei' → 'deixei', 'la-la-lago' → 'lago'), "
+                    f"muletas (ah, hum, éé, tipo, então) e prolongamentos ('aaaaa' → 'a'). "
+                    f"Não troque nem invente palavras. Retorne só o texto limpo: \"{texto}\""
                 )
                 resp_correcao = client.chat.completions.create(
                     messages=[{"role": "user", "content": prompt_correcao}],
                     model="llama-3.1-8b-instant",
-                    temperature=0.3,
-                    max_tokens=200,
+                    temperature=0,
+                    max_tokens=600,
                 )
-                transcricao_corrigida = resp_correcao.choices[0].message.content.strip()
+                candidata = resp_correcao.choices[0].message.content.strip().strip('"')
+
+                palavras_original = len(texto.split())
+                palavras_candidata = len(candidata.split())
+                if candidata and palavras_candidata <= palavras_original:
+                    transcricao_corrigida = candidata
+                else:
+                    print(f"Correção LLM rejeitada — original: {palavras_original} palavras, candidata: {palavras_candidata}")
             except Exception as e:
                 print("Erro ao gerar transcrição corrigida:", e)
 

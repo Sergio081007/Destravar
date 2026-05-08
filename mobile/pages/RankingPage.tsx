@@ -51,6 +51,8 @@ const PODIUM_CFG = {
   3: { color: '#CD7F32', shade: '#8B4513', blockH: 112, colW: COL23_W, tl: 0,    tr: 0.20, numLabel: 'III', numSize: 28 },
 } as const;
 
+const TOP_LIMIT = 20;
+
 function PodiumBlock({ player, cfg, onPress }: {
   player: Player & { rank: 1 | 2 | 3 };
   cfg: typeof PODIUM_CFG[1 | 2 | 3];
@@ -108,6 +110,30 @@ function PodiumBlock({ player, cfg, onPress }: {
 function charFromId(id: string): 1|2|3|4|5 {
   const n = parseInt(id.replace(/-/g, '').slice(0, 2), 16);
   return ((n % 5) + 1) as 1|2|3|4|5;
+}
+
+function SeparatorRow({ from, to }: { from: number; to: number }) {
+  const label = from === to ? `posição ${from} oculta` : `posições ${from}–${to} ocultas`;
+  return (
+    <View style={styles.separator}>
+      <View style={styles.separatorLine} />
+      <Text style={styles.separatorText}>{label}</Text>
+      <View style={styles.separatorLine} />
+    </View>
+  );
+}
+
+function XpGapBanner({ xpGap }: { xpGap: number }) {
+  return (
+    <View style={styles.banner}>
+      <Text style={styles.bannerText}>
+        Faltam{' '}
+        <Text style={styles.bannerHighlight}>{xpGap.toLocaleString()} XP</Text>
+        {' '}para entrar no Top 20!
+      </Text>
+      <Text style={styles.bannerSub}>Continue praticando para subir no ranking.</Text>
+    </View>
+  );
 }
 
 export default function RankingTab() {
@@ -229,7 +255,16 @@ export default function RankingTab() {
 
   const top3        = allPlayers.slice(0, 3) as (Player & { rank: 1 | 2 | 3 })[];
   const podiumOrder = [top3[1], top3[0], top3[2]].filter(Boolean);
-  const rest        = allPlayers.filter(p => p.rank > 3);
+
+  const myPlayer    = allPlayers.find(p => p.isMe);
+  const myRank      = myPlayer?.rank ?? 0;
+  const outsideTop  = myRank > TOP_LIMIT;
+
+  const listPlayers  = allPlayers.filter(p => p.rank > 3 && p.rank <= TOP_LIMIT);
+  const rank20Player = allPlayers.find(p => p.rank === TOP_LIMIT);
+  const xpGap        = rank20Player && myPlayer
+    ? Math.max(0, rank20Player.xp - myPlayer.xp + 1)
+    : 0;
 
   return (
     <View style={styles.root}>
@@ -267,7 +302,7 @@ export default function RankingTab() {
           )}
 
           <View style={styles.listSection}>
-            {rest.map((p) =>
+            {listPlayers.map((p) =>
               p.isMe ? (
                 <View key={`${p.name}-${p.rank}`} style={styles.rowMe}>
                   <Text style={[styles.rankNum, styles.rankNumMe]}>{p.rank}</Text>
@@ -311,6 +346,34 @@ export default function RankingTab() {
                   </Text>
                 </TouchableOpacity>
               )
+            )}
+
+            {outsideTop && myPlayer && (
+              <>
+                {myRank > TOP_LIMIT + 1 && (
+                  <SeparatorRow from={TOP_LIMIT + 1} to={myRank - 1} />
+                )}
+                <View style={styles.rowMe}>
+                  <Text style={[styles.rankNum, styles.rankNumMe]}>{myPlayer.rank}</Text>
+                  <Avatar
+                    initials={myPlayer.initials}
+                    color={myPlayer.color}
+                    source={myPlayer.char ? CHARS[myPlayer.char] : undefined}
+                    size={48}
+                    borderRadius={24}
+                    borderWidth={2}
+                    borderColor="#0061a2"
+                  />
+                  <View style={styles.playerInfo}>
+                    <Text style={[styles.playerName, styles.playerNameMe]}>{myPlayer.name}</Text>
+                    <Text style={styles.youLabel}>Você</Text>
+                  </View>
+                  <Text style={[styles.xpText, styles.xpTextMe]}>
+                    {myPlayer.xp.toLocaleString()}<Text style={styles.xpUnit}> XP</Text>
+                  </Text>
+                </View>
+                <XpGapBanner xpGap={xpGap} />
+              </>
             )}
           </View>
 
@@ -372,7 +435,23 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
 
-  rankNum:      { fontSize: 14, fontWeight: '800', color: '#9CA3AF', width: 22, textAlign: 'center' },
+  separator: {
+    flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 4,
+  },
+  separatorLine: { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
+  separatorText: { fontSize: 11, color: '#9CA3AF', fontWeight: '500' },
+
+  banner: {
+    padding: 16, borderRadius: 16,
+    backgroundColor: '#eff6ff',
+    borderWidth: 1, borderColor: '#bfdbfe',
+    alignItems: 'center', gap: 4,
+  },
+  bannerText:      { fontSize: 14, fontWeight: '700', color: '#1e40af', textAlign: 'center' },
+  bannerHighlight: { color: '#0061a2', fontWeight: '800' },
+  bannerSub:       { fontSize: 12, color: '#3b82f6', textAlign: 'center' },
+
+  rankNum:      { fontSize: 14, fontWeight: '800', color: '#9CA3AF', minWidth: 30, textAlign: 'center' },
   rankNumMe:    { color: '#0061a2' },
   playerInfo:   { flex: 1 },
   playerName:   { fontSize: 14, fontWeight: '700', color: '#181c1e' },

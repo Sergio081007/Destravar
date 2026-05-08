@@ -69,7 +69,7 @@ export default function Login() {
           await fetch(`${API_BASE_URL}/usuarios`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Bypass-Tunnel-Reminder': 'true' },
-            body: JSON.stringify({ id: data.user!.id, nome: trimmedNome }),
+            body: JSON.stringify({ id: data.user!.id, nome: trimmedNome, avatar_id: charNum }),
           });
         } catch {
           // não bloqueia o signup se o backend estiver fora
@@ -105,7 +105,9 @@ export default function Login() {
 
         // Restaura XP — usa user_metadata como fonte primária (sempre disponível),
         // e o backend como fallback para contas antigas sem xp no metadata
+        let resolvedXP = 0;
         if (meta.xp > 0) {
+          resolvedXP = meta.xp;
           await setTotalXP(meta.xp);
         } else {
           try {
@@ -114,12 +116,24 @@ export default function Login() {
             });
             if (xpRes.ok) {
               const userData = await xpRes.json();
-              if (userData.xp > 0) await setTotalXP(userData.xp);
+              if (userData.xp > 0) {
+                resolvedXP = userData.xp;
+                await setTotalXP(userData.xp);
+              }
             }
           } catch {}
         }
 
-        const onboarded = meta.onboarding_complete || (await getOnboardingComplete());
+        // Contas criadas antes do sync com Supabase não têm onboarding_complete
+        // no metadata — se tiverem XP ou calibração, já passaram pelo onboarding
+        const effectivelyOnboarded =
+          meta.onboarding_complete || meta.calibration != null || resolvedXP > 0;
+        if (effectivelyOnboarded && !meta.onboarding_complete) {
+          supabase.auth.updateUser({ data: { onboarding_complete: true } }).catch(() => {});
+          await setOnboardingComplete();
+        }
+
+        const onboarded = effectivelyOnboarded || (await getOnboardingComplete());
         router.replace(onboarded ? '/(tabs)' : '/onboarding');
       }
     } catch {

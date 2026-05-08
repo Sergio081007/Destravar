@@ -31,12 +31,12 @@ export function StatsBanner({ hearts, streak, nextRegenAt }: StatsBannerProps) {
             />
           ))}
         </View>
-        {nextRegenAt !== null && (
-          <View style={styles.regenPill}>
-            <Ionicons name="time-outline" size={11} color="#ba1a1a" />
-            <Text style={styles.regenText}>+1 às {formatRegenTime(nextRegenAt)}</Text>
-          </View>
-        )}
+        <View style={[styles.regenPill, { opacity: nextRegenAt !== null ? 1 : 0 }]}>
+          <Ionicons name="heart" size={10} color="#ba1a1a" />
+          <Text style={styles.regenPillText}>
+            às {nextRegenAt !== null ? formatRegenTime(nextRegenAt) : '--:--'}
+          </Text>
+        </View>
       </View>
       
       <View style={styles.statsDivider} />
@@ -62,15 +62,16 @@ const styles = StyleSheet.create({
     shadowColor: Colors.primary, shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.14, shadowRadius: 24, elevation: 12,
   },
-  statsLeft: { flex: 1, gap: 6 },
+  statsLeft: { flex: 1, gap: 5 },
   statsSmLabel: { fontSize: 10, fontWeight: '700', color: '#707883', textTransform: 'uppercase', letterSpacing: 0.5 },
   heartsRow: { flexDirection: 'row', gap: 4, alignItems: 'center' },
   regenPill: {
-    flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start',
-    backgroundColor: '#fff1f1', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 3,
+    flexDirection: 'row', alignItems: 'center', gap: 3, alignSelf: 'flex-start',
+    backgroundColor: '#fff1f1', borderRadius: 999,
+    paddingHorizontal: 7, paddingVertical: 3,
     borderWidth: 1, borderColor: '#fecdd3',
   },
-  regenText: { fontSize: 10, color: '#ba1a1a', fontWeight: '700' },
+  regenPillText: { fontSize: 10, color: '#ba1a1a', fontWeight: '700' },
   statsDivider: { width: 1, height: 40, backgroundColor: '#c0c7d3', marginHorizontal: 16 },
   statsRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   streakNum: { fontSize: 26, fontWeight: '900', color: '#5e41d0', lineHeight: 30 },
