@@ -110,7 +110,7 @@ export default function Login() {
           }
         } catch {}
 
-        const onboarded = await getOnboardingComplete();
+        const onboarded = await getOnboardingComplete(data.user.id);
         router.replace(onboarded ? '/(tabs)' : '/onboarding');
       }
     } catch {

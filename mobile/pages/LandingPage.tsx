@@ -14,7 +14,7 @@ export default function Root() {
       if (!session) {
         setDestination('/login');
       } else {
-        const onboarded = await getOnboardingComplete();
+        const onboarded = await getOnboardingComplete(session.user.id);
         setDestination(onboarded ? '/(tabs)' : '/onboarding');
       }
       setReady(true);

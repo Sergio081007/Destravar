@@ -136,17 +136,17 @@ export async function getProfileData() {
   }
 }
 
-export async function getOnboardingComplete(): Promise<boolean> {
+export async function getOnboardingComplete(userId: string): Promise<boolean> {
   try {
     const val = await AsyncStorage.getItem(STORAGE_KEYS.ONBOARDING);
-    return val === 'true';
+    return val === userId;
   } catch {
     return false;
   }
 }
 
-export async function setOnboardingComplete() {
-  await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING, 'true');
+export async function setOnboardingComplete(userId: string) {
+  await AsyncStorage.setItem(STORAGE_KEYS.ONBOARDING, userId);
 }
 
 export async function getUserName(): Promise<string> {
