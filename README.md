@@ -85,6 +85,14 @@ Rotas disponíveis:
 
 ---
 
+## Deploy
+
+O backend está em produção no Railway:
+
+**API:** https://destravar-production.up.railway.app
+
+---
+
 ## Como rodar localmente
 
 ### Pré-requisitos
