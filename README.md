@@ -91,7 +91,7 @@ Rotas disponíveis:
 
 - Node.js 18+
 - Python 3.12+
-- Expo Go no celular (ou emulador Android/iOS)
+- Expo Go no celular (ou emulador Android/iOS) — o app requer permissão de microfone
 - Conta no [Supabase](https://supabase.com)
 - Conta no [Groq](https://console.groq.com) (para transcrição de áudio)
 
@@ -139,6 +139,12 @@ E inicie com o IP explícito:
 
 ```bash
 npx expo start --host <IP_WSL2>
+```
+
+Atualize também `mobile/constants/config.ts` com o mesmo IP para que o app alcance o backend:
+
+```ts
+export const API_BASE_URL = 'http://<IP_WSL2>:8000';
 ```
 
 ---
