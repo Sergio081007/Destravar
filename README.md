@@ -20,12 +20,12 @@ O **Destravar** é um aplicativo mobile gamificado para pessoas que enfrentam di
 
 - **Mapa de fases** — progressão visual estilo jogo, com nós desbloqueáveis por fase
 - **Exercícios de fala** — leitura em voz alta com análise de WPM e precisão, fala livre guiada, e prática de sons com trava-línguas
-- **Sistema de vidas** — o usuário perde vidas ao errar e precisa aguardar recarga
-- **XP e ranking** — pontuação acumulada sincronizada com o servidor, com placar global entre usuários
+- **Sistema de vidas** — o usuário perde vidas ao errar e precisa aguardar recarga (1 vida a cada 4 horas)
+- **XP e ranking** — pontuação acumulada sincronizada com o servidor, com placar global Top 20 entre usuários
 - **Perfil personalizado** — nome, avatar escolhido entre 5 personagens, conquistas por marcos de XP
 - **Sequência diária** — rastreamento de dias consecutivos de prática
 - **Calibração** — sessão inicial para medir o WPM natural do usuário e ajustar os exercícios
-- **Autenticação** — login com e-mail via Supabase Auth, com persistência de progresso entre sessões
+- **Autenticação** — login com e-mail via Supabase Auth, com persistência de progresso entre dispositivos
 
 ---
 
@@ -42,29 +42,34 @@ Destravar/
 - **Framework:** React Native com Expo SDK 54
 - **Navegação:** expo-router (file-based routing)
 - **Linguagem:** TypeScript
-- **Estado local:** AsyncStorage
+- **Estado local:** AsyncStorage + Supabase Auth user_metadata
 - **Autenticação:** `@supabase/supabase-js`
 - **Áudio:** expo-av
 
-Telas principais:
+Estrutura de telas:
 
 | Arquivo | Tela |
 |---|---|
-| `app/(tabs)/index.tsx` | Mapa de fases |
-| `app/(tabs)/atividades.tsx` | Lista de atividades disponíveis |
-| `app/(tabs)/ranking.tsx` | Ranking global de XP |
-| `app/(tabs)/perfil.tsx` | Perfil do usuário |
-| `app/(tabs)/sequencia.tsx` | Sequência diária |
-| `app/exercicio1.tsx` | Exercício de leitura com WPM |
-| `app/exercicio3.tsx` | Exercício de sons e trava-línguas |
-| `app/desafio.tsx` | Desafio diário |
-| `app/login.tsx` | Login / cadastro |
-| `app/onboarding.tsx` | Onboarding inicial |
+| `pages/MapPage.tsx` | Mapa de fases |
+| `pages/AtividadesPage.tsx` | Lista de atividades |
+| `pages/RankingPage.tsx` | Ranking global (Top 20) |
+| `pages/PerfilPage.tsx` | Perfil do usuário |
+| `pages/SequenciaPage.tsx` | Sequência diária |
+| `pages/Exercicio1Page.tsx` | Exercício de leitura com WPM |
+| `pages/Exercicio2Page.tsx` | Desafio de fala livre |
+| `pages/Exercicio3Page.tsx` | Exercício de sons e trava-línguas |
+| `pages/TrainingPage.tsx` | Treinamento livre |
+| `pages/LoginPage.tsx` | Login / cadastro |
+| `pages/OnboardingPage.tsx` | Calibração inicial |
+
+Componentes reutilizáveis em `components/`, hooks em `hooks/`, utilitários em `utils/`.
 
 ### Backend (`/app`)
 
 - **Framework:** FastAPI
 - **Banco de dados:** Supabase (PostgreSQL)
+- **Transcrição de áudio:** Whisper (via Groq)
+- **Correção de texto:** LLaMA 3.1 8B (via Groq)
 - **Linguagem:** Python 3.12
 - **Servidor:** Uvicorn
 
@@ -73,10 +78,10 @@ Rotas disponíveis:
 | Módulo | Prefixo | Responsabilidade |
 |---|---|---|
 | `usuarios.py` | `/usuarios` | Cadastro, atualização de perfil e XP |
-| `sessoes.py` | `/sessoes`, `/ranking` | Registro de sessões e ranking global |
+| `sessoes.py` | `/sessao`, `/ranking` | Registro de sessões e ranking global |
 | `progresso.py` | `/progresso` | Progresso por fase/exercício |
 | `calibracao.py` | `/calibracao` | Calibração de WPM |
-| `speech.py` | `/speech` | Análise de áudio via IA |
+| `speech.py` | `/transcrever`, `/textos` | Análise de áudio e textos de exercício |
 
 ---
 
@@ -88,6 +93,7 @@ Rotas disponíveis:
 - Python 3.12+
 - Expo Go no celular (ou emulador Android/iOS)
 - Conta no [Supabase](https://supabase.com)
+- Conta no [Groq](https://console.groq.com) (para transcrição de áudio)
 
 ### Backend
 
@@ -97,21 +103,15 @@ python -m venv venv
 source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-# Criar arquivo .env com as variáveis do Supabase
+# Criar arquivo .env com as variáveis necessárias:
 # SUPABASE_URL=...
 # SUPABASE_KEY=...
+# GROQ_API_KEY=...
 
 uvicorn app.main:app --reload
 ```
 
 O schema do banco está em `schema.sql`. Execute-o no SQL Editor do Supabase para criar todas as tabelas.
-
-**Colunas adicionais necessárias** (não estão no schema original):
-
-```sql
-ALTER TABLE public.usuarios ADD COLUMN IF NOT EXISTS xp INT DEFAULT 0;
-ALTER TABLE public.usuarios ADD COLUMN IF NOT EXISTS avatar_id INT DEFAULT 1;
-```
 
 ### Mobile
 
@@ -121,7 +121,11 @@ npm install
 npx expo start
 ```
 
-Escaneie o QR code com o Expo Go. Se estiver em WSL2, veja a seção abaixo.
+Escaneie o QR code com o Expo Go. Configure o endereço do backend em `mobile/constants/config.ts`:
+
+```ts
+export const API_BASE_URL = 'http://<IP_DO_SERVIDOR>:8000';
+```
 
 #### WSL2 — Expo Go no dispositivo físico
 
@@ -137,13 +141,11 @@ E inicie com o IP explícito:
 npx expo start --host <IP_WSL2>
 ```
 
-O endereço do backend também deve usar esse IP. Configure em `mobile/app/config.ts`.
-
 ---
 
 ## Build para Android
 
-O projeto já está configurado com EAS Build. Para gerar um APK:
+O projeto está configurado com EAS Build. Para gerar um APK de preview:
 
 ```bash
 npm install -g eas-cli
@@ -168,13 +170,12 @@ eas build -p android --profile production
 | `sessoes` | Histórico de sessões de exercício |
 | `progresso` | Aprovações por fase/exercício |
 | `calibracao` | WPM medido na calibração inicial |
-| `textos` | Textos usados nos exercícios |
+| `textos` | Textos e perguntas usados nos exercícios |
 | `textos_calibracao` | Textos da calibração |
 | `trava_linguas` | Trava-línguas para o exercício 3 |
-| `perguntas` | Perguntas para a atividade de fala livre |
 | `mensagens_feedback` | Mensagens de feedback por resultado |
 
-A autenticação usa o Supabase Auth. Um trigger (`on_auth_user_created`) cria automaticamente o registro em `usuarios` após o cadastro. O `user_metadata` do Supabase Auth é usado para persistir avatar e progresso entre logins.
+A autenticação usa o Supabase Auth. O `user_metadata` persiste avatar, XP, streak e progresso entre logins em dispositivos diferentes.
 
 ---
 
