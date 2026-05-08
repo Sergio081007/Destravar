@@ -1,3 +1,3 @@
-// Substitua pelo IP da sua máquina Windows (visível na mesma rede Wi-Fi)
-// Para descobrir: no Windows, rode `ipconfig` e pegue o IPv4 da interface Wi-Fi
-export const API_BASE_URL = 'https://fabric-parrot-barrier.ngrok-free.dev';
+// URL do backend em produção (Railway)
+// Para rodar localmente: substitua pelo IP da sua máquina + porta 8000
+export const API_BASE_URL = 'https://destravar-production.up.railway.app';
