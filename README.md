@@ -10,7 +10,7 @@
 
 ## Sobre o projeto
 
-O **Destravar** é um aplicativo mobile gamificado para pessoas que enfrentam dificuldades na fala, como **gagueira** ou **fala acelerada**. Ele oferece exercícios práticos baseados em técnicas fonoaudiológicas, com progressão por fases, sistema de XP, ranking e reforço de hábitos — respeitando o ritmo de cada usuário.
+O **Destravar** é um aplicativo mobile gamificado para pessoas que enfrentam dificuldades na fala devido a **gagueira**. Ele oferece exercícios práticos baseados em técnicas fonoaudiológicas, com progressão por fases, sistema de XP, ranking e reforço de hábitos — respeitando o ritmo de cada usuário.
 
 > **Aviso:** Este projeto tem caráter educacional e de apoio complementar. Não substitui diagnóstico, acompanhamento ou tratamento de um fonoaudiólogo.
 
